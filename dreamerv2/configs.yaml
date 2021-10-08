@@ -28,6 +28,8 @@ defaults:
   log_keys_max: '^$'
   precision: 16
   jit: True
+  cpu: True
+  headless: False
 
   # Agent
   clip_rewards: tanh

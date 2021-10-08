@@ -45,8 +45,9 @@ def main():
 
   import tensorflow as tf
   tf.config.experimental_run_functions_eagerly(not config.jit)
-  message = 'No GPU found. To actually train on CPU remove this assert.'
-  assert tf.config.experimental.list_physical_devices('GPU'), message
+  if not config.cpu:
+    message = 'No GPU found. To actually train on CPU remove this assert.'
+    assert tf.config.experimental.list_physical_devices('GPU'), message
   for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
   assert config.precision in (16, 32), config.precision
@@ -78,7 +79,7 @@ def main():
     suite, task = config.task.split('_', 1)
     if suite == 'dmc':
       env = common.DMC(
-          task, config.action_repeat, config.render_size, config.dmc_camera)
+          task, config.action_repeat, config.render_size, config.dmc_camera, config.headless)
       env = common.NormalizeAction(env)
     elif suite == 'atari':
       env = common.Atari(
