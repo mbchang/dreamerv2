@@ -103,6 +103,10 @@ class WorldModel(common.Module):
     return state, outputs, metrics
 
   def loss(self, data, state=None):
+    """
+      data['image'] = (B, T, H, W, C)
+      data['action'] = (B, T, A)
+    """
     data = self.preprocess(data)
     embed = self.encoder(data)
     post, prior = self.rssm.observe(

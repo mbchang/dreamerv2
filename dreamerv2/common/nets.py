@@ -44,6 +44,14 @@ class EnsembleRSSM(common.Module):
 
   @tf.function
   def observe(self, embed, action, is_first, state=None):
+    """
+      embed: (16, 50, 1536)
+      action: (16, 50, 6)
+      state: 
+        logit: (B, num_variables, vocab_size)
+        stoch: (B, num_variables, vocab_size)
+        deter: (B, deter)
+    """
     swap = lambda x: tf.transpose(x, [1, 0] + list(range(2, len(x.shape))))
     if state is None:
       state = self.initial(tf.shape(action)[0])
@@ -200,6 +208,9 @@ class Encoder(common.Module):
 
   @tf.function
   def __call__(self, data):
+    """
+      (B, T, 64, 64, 3) --> (B, T, 1536)
+    """
     key, shape = list(self.shapes.items())[0]
     batch_dims = data[key].shape[:-len(shape)]
     data = {
@@ -214,6 +225,10 @@ class Encoder(common.Module):
     return output.reshape(batch_dims + output.shape[1:])
 
   def _cnn(self, data):
+    """
+      (B*T, 64, 64, 3) --> (B*T, F, F, 384)
+      384 = 2**3 * 48
+    """
     x = tf.concat(list(data.values()), -1)
     x = x.astype(prec.global_policy().compute_dtype)
     for i, kernel in enumerate(self._cnn_kernels):
