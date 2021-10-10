@@ -102,10 +102,13 @@ class EnsembleRSSM(common.Module):
             'b,b...->b...', 1.0 - is_first.astype(x.dtype), x),
         (prev_state, prev_action))
     prior = self.img_step(prev_state, prev_action, sample)
+    ###########################################################
+    # replace this with slot attention
     x = tf.concat([prior['deter'], embed], -1)
     x = self.get('obs_out', tfkl.Dense, self._hidden)(x)
-    x = self.get('obs_out_norm', NormLayer, self._norm)(x)
+    x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
+    ###########################################################
     stats = self._suff_stats_layer('obs_dist', x)
     dist = self.get_dist(stats)
     stoch = dist.sample() if sample else dist.mode()
@@ -119,13 +122,16 @@ class EnsembleRSSM(common.Module):
     if self._discrete:
       shape = prev_stoch.shape[:-2] + [self._stoch * self._discrete]
       prev_stoch = tf.reshape(prev_stoch, shape)
+    ###########################################################
+    # replace with this transformer
     x = tf.concat([prev_stoch, prev_action], -1)
     x = self.get('img_in', tfkl.Dense, self._hidden)(x)
-    x = self.get('img_in_norm', NormLayer, self._norm)(x)
+    x = self.get('img_in_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
     deter = prev_state['deter']
     x, deter = self._cell(x, [deter])
     deter = deter[0]  # Keras wraps the state in a list.
+    ###########################################################
     stats = self._suff_stats_ensemble(x)
     index = tf.random.uniform((), 0, self._ensemble, tf.int32)
     stats = {k: v[index] for k, v in stats.items()}
