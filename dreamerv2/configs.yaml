@@ -28,8 +28,8 @@ defaults:
   log_keys_max: '^$'
   precision: 16
   jit: True
-  cpu: True
-  headless: False
+  cpu: False
+  headless: True
 
   # Agent
   clip_rewards: tanh
@@ -156,10 +156,24 @@ debug:
 
   jit: False
   time_limit: 100
-  eval_every: 300
-  log_every: 300
-  prefill: 100
+  steps: 200
+  eval_every: 10
+  log_every: 10
+  prefill: 20
   pretrain: 1
   train_steps: 1
   replay: {minlen: 10, maxlen: 30}
   dataset: {batch: 10, length: 10}
+  cpu: True
+  headless: False
+
+  rssm: {hidden: 50, deter: 50, stoch: 8, discrete: 8}
+  encoder: {cnn_depth: 4, mlp_layers: [50, 50]}
+  decoder: {cnn_depth: 4, mlp_layers: [50, 50]}
+  reward_head: {layers: 2, units: 50, act: elu, norm: none, dist: mse}
+  discount_head: {layers: 2, units: 50, act: elu, norm: none, dist: binary}
+
+  actor: {layers: 2, units: 50, act: elu, norm: none, dist: auto, min_std: 0.1}
+  critic: {layers: 2, units: 50, act: elu, norm: none, dist: mse}
+
+  expl_head: {layers: 2, units: 50, act: elu, norm: none, dist: mse}
