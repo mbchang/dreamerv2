@@ -156,7 +156,7 @@ debug:
 
   jit: False
   time_limit: 100
-  steps: 200
+  steps: 160
   eval_every: 10
   log_every: 10
   prefill: 20
