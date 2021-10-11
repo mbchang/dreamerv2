@@ -23,7 +23,6 @@ sys.path.append(str(pathlib.Path(__file__).parent.parent))
 import numpy as np
 import ruamel.yaml as yaml
 
-import agent
 import common
 
 
@@ -158,7 +157,14 @@ def main():
   train_dataset = iter(train_replay.dataset(**config.dataset))
   report_dataset = iter(train_replay.dataset(**config.dataset))
   eval_dataset = iter(eval_replay.dataset(**config.dataset))
-  agnt = agent.Agent(config, obs_space, act_space, step)
+  if config.agent == 'dv2':
+    import agent
+    agnt = agent.Agent(config, obs_space, act_space, step)
+  elif config.agent == 'causal':
+    from sandbox import causal_agent
+    agnt = causal_agent.CausalAgent(config, obs_space, act_space, step)
+  else:
+    raise NotImplementedError
   train_agent = common.CarryOverState(agnt.train)
   train_agent(next(train_dataset))
   if (logdir / 'variables.pkl').exists():

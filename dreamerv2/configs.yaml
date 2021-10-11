@@ -31,6 +31,8 @@ defaults:
   cpu: False
   headless: True
 
+  agent: 'dv2'
+
   # Agent
   clip_rewards: tanh
   expl_behavior: greedy
