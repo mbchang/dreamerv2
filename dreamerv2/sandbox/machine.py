@@ -11,22 +11,6 @@ import common
 
 class EnsembleRSSM(common.Module):
 
-  # def __init__(
-  #     self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-  #     act='elu', norm='none', std_act='softplus', min_std=0.1):
-  #   super().__init__()
-  #   self._ensemble = ensemble
-  #   self._stoch = stoch
-  #   self._deter = deter
-  #   self._hidden = hidden
-  #   self._discrete = discrete
-  #   self._act = get_act(act)
-  #   self._norm = norm
-  #   self._std_act = std_act
-  #   self._min_std = min_std
-  #   self._cell = GRUCell(self._deter, norm=True)
-  #   self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
-
   def __init__(
       self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
       act='elu', norm='none', std_act='softplus', min_std=0.1):
@@ -42,7 +26,6 @@ class EnsembleRSSM(common.Module):
     self._min_std = min_std
     self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
 
-    # self._cell = GRUCell(self._deter, norm=True)
     self.deter_model = DeterministicStateModel(self._deter, self._hidden, self._act, self._norm)
 
   def initial(self, batch_size):
@@ -51,7 +34,6 @@ class EnsembleRSSM(common.Module):
       state = dict(
           logit=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
           stoch=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
-          # deter=self._cell.get_initial_state(None, batch_size, dtype)
           deter=self.deter_model._cell.get_initial_state(None, batch_size, dtype)
           )
     else:
@@ -59,7 +41,6 @@ class EnsembleRSSM(common.Module):
           mean=tf.zeros([batch_size, self._stoch], dtype),
           std=tf.zeros([batch_size, self._stoch], dtype),
           stoch=tf.zeros([batch_size, self._stoch], dtype),
-          # deter=self._cell.get_initial_state(None, batch_size, dtype)
           deter=self.deter_model._cell.get_initial_state(None, batch_size, dtype)
           )
     return state
@@ -146,26 +127,7 @@ class EnsembleRSSM(common.Module):
       prev_stoch = tf.reshape(prev_stoch, shape)
     ###########################################################
     # replace with this transformer
-    # x = tf.concat([prev_stoch, prev_action], -1)
-
-
-
-    # x = self.get('img_in', tfkl.Dense, self._hidden)(x)
-    # x = self.get('img_in_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
-    # x = self._act(x)
-    # deter = prev_state['deter']
-    # x, deter = self._cell(x, [deter])
-    # deter = deter[0]  # Keras wraps the state in a list.
-
-    # print(prev_stoch.shape)
-    # print(prev_action.shape)
-    # print(deter.shape)
-    # print(prev_stoch)
-    # # print(tf.math.reduce_max(prev_stoch))
-    # print('max', prev_stoch.max())
-    # # assert False
     x, deter = self.deter_model(prev_state['deter'], prev_stoch, prev_action)
-
     ###########################################################
     stats = self._suff_stats_ensemble(x)
     index = tf.random.uniform((), 0, self._ensemble, tf.int32)
