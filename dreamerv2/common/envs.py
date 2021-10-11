@@ -72,7 +72,7 @@ class GymWrapper:
 
 class DMC:
 
-  def __init__(self, name, action_repeat=1, size=(64, 64), camera=None, headless=False):
+  def __init__(self, name, action_repeat=1, size=(64, 64), seed=0, camera=None, headless=False):
     if headless:
       os.environ['MUJOCO_GL'] = 'egl'
     domain, task = name.split('_', 1)
@@ -86,7 +86,7 @@ class DMC:
       self._env = getattr(basic_rodent_2020, task)()
     else:
       from dm_control import suite
-      self._env = suite.load(domain, task)
+      self._env = suite.load(domain, task, task_kwargs={'random': seed})
     self._action_repeat = action_repeat
     self._size = size
     if camera in (-1, None):

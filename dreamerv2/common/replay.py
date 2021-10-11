@@ -11,7 +11,7 @@ import tensorflow as tf
 class Replay:
 
   def __init__(
-      self, directory, capacity=0, ongoing=False, minlen=1, maxlen=0,
+      self, directory, seed=0, capacity=0, ongoing=False, minlen=1, maxlen=0,
       prioritize_ends=False):
     self._directory = pathlib.Path(directory).expanduser()
     self._directory.mkdir(parents=True, exist_ok=True)
@@ -20,7 +20,7 @@ class Replay:
     self._minlen = minlen
     self._maxlen = maxlen
     self._prioritize_ends = prioritize_ends
-    self._random = np.random.RandomState()
+    self._random = np.random.RandomState(seed)
     # filename -> key -> value_sequence
     self._complete_eps = load_episodes(self._directory, capacity, minlen)
     # worker -> key -> value_sequence

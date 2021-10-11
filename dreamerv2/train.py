@@ -44,6 +44,10 @@ def main():
   print('Logdir', logdir)
 
   import tensorflow as tf
+
+  np.random.seed(config.seed)
+  tf.random.set_seed(config.seed)
+
   tf.config.experimental_run_functions_eagerly(not config.jit)
   if not config.cpu:
     message = 'No GPU found. To actually train on CPU remove this assert.'
@@ -55,8 +59,8 @@ def main():
     from tensorflow.keras.mixed_precision import experimental as prec
     prec.set_policy(prec.Policy('mixed_float16'))
 
-  train_replay = common.Replay(logdir / 'train_episodes', **config.replay)
-  eval_replay = common.Replay(logdir / 'eval_episodes', **dict(
+  train_replay = common.Replay(logdir / 'train_episodes', seed=config.seed, **config.replay)
+  eval_replay = common.Replay(logdir / 'eval_episodes', seed=config.seed, **dict(
       capacity=config.replay.capacity // 10,
       minlen=config.dataset.length,
       maxlen=config.dataset.length))
@@ -79,14 +83,16 @@ def main():
     suite, task = config.task.split('_', 1)
     if suite == 'dmc':
       env = common.DMC(
-          task, config.action_repeat, config.render_size, config.dmc_camera, config.headless)
+          task, config.action_repeat, config.render_size, config.seed, config.dmc_camera, config.headless)
       env = common.NormalizeAction(env)
     elif suite == 'atari':
+      raise NotImplementedError('did you set the seed?')
       env = common.Atari(
           task, config.action_repeat, config.render_size,
           config.atari_grayscale)
       env = common.OneHotAction(env)
     elif suite == 'crafter':
+      raise NotImplementedError('did you set the seed?')
       assert config.action_repeat == 1
       outdir = logdir / 'crafter' if mode == 'train' else None
       reward = bool(['noreward', 'reward'].index(task)) or mode == 'eval'
