@@ -169,7 +169,7 @@ debug:
   cpu: True
   headless: False
 
-  rssm: {hidden: 50, deter: 50, stoch: 8, discrete: 8}
+  rssm: {hidden: 50, deter: 48, stoch: 8, discrete: 8}
   encoder: {cnn_depth: 4, mlp_layers: [50, 50]}
   decoder: {cnn_depth: 4, mlp_layers: [50, 50]}
   reward_head: {layers: 2, units: 50, act: elu, norm: none, dist: mse}
