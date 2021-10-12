@@ -8,6 +8,7 @@ from tensorflow.keras.mixed_precision import experimental as prec
 
 import common
 
+from sandbox import attention
 
 class EnsembleRSSM(common.Module):
 
@@ -27,6 +28,7 @@ class EnsembleRSSM(common.Module):
     self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
 
     self.deter_model = DeterministicStateModel(self._deter, self._hidden, self._act, self._norm)
+    # self.deter_model = TransformerDeterministicStateModel(self._deter, self._hidden, self._act, self._norm)
 
   def initial(self, batch_size):
     dtype = prec.global_policy().compute_dtype
@@ -455,7 +457,39 @@ class DeterministicStateModel(common.Module):
     x = self._act(x)
     x, deter = self._cell(x, [prev_deter])
     deter = deter[0]  # Keras wraps the state in a list.
-    return x, deter
+    return deter, deter
 
+"""
+TODO
+- make sure gradients backpropped into initial state
+- make sure module recognizes the list of cross attention modules
+"""
+class TransformerDeterministicStateModel(common.Module):
+  def __init__(self, deter, hidden, act, norm):
+    self._deter = deter
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
+
+    # just to get the initial state for now
+    self._cell = GRUCell(self._deter, norm=True)
+
+    self.n_heads = 4  # TODO: make this a parameter in config.
+    self.n_layers = 1
+    self.cross_attention = [attention.CrossAttentionBlock(self._deter, self.n_heads) for i in range(self.n_layers)]
+
+  def __call__(self, prev_deter, prev_stoch, prev_action):
+    stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
+    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)
+    context = tf.stack([stoch_embed, act_embed], 1)  # (B, K, H)
+
+    batch_size = prev_deter.shape[0]
+    query = prev_deter.reshape((batch_size, -1, self._deter))  # (B, K, D)
+
+    for cab in self.cross_attention:
+      query = cab(query, context)  # (B, K, D)
+
+    deter = query.reshape((-1, self._deter))
+    return deter, deter
 
 
