@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
+import common
+
 
 def scaled_dot_product_attention(q, k, v, mask):
   """Calculate the attention weights.
@@ -23,7 +25,8 @@ def scaled_dot_product_attention(q, k, v, mask):
   matmul_qk = tf.matmul(q, k, transpose_b=True)  # (..., seq_len_q, seq_len_k)
   
   # scale matmul_qk
-  dk = tf.cast(tf.shape(k)[-1], tf.float32)
+  # dk = tf.cast(tf.shape(k)[-1], tf.float32)
+  dk = tf.cast(tf.shape(k)[-1], matmul_qk.dtype)
   scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
 
   # add the mask to the scaled tensor.
@@ -38,9 +41,9 @@ def scaled_dot_product_attention(q, k, v, mask):
 
   return output, attention_weights
 
-class MultiHeadAttention(tf.keras.layers.Layer):
+class MultiHeadAttention(common.Module):
   def __init__(self, d_model, num_heads):
-    super(MultiHeadAttention, self).__init__()
+    # super(MultiHeadAttention, self).__init__()
     self.num_heads = num_heads
     self.d_model = d_model
     
@@ -61,7 +64,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
     x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
     return tf.transpose(x, perm=[0, 2, 1, 3])
     
-  def call(self, v, k, q, mask):
+  def __call__(self, v, k, q, mask):
     batch_size = tf.shape(q)[0]
     
     q = self.wq(q)  # (batch_size, seq_len, d_model)
@@ -87,8 +90,8 @@ class MultiHeadAttention(tf.keras.layers.Layer):
     return output, attention_weights
 
 class ContextAttention(MultiHeadAttention):
-    def call(self, x, c, mask):
-        return super().call(c, c, x, mask)
+    def __call__(self, x, c, mask):
+      return super().__call__(c, c, x, mask)
 
 
 def point_wise_feed_forward_network(dim):
@@ -97,7 +100,7 @@ def point_wise_feed_forward_network(dim):
       tf.keras.layers.Dense(dim)  # (batch_size, seq_len, d_model)
   ])
 
-class CrossAttentionBlock(tf.keras.layers.Layer):
+class CrossAttentionBlock(common.Module):
   def __init__(self, dim, num_heads, rate=0.1):
     super(CrossAttentionBlock, self).__init__()
 
@@ -119,12 +122,14 @@ class CrossAttentionBlock(tf.keras.layers.Layer):
   def eval(self):
     self.train = False
     
-  def call(self, x, c, mask=None):
-    attn_output, _ = self.mha(self.lnq1(x), self.lnc(x), mask)
+  def __call__(self, x, c, mask=None):
+    assert len(x.shape) == 3 and len(c.shape) == 3
+
+    attn_output, _ = self.mha(self.lnq1(x), self.lnc(c), mask)
     x = x + self.dropout1(attn_output, training=self.train)
     
     ffn_output = self.ffn(self.lnq2(x))
-    x = x +  self.dropout2(ffn_output, training=self.train)
+    x = x + self.dropout2(ffn_output, training=self.train)
     
     return x
 
