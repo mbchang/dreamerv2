@@ -14,7 +14,7 @@ class EnsembleRSSM(common.Module):
 
   def __init__(
       self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      act='elu', norm='none', std_act='softplus', min_std=0.1):
+      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default'):
     super().__init__()
     self._ensemble = ensemble
     self._stoch = stoch
@@ -27,8 +27,14 @@ class EnsembleRSSM(common.Module):
     self._min_std = min_std
     self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
 
-    self.deter_model = DeterministicStateModel(self._deter, self._hidden, self._act, self._norm)
-    # self.deter_model = TransformerDeterministicStateModel(self._deter, self._hidden, self._act, self._norm)
+    if dynamics == 'default':
+      self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
+    elif deter_model == 'cross_attention':
+      self.dynamics = CrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm)
+    else:
+      raise NotImplementedError
+
+    self.update = DefaultUpdate(self._hidden, self._act, self._norm)
 
   def initial(self, batch_size):
     dtype = prec.global_policy().compute_dtype
@@ -36,14 +42,14 @@ class EnsembleRSSM(common.Module):
       state = dict(
           logit=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
           stoch=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
-          deter=self.deter_model._cell.get_initial_state(None, batch_size, dtype)
+          deter=self.dynamics._cell.get_initial_state(None, batch_size, dtype)
           )
     else:
       state = dict(
           mean=tf.zeros([batch_size, self._stoch], dtype),
           std=tf.zeros([batch_size, self._stoch], dtype),
           stoch=tf.zeros([batch_size, self._stoch], dtype),
-          deter=self.deter_model._cell.get_initial_state(None, batch_size, dtype)
+          deter=self.dynamics._cell.get_initial_state(None, batch_size, dtype)
           )
     return state
 
@@ -109,10 +115,7 @@ class EnsembleRSSM(common.Module):
     prior = self.img_step(prev_state, prev_action, sample)
     ###########################################################
     # replace this with slot attention
-    x = tf.concat([prior['deter'], embed], -1)
-    x = self.get('obs_out', tfkl.Dense, self._hidden)(x)
-    x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
-    x = self._act(x)
+    x = self.update(prior['deter'], embed)
     ###########################################################
     stats = self._suff_stats_layer('obs_dist', x)
     dist = self.get_dist(stats)
@@ -129,7 +132,7 @@ class EnsembleRSSM(common.Module):
       prev_stoch = tf.reshape(prev_stoch, shape)
     ###########################################################
     # replace with this transformer
-    x, deter = self.deter_model(prev_state['deter'], prev_stoch, prev_action)
+    x, deter = self.dynamics(prev_state['deter'], prev_stoch, prev_action)
     ###########################################################
     stats = self._suff_stats_ensemble(x)
     index = tf.random.uniform((), 0, self._ensemble, tf.int32)
@@ -441,7 +444,7 @@ def get_act(name):
 #############################################################
 # Modules
 #############################################################
-class DeterministicStateModel(common.Module):
+class DefaultDynamics(common.Module):
   def __init__(self, deter, hidden, act, norm):
     self._deter = deter
     self._hidden = hidden
@@ -464,7 +467,7 @@ TODO
 - make sure gradients backpropped into initial state
 - make sure module recognizes the list of cross attention modules
 """
-class TransformerDeterministicStateModel(common.Module):
+class CrossAttentionDynamics(common.Module):
   def __init__(self, deter, hidden, act, norm):
     self._deter = deter
     self._hidden = hidden
@@ -475,7 +478,7 @@ class TransformerDeterministicStateModel(common.Module):
     self._cell = GRUCell(self._deter, norm=True)
 
     self.n_heads = 4  # TODO: make this a parameter in config.
-    self.n_layers = 1
+    self.n_layers = 2
     self.cross_attention = [attention.CrossAttentionBlock(self._deter, self.n_heads) for i in range(self.n_layers)]
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
@@ -491,5 +494,20 @@ class TransformerDeterministicStateModel(common.Module):
 
     deter = query.reshape((-1, self._deter))
     return deter, deter
+
+
+class DefaultUpdate(common.Module):
+  def __init__(self, hidden, act, norm):
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
+
+  def __call__(self, deter, embed):
+    x = tf.concat([deter, embed], -1)
+    x = self.get('obs_out', tfkl.Dense, self._hidden)(x)
+    x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
+    x = self._act(x)
+    return x
+
 
 
