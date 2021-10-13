@@ -39,7 +39,7 @@ def scaled_dot_product_attention(q, k, v, mask):
 
   output = tf.matmul(attention_weights, v)  # (..., seq_len_q, depth_v)
 
-  return output, attention_weights
+  return output
 
 class MultiHeadAttention(common.Module):
   def __init__(self, d_model, num_heads):
@@ -77,7 +77,7 @@ class MultiHeadAttention(common.Module):
     
     # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
     # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
-    scaled_attention, attention_weights = scaled_dot_product_attention(
+    scaled_attention = scaled_dot_product_attention(
         q, k, v, mask)
     
     scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])  # (batch_size, seq_len_q, num_heads, depth)
@@ -87,7 +87,7 @@ class MultiHeadAttention(common.Module):
 
     output = self.dense(concat_attention)  # (batch_size, seq_len_q, d_model)
         
-    return output, attention_weights
+    return output
 
 class ContextAttention(MultiHeadAttention):
     def __call__(self, x, c, mask):
@@ -107,14 +107,14 @@ class CrossAttentionBlock(common.Module):
     self.mha = ContextAttention(dim, num_heads)
     self.ffn = point_wise_feed_forward_network(dim)
 
-    self.lnq1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-    self.lnc = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-    self.lnq2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+    self.lnq1 = tf.keras.layers.LayerNormalization(epsilon=1e-5)
+    self.lnc = tf.keras.layers.LayerNormalization(epsilon=1e-5)
+    self.lnq2 = tf.keras.layers.LayerNormalization(epsilon=1e-5)
     
     self.dropout1 = tf.keras.layers.Dropout(rate)
     self.dropout2 = tf.keras.layers.Dropout(rate)
 
-    self.train = False
+    self.train = True
 
   def train(self):
     self.train = True
@@ -125,7 +125,7 @@ class CrossAttentionBlock(common.Module):
   def __call__(self, x, c, mask=None):
     assert len(x.shape) == 3 and len(c.shape) == 3
 
-    attn_output, _ = self.mha(self.lnq1(x), self.lnc(c), mask)
+    attn_output = self.mha(self.lnq1(x), self.lnc(c), mask)
     x = x + self.dropout1(attn_output, training=self.train)
     
     ffn_output = self.ffn(self.lnq2(x))
@@ -138,17 +138,36 @@ if __name__ == '__main__':
     tf.random.set_seed(0)
     np.random.seed(0)
 
-    embed_dim = 8
+    # embed_dim = 8
+    # num_heads = 4
+    # batch_size = 2
+    # K = 5
+
+    # cab = CrossAttentionBlock(embed_dim, num_heads)
+
+    # x = tf.random.uniform((batch_size, K, embed_dim))
+    # y = cab(x, x)
+
+    # print(y.shape)  # (batch_size, K, embed_dim)
+    # print(y)
+
+
+    embed_dim = 48
     num_heads = 4
-    batch_size = 2
-    K = 5
+    batch_size = 10
+    K = 1
 
-    cab = CrossAttentionBlock(embed_dim, num_heads)
+    cabs = [CrossAttentionBlock(embed_dim, num_heads, rate=0) for i in range(100)]
+    # cab = CrossAttentionBlock(embed_dim, num_heads)
 
-    x = tf.random.uniform((batch_size, K, embed_dim))
-    y = cab(x, x)
+    x = tf.zeros((batch_size, K, embed_dim))
+    c = tf.random.uniform((batch_size, K, embed_dim))
 
-    print(y.shape)  # (batch_size, K, embed_dim)
-    print(y)
+    print(tf.norm(c, axis=-1))
+    # for i in range(10):
+    for cab in cabs:
+      x = cab(x, c)
+      print(x.shape)  # (batch_size, K, embed_dim)
+      print(tf.norm(x, axis=-1))
 
 
