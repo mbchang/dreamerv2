@@ -14,7 +14,7 @@ class EnsembleRSSM(common.Module):
 
   def __init__(
       self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default'):
+      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default', update='default'):
     super().__init__()
     self._ensemble = ensemble
     self._stoch = stoch
@@ -29,12 +29,21 @@ class EnsembleRSSM(common.Module):
 
     if dynamics == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
-    elif deter_model == 'cross_attention':
+    elif dynamics == 'cross_attention':
       self.dynamics = CrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm)
+    elif dynamics == 'separate_embedding':
+      self.dynamics = SeparateEmbeddingDynamics(self._deter, self._hidden, self._act, self._norm)
+    elif dynamics == 'slim_cross_attention':
+      self.dynamics = SlimCrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm)
     else:
       raise NotImplementedError
 
-    self.update = DefaultUpdate(self._hidden, self._act, self._norm)
+    if update == 'default':
+      self.update = DefaultUpdate(self._hidden, self._act, self._norm)
+    if update == 'slim_attention':
+      self.update = SlimAttentionUpdate(self._hidden, self._act, self._norm)
+    else:
+      raise NotImplementedError
 
   def initial(self, batch_size):
     dtype = prec.global_policy().compute_dtype
@@ -133,6 +142,8 @@ class EnsembleRSSM(common.Module):
     ###########################################################
     # replace with this transformer
     x, deter = self.dynamics(prev_state['deter'], prev_stoch, prev_action)
+    # print(tf.norm(deter, axis=-1))
+    # print(deter[0:10, 0:10])
     ###########################################################
     stats = self._suff_stats_ensemble(x)
     index = tf.random.uniform((), 0, self._ensemble, tf.int32)
@@ -442,7 +453,7 @@ def get_act(name):
 
 
 #############################################################
-# Modules
+# Dynamics
 #############################################################
 class DefaultDynamics(common.Module):
   def __init__(self, deter, hidden, act, norm):
@@ -477,9 +488,9 @@ class CrossAttentionDynamics(common.Module):
     # just to get the initial state for now
     self._cell = GRUCell(self._deter, norm=True)
 
-    self.n_heads = 4  # TODO: make this a parameter in config.
-    self.n_layers = 2
-    self.cross_attention = [attention.CrossAttentionBlock(self._deter, self.n_heads) for i in range(self.n_layers)]
+    self.n_heads = 1  # TODO: make this a parameter in config.
+    self.n_layers = 1
+    self.cross_attention = [attention.CrossAttentionBlock(self._deter, self.n_heads, rate=0) for i in range(self.n_layers)]
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
     stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
@@ -491,10 +502,65 @@ class CrossAttentionDynamics(common.Module):
 
     for cab in self.cross_attention:
       query = cab(query, context)  # (B, K, D)
+      query = self.get('postnorm', NormLayer, self._norm)(query)
 
     deter = query.reshape((-1, self._deter))
     return deter, deter
 
+# ok great, so this works.
+class SlimCrossAttentionDynamics(common.Module):
+  def __init__(self, deter, hidden, act, norm):
+    self._deter = deter
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
+
+    self._cell = GRUCell(self._deter, norm=True)
+    self.context_attention = attention.ContextAttention(self._deter, num_heads=1)
+
+  def __call__(self, prev_deter, prev_stoch, prev_action):
+    stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
+    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)
+    context = tf.stack([stoch_embed, act_embed], 1)  # (B, K, H)
+
+    batch_size = prev_deter.shape[0]
+    query = prev_deter.reshape((batch_size, -1, self._deter))  # (B, K, D)
+    out = self.context_attention(query, context, mask=None)
+    x = out.reshape((-1, self._deter))
+
+    x = self.get('img_in_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
+    x = self._act(x)
+    x, deter = self._cell(x, [prev_deter])
+    deter = deter[0]  # Keras wraps the state in a list.
+    return deter, deter
+
+
+class SeparateEmbeddingDynamics(common.Module):
+  def __init__(self, deter, hidden, act, norm):
+    self._deter = deter
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
+
+    # just to get the initial state for now
+    self._cell = GRUCell(self._deter, norm=True)
+
+  def __call__(self, prev_deter, prev_stoch, prev_action):
+    stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
+    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)
+    x = tf.concat([stoch_embed, act_embed], -1)  # (B, K, H)
+
+    x = self.get('img_in', tfkl.Dense, self._hidden)(x)
+    x = self.get('img_in_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
+    x = self._act(x)
+    x, deter = self._cell(x, [prev_deter])
+    deter = deter[0]  # Keras wraps the state in a list.
+    return deter, deter
+
+
+#############################################################
+# Update
+#############################################################
 
 class DefaultUpdate(common.Module):
   def __init__(self, hidden, act, norm):
@@ -505,6 +571,33 @@ class DefaultUpdate(common.Module):
   def __call__(self, deter, embed):
     x = tf.concat([deter, embed], -1)
     x = self.get('obs_out', tfkl.Dense, self._hidden)(x)
+    x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
+    x = self._act(x)
+    return x
+
+
+class SlimAttentionUpdate(common.Module):
+  def __init__(self, hidden, act, norm):
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
+
+    self._cell = GRUCell(self._hidden, norm=True)
+    self.context_attention = attention.ContextAttention(self._hidden, num_heads=1)
+
+  def __call__(self, deter, embed):
+    batch_size = deter.shape[0]
+    embed_dim = embed.shape[-1]
+    deter_dim = deter.shape[-1]
+
+    context = embed.reshape((batch_size, -1, embed_dim))
+    query = deter.reshape((batch_size, -1, deter_dim))  # (B, K, D)
+
+    out = self.context_attention(query, context, mask=None)
+    x = out.reshape((-1, self._hidden))
+
+    # x = tf.concat([deter, embed], -1)
+    # x = self.get('obs_out', tfkl.Dense, self._hidden)(x)
     x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
     return x
