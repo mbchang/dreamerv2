@@ -87,9 +87,24 @@ class WorldModel(common.Module):
     self.config = config
     self.tfstep = tfstep
     self.rssm = machine.EnsembleRSSM(**config.rssm)
-    self.encoder = machine.Encoder(shapes, **config.encoder)
+
+    if config.encoder_type == 'default':
+      self.encoder = machine.Encoder(shapes, **config.encoder)
+    elif config.encoder_type == 'slot':
+      self.encoder = machine.SlotEncoder(shapes, **config.encoder)
+    else:
+      raise NotImplementedError
+
     self.heads = {}
-    self.heads['decoder'] = machine.Decoder(shapes, **config.decoder)
+
+    if config.decoder_type == 'default':
+      self.heads['decoder'] = machine.Decoder(shapes, **config.decoder)
+    elif config.decoder_type == 'slot':
+      decoder_in_dim = config.rssm.deter + config.rssm.stoch * config.rssm.discrete
+      self.heads['decoder'] = machine.SlotDecoder(shapes, decoder_in_dim, **config.decoder)
+    else:
+      raise NotImplementedError
+
     self.heads['reward'] = common.MLP([], **config.reward_head)
     if config.pred_discount:
       self.heads['discount'] = common.MLP([], **config.discount_head)

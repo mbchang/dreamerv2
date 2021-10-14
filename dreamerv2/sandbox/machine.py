@@ -8,7 +8,7 @@ from tensorflow.keras.mixed_precision import experimental as prec
 
 import common
 
-from sandbox import attention
+from sandbox import attention, slot_attention
 
 class EnsembleRSSM(common.Module):
 
@@ -142,8 +142,6 @@ class EnsembleRSSM(common.Module):
     ###########################################################
     # replace with this transformer
     x, deter = self.dynamics(prev_state['deter'], prev_stoch, prev_action)
-    # print(tf.norm(deter, axis=-1))
-    # print(deter[0:10, 0:10])
     ###########################################################
     stats = self._suff_stats_ensemble(x)
     index = tf.random.uniform((), 0, self._ensemble, tf.int32)
@@ -207,6 +205,10 @@ class EnsembleRSSM(common.Module):
     return loss, value
 
 
+#############################################################
+# Encoder
+#############################################################
+
 class Encoder(common.Module):
 
   def __init__(
@@ -247,8 +249,16 @@ class Encoder(common.Module):
     """
       (B*T, 64, 64, 3) --> (B*T, F, F, 384)
       384 = 2**3 * 48
+
+      debug: 
+      (B*T, 64, 64, 3)
+      (B*T, 31, 31, 4)
+      (B*T, 14, 14, 8)
+      (B*T, 6, 6, 16)
+      (B*T, 2, 2, 32)
+      (B*T, 2*2*32) = (B*T, 128)
     """
-    x = tf.concat(list(data.values()), -1)
+    x = tf.concat(list(data.values()), -1)  # (B*T, H, W, C)
     x = x.astype(prec.global_policy().compute_dtype)
     for i, kernel in enumerate(self._cnn_kernels):
       depth = 2 ** i * self._cnn_depth
@@ -265,6 +275,32 @@ class Encoder(common.Module):
       x = self.get(f'densenorm{i}', NormLayer, self._norm)(x)
       x = self._act(x)
     return x
+
+"""
+TODO:
+  - make resolution, outdim configurable
+  - take out reshaping for slots
+"""
+class SlotEncoder(Encoder):
+  def __init__(self, shapes, **kwargs):
+    super().__init__(shapes, **kwargs)
+    self.encoder = slot_attention.SlotAttentionEncoder(
+      resolution=(64, 64), outdim=1)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
+
+  def _cnn(self, data):
+    """
+    """
+    x = tf.concat(list(data.values()), -1)  # (B*T, H, W, C)
+    x = x.astype(prec.global_policy().compute_dtype)
+    x = self.encoder(x)
+    # hacky reshape just for testing
+    x = x.reshape(tuple(x.shape[:-2]) + (-1,))  # TODO: this should actually be given by config
+    return x
+
+
+#############################################################
+# Decoder
+#############################################################
 
 
 class Decoder(common.Module):
@@ -295,6 +331,11 @@ class Decoder(common.Module):
     return outputs
 
   def _cnn(self, features):
+    """
+      (16, 10, 112)
+      (16, 10, 128)
+      (160, 1, 1, 128)
+    """
     channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
     ConvT = tfkl.Conv2DTranspose
     x = self.get('convin', tfkl.Dense, 32 * self._cnn_depth)(features)
@@ -307,8 +348,8 @@ class Decoder(common.Module):
       x = self.get(f'conv{i}', ConvT, depth, kernel, 2)(x)
       x = self.get(f'convnorm{i}', NormLayer, norm)(x)
       x = act(x)
-    x = x.reshape(features.shape[:-1] + x.shape[1:])
-    means = tf.split(x, list(channels.values()), -1)
+    x = x.reshape(features.shape[:-1] + x.shape[1:])  # (B, T, H, W, C)
+    means = tf.split(x, list(channels.values()), -1)  # [(B, T, H, W, C)]
     dists = {
         key: tfd.Independent(tfd.Normal(mean, 1), 3)
         for (key, shape), mean in zip(channels.items(), means)}
@@ -326,6 +367,51 @@ class Decoder(common.Module):
       dists[key] = self.get(f'dense_{key}', DistLayer, shape)(x)
     return dists
 
+"""
+TODO:
+  - make the output shape of the decoder configurable
+  - take out reshaping for slots
+"""
+class SlotDecoder(Decoder):
+  def __init__(self, shapes, indim, **kwargs):
+    super().__init__(shapes, **kwargs)
+    self.decoder = slot_attention.SlotAttentionDecoder6464(indim)  # hardcoded to (64, 64) with indim 112
+
+  def _cnn(self, features):
+    """
+      features: (B, T, D)
+    """
+    channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
+
+    # hacky reshape for now
+    batch_size, seq_length = features.shape[:2]
+    slot_dim = features.shape[-1]  # TODO: this should actually be given by config
+    slots = features.reshape((batch_size*seq_length, -1, slot_dim))  # TODO: this should actually be given by config
+
+    x = self.decoder(slots)
+
+    # Undo combination of slot and batch dimension; split alpha masks.
+    recons, masks = slot_attention.unstack_and_split(x, batch_size=batch_size*seq_length)
+    # `recons` has shape: [batch_size, num_slots, width, height, num_channels].
+    # `masks` has shape: [batch_size, num_slots, width, height, 1].
+
+    # Normalize alpha masks over slots.
+    masks = tf.nn.softmax(masks, axis=1)
+    recon_combined = tf.reduce_sum(recons * masks, axis=1)  # Recombine image.
+    # `recon_combined` has shape: [batch_size, width, height, num_channels].
+
+    x = recon_combined.reshape((batch_size, seq_length) + recon_combined.shape[-3:])
+    #############################################################
+    means = tf.split(x, list(channels.values()), -1)  # [(B, T, H, W, C)]
+    dists = {
+        key: tfd.Independent(tfd.Normal(mean, 1), 3)
+        for (key, shape), mean in zip(channels.items(), means)}
+    return dists
+
+
+#############################################################
+# Layers
+#############################################################
 
 class MLP(common.Module):
 
@@ -601,6 +687,9 @@ class SlimAttentionUpdate(common.Module):
     x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
     return x
+
+
+
 
 
 
