@@ -30,6 +30,23 @@ CUDA_VISIBLE_DEVICES=2 python dreamerv2/train.py --logdir runs/decoder/slot_res6
 
 --> next will run an experiment with everything, except for the slot attention component
 
+CUDA_VISIBLE_DEVICES=3 python dreamerv2/train.py --logdir runs/encoder/slimslot --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --encoder_type slimslot > runs/encoder/slimslot/debug.log &
+
+CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/decoder/batch8 --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --decoder_type slot --dataset.batch 8 > runs/decoder/batch8/debug.log &
+
+CUDA_VISIBLE_DEVICES=3 python dreamerv2/train.py --logdir runs/encoderdecoder/batch8_slimslot --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --decoder_type slot --dataset.batch 8 --encoder_type slimslot > runs/encoderdecoder/batch8_slimslot/debug.log &
+
 debug:
 
 CUDA_VISIBLE_DEVICES=2 python dreamerv2/train.py --logdir runs/debug --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --encoder_type default
+
+CUDA_VISIBLE_DEVICES=3 python dreamerv2/train.py --logdir runs/debug/slot_res64_out1_ --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --encoder_type slot
+
+10/14/21
+debug:
+
+rm -r runs/*
+python dreamerv2/train.py --logdir runs/debug --configs debug --task dmc_walker_walk --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --decoder_type slimmerslot --encoder_type slimmerslot
+
+do this as reference
+python dreamerv2/train.py --logdir runs/debug --configs debug --task dmc_walker_walk --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention

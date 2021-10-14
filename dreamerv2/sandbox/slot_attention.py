@@ -124,6 +124,66 @@ def unstack_and_split(x, batch_size, num_channels=3):
   channels, masks = tf.split(unstacked, [num_channels, 1], axis=-1)
   return channels, masks
 
+class DebugSlotAttentionEncoder(layers.Layer):
+  def __init__(self, resolution, outdim):
+    super().__init__()
+    self.resolution = resolution
+    self.outdim = outdim
+
+    self.encoder_cnn = tf.keras.Sequential([
+        layers.Conv2D(2, kernel_size=5, strides=2, activation="relu"),
+        layers.Conv2D(2, kernel_size=3, activation="relu"),
+        layers.Conv2D(2, kernel_size=3, activation="relu"),
+        layers.Conv2D(4, kernel_size=3, activation="relu")
+    ], name="encoder_cnn")
+    self.encoder_pos = SoftPositionEmbed(4, self.resolution)
+    self.layer_norm = layers.LayerNormalization()
+    self.mlp = tf.keras.Sequential([
+        layers.Dense(4, activation="relu"),
+        layers.Dense(self.outdim)
+    ], name="feedforward")
+
+  def call(self, image):
+    # `image` has shape: [batch_size, width, height, num_channels].
+
+    # Convolutional encoder with position embedding.
+    x = self.encoder_cnn(image)  # CNN Backbone.
+    x = self.encoder_pos(x)  # Position embedding.
+    x = spatial_flatten(x)  # Flatten spatial dimensions (treat image as set).
+    x = self.mlp(self.layer_norm(x))  # Feedforward network on set.
+    # `x` has shape: [batch_size, width*height, input_size].
+    return x
+
+class SlimSlotAttentionEncoder(layers.Layer):
+  def __init__(self, resolution, outdim):
+    super().__init__()
+    self.resolution = resolution
+    self.outdim = outdim
+
+    self.encoder_cnn = tf.keras.Sequential([
+        layers.Conv2D(32, kernel_size=5, strides=2, activation="relu"),
+        layers.Conv2D(32, kernel_size=3, activation="relu"),
+        layers.Conv2D(32, kernel_size=3, activation="relu"),
+        layers.Conv2D(32, kernel_size=3, activation="relu")
+    ], name="encoder_cnn")
+    self.encoder_pos = SoftPositionEmbed(32, self.resolution)
+    self.layer_norm = layers.LayerNormalization()
+    self.mlp = tf.keras.Sequential([
+        layers.Dense(32, activation="relu"),
+        layers.Dense(self.outdim)
+    ], name="feedforward")
+
+  def call(self, image):
+    # `image` has shape: [batch_size, width, height, num_channels].
+
+    # Convolutional encoder with position embedding.
+    x = self.encoder_cnn(image)  # CNN Backbone.
+    x = self.encoder_pos(x)  # Position embedding.
+    x = spatial_flatten(x)  # Flatten spatial dimensions (treat image as set).
+    x = self.mlp(self.layer_norm(x))  # Feedforward network on set.
+    # `x` has shape: [batch_size, width*height, input_size].
+    return x
+
 class SlotAttentionEncoder(layers.Layer):
   def __init__(self, resolution, outdim):
     super().__init__()
@@ -152,6 +212,35 @@ class SlotAttentionEncoder(layers.Layer):
     x = spatial_flatten(x)  # Flatten spatial dimensions (treat image as set).
     x = self.mlp(self.layer_norm(x))  # Feedforward network on set.
     # `x` has shape: [batch_size, width*height, input_size].
+    return x
+
+class DebugSlotAttentionDecoder6464(layers.Layer):
+  def __init__(self, in_dim):
+    super().__init__()
+    self.decoder_initial_size = (8, 8)
+    self.in_dim = in_dim
+
+    self.decoder_pos = SoftPositionEmbed(self.in_dim, self.decoder_initial_size)
+    self.decoder_cnn = tf.keras.Sequential([
+        layers.Conv2DTranspose(
+            2, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            2, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            2, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            2, 5, strides=(1, 1), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            4, 3, strides=(1, 1), padding="SAME", activation=None)
+    ], name="decoder_cnn")
+
+  def call(self, slots):
+    # Spatial broadcast decoder.
+    x = spatial_broadcast(slots, self.decoder_initial_size)
+    # `x` has shape: [batch_size*num_slots, width_init, height_init, slot_size].
+    x = self.decoder_pos(x)
+    x = self.decoder_cnn(x)
+    # `x` has shape: [batch_size*num_slots, width, height, num_channels+1].
     return x
 
 class SlotAttentionDecoder6464(layers.Layer):

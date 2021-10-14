@@ -282,10 +282,19 @@ TODO:
   - take out reshaping for slots
 """
 class SlotEncoder(Encoder):
-  def __init__(self, shapes, **kwargs):
+  def __init__(self, shapes, encoder_type, **kwargs):
     super().__init__(shapes, **kwargs)
-    self.encoder = slot_attention.SlotAttentionEncoder(
+    if encoder_type == 'slimslot':
+      self.encoder = slot_attention.SlimSlotAttentionEncoder(
+      resolution=(24, 24), outdim=16)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
+    elif encoder_type == 'slimmerslot':
+      self.encoder = slot_attention.DebugSlotAttentionEncoder(
+      resolution=(24, 24), outdim=8)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
+    elif encoder_type == 'slot':
+      self.encoder = slot_attention.SlotAttentionEncoder(
       resolution=(64, 64), outdim=1)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
+    else:
+      raise NotImplementedError
 
   def _cnn(self, data):
     """
@@ -373,9 +382,14 @@ TODO:
   - take out reshaping for slots
 """
 class SlotDecoder(Decoder):
-  def __init__(self, shapes, indim, **kwargs):
+  def __init__(self, shapes, indim, decoder_type, **kwargs):
     super().__init__(shapes, **kwargs)
-    self.decoder = slot_attention.SlotAttentionDecoder6464(indim)  # hardcoded to (64, 64) with indim 112
+    if decoder_type == 'slot':
+      self.decoder = slot_attention.SlotAttentionDecoder6464(indim)  # hardcoded to (64, 64) with indim 112
+    elif decoder_type == 'slimmerslot':
+      self.decoder = slot_attention.DebugSlotAttentionDecoder6464(indim)  # hardcoded to (64, 64) with indim 112
+    else:
+      raise NotImplementedError
 
   def _cnn(self, features):
     """
@@ -681,14 +695,52 @@ class SlimAttentionUpdate(common.Module):
 
     out = self.context_attention(query, context, mask=None)
     x = out.reshape((-1, self._hidden))
-
-    # x = tf.concat([deter, embed], -1)
-    # x = self.get('obs_out', tfkl.Dense, self._hidden)(x)
     x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
     return x
 
+class SlotAttentionUpdate(common.Module):
+  def __init__(self, hidden, act, norm):
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
 
+
+    # self._cell = GRUCell(self._hidden, norm=True)
+    # self.context_attention = attention.ContextAttention(self._hidden, num_heads=1)
+
+    # assert 
+    self.num_slots = 4
+    self.slot_attention =slot_attention.SlotAttention(
+      num_iterations=3, 
+      num_slots=self.num_slots, 
+      slot_size=self._hidden, 
+      mlp_hidden_size=self._hidden)
+
+  def reset(self, batch_size):
+    return self.slot_attention.reset(batch_size)
+
+  def __call__(self, deter, embed):
+    batch_size = deter.shape[0]
+    # embed_dim = embed.shape[-1]
+    # deter_dim = deter.shape[-1]
+    # assert deter_dim == self._hidden  # this assert shouldn't be necessary if we do the config right
+    assert len(embed.shape) == 3
+    context = embed
+    # context = embed.reshape((batch_size, -1, embed_dim))  # this shouldn't be necessary
+    query = deter.reshape((batch_size, self.num_slots, -1))  # (B, K, D)
+
+    # out = self.context_attention(query, context, mask=None)
+    # x = out.reshape((-1, self._hidden))
+    # x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
+    # x = self._act(x)
+
+    updated_slots = self.slot_attention(query, context)
+    updated_slots = updated_slots.reshape((batch_size, -1))
+
+    return updated_slots
+
+    # return x
 
 
 
