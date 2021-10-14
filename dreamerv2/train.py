@@ -157,6 +157,8 @@ def main():
   train_dataset = iter(train_replay.dataset(**config.dataset))
   report_dataset = iter(train_replay.dataset(**config.dataset))
   eval_dataset = iter(eval_replay.dataset(**config.dataset))
+  #############################################################
+  # maybe use the mirrored strategy here? 
   if config.agent == 'dv2':
     import agent
     agnt = agent.Agent(config, obs_space, act_space, step)
@@ -165,6 +167,7 @@ def main():
     agnt = causal_agent.CausalAgent(config, obs_space, act_space, step)
   else:
     raise NotImplementedError
+  #############################################################
   train_agent = common.CarryOverState(agnt.train)
   train_agent(next(train_dataset))
   if (logdir / 'variables.pkl').exists():
