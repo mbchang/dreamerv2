@@ -6,8 +6,9 @@ import slot_attention as model_utils
 def test_slot_attention():
     learning_rate = 0.001
     resolution = (128, 128)
+    # resolution = (64, 64)
     batch_size = 2
-    num_slots = 1
+    num_slots = 3
     num_iterations = 2
     num_steps = 5
 

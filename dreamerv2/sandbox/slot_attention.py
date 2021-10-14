@@ -125,9 +125,10 @@ def unstack_and_split(x, batch_size, num_channels=3):
   return channels, masks
 
 class SlotAttentionEncoder(layers.Layer):
-  def __init__(self, resolution):
+  def __init__(self, resolution, outdim):
     super().__init__()
     self.resolution = resolution
+    self.outdim = outdim
 
     self.encoder_cnn = tf.keras.Sequential([
         layers.Conv2D(64, kernel_size=5, padding="SAME", activation="relu"),
@@ -139,7 +140,7 @@ class SlotAttentionEncoder(layers.Layer):
     self.layer_norm = layers.LayerNormalization()
     self.mlp = tf.keras.Sequential([
         layers.Dense(64, activation="relu"),
-        layers.Dense(64)
+        layers.Dense(self.outdim)
     ], name="feedforward")
 
   def call(self, image):
@@ -153,11 +154,42 @@ class SlotAttentionEncoder(layers.Layer):
     # `x` has shape: [batch_size, width*height, input_size].
     return x
 
-class SlotAttentionDecoder(layers.Layer):
-  def __init__(self):
+class SlotAttentionDecoder6464(layers.Layer):
+  def __init__(self, in_dim):
     super().__init__()
     self.decoder_initial_size = (8, 8)
-    self.decoder_pos = SoftPositionEmbed(64, self.decoder_initial_size)
+    self.in_dim = in_dim
+
+    self.decoder_pos = SoftPositionEmbed(self.in_dim, self.decoder_initial_size)
+    self.decoder_cnn = tf.keras.Sequential([
+        layers.Conv2DTranspose(
+            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            64, 5, strides=(1, 1), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            4, 3, strides=(1, 1), padding="SAME", activation=None)
+    ], name="decoder_cnn")
+
+  def call(self, slots):
+    # Spatial broadcast decoder.
+    x = spatial_broadcast(slots, self.decoder_initial_size)
+    # `x` has shape: [batch_size*num_slots, width_init, height_init, slot_size].
+    x = self.decoder_pos(x)
+    x = self.decoder_cnn(x)
+    # `x` has shape: [batch_size*num_slots, width, height, num_channels+1].
+    return x
+
+class SlotAttentionDecoder(layers.Layer):
+  def __init__(self, in_dim):
+    super().__init__()
+    self.decoder_initial_size = (8, 8)
+    self.in_dim = in_dim
+
+    self.decoder_pos = SoftPositionEmbed(self.in_dim, self.decoder_initial_size)
     self.decoder_cnn = tf.keras.Sequential([
         layers.Conv2DTranspose(
             64, 5, strides=(2, 2), padding="SAME", activation="relu"),
@@ -198,13 +230,13 @@ class SlotAttentionAutoEncoder(layers.Layer):
     self.num_slots = num_slots
     self.num_iterations = num_iterations
 
-    self.encoder = SlotAttentionEncoder(self.resolution)
+    self.encoder = SlotAttentionEncoder(self.resolution, 64)
     self.slot_attention = SlotAttention(
         num_iterations=self.num_iterations,
         num_slots=self.num_slots,
         slot_size=64,
         mlp_hidden_size=128)
-    self.decoder = SlotAttentionDecoder()
+    self.decoder = SlotAttentionDecoder(64)
 
   def call(self, image):
     # `image` has shape: [batch_size, width, height, num_channels].
