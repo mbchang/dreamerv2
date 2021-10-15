@@ -46,6 +46,7 @@ defaults:
   rssm: {ensemble: 1, hidden: 1024, deter: 1024, stoch: 32, discrete: 32, act: elu, norm: none, std_act: sigmoid2, min_std: 0.1, 
     dynamics: 'default', 
     update: 'default',
+    embed_dim: 16
   }
   encoder: {mlp_keys: '.*', cnn_keys: '.*', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [4, 4, 4, 4], mlp_layers: [400, 400, 400, 400]}
   decoder: {mlp_keys: '.*', cnn_keys: '.*', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [5, 5, 6, 6], mlp_layers: [400, 400, 400, 400]}
@@ -179,7 +180,7 @@ debug:
   cpu: True
   headless: False
 
-  rssm: {hidden: 10, deter: 8, stoch: 4, discrete: 4}
+  rssm: {hidden: 10, deter: 8, stoch: 4, discrete: 4, embed_dim: 8}
   encoder: {cnn_depth: 4, mlp_layers: [8, 8], mlp_keys: '$^', cnn_keys: 'image'}
   decoder: {cnn_depth: 4, mlp_layers: [8, 8], mlp_keys: '$^', cnn_keys: 'image'}
   reward_head: {layers: 2, units: 8, act: elu, norm: none, dist: mse}
@@ -189,3 +190,5 @@ debug:
   critic: {layers: 2, units: 8, act: elu, norm: none, dist: mse}
 
   expl_head: {layers: 2, units: 8, act: elu, norm: none, dist: mse}
+
+  # Slot Attention

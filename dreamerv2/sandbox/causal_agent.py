@@ -91,7 +91,7 @@ class WorldModel(common.Module):
     if config.encoder_type == 'default':
       self.encoder = machine.Encoder(shapes, **config.encoder)
     elif config.encoder_type in ['slot', 'slimslot', 'slimmerslot']:
-      self.encoder = machine.SlotEncoder(shapes, config.encoder_type, **config.encoder)
+      self.encoder = machine.SlotEncoder(shapes, config.encoder_type, config.rssm.embed_dim, **config.encoder)
     else:
       raise NotImplementedError
 

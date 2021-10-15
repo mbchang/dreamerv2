@@ -14,7 +14,7 @@ class EnsembleRSSM(common.Module):
 
   def __init__(
       self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default', update='default'):
+      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default', update='default', embed_dim=16):
     super().__init__()
     self._ensemble = ensemble
     self._stoch = stoch
@@ -26,6 +26,8 @@ class EnsembleRSSM(common.Module):
     self._std_act = std_act
     self._min_std = min_std
     self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
+
+    self._embed_dim = embed_dim
 
     if dynamics == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
@@ -41,10 +43,10 @@ class EnsembleRSSM(common.Module):
     if update == 'default':
       self.update = DefaultUpdate(self._hidden, self._act, self._norm)
     elif update == 'slim_attention':
-      self.update = SlimAttentionUpdate(self._deter, self._act, self._norm)  # TODO: later manually set the number of slots for the specific episode
+      self.update = SlimAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim)  # TODO: later manually set the number of slots for the specific episode
       # NOTE that I am treating self._deter = self._hidden
     elif update == 'slot_attention':
-      self.update = SlotAttentionUpdate(self._deter, self._act, self._norm)  # TODO: later manually set the number of slots for the specific episode
+      self.update = SlotAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim)  # TODO: later manually set the number of slots for the specific episode
       # NOTE that I am treating self._deter = self._hidden
     else:
       raise NotImplementedError
@@ -290,17 +292,17 @@ TODO:
   - take out reshaping for slots
 """
 class SlotEncoder(Encoder):
-  def __init__(self, shapes, encoder_type, **kwargs):
+  def __init__(self, shapes, encoder_type, outdim, **kwargs):
     super().__init__(shapes, **kwargs)
     if encoder_type == 'slimslot':
       self.encoder = slot_attention.SlimSlotAttentionEncoder(
-      resolution=(24, 24), outdim=16)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
+      resolution=(24, 24), outdim=outdim)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
     elif encoder_type == 'slimmerslot':
       self.encoder = slot_attention.DebugSlotAttentionEncoder(
-      resolution=(24, 24), outdim=8)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
+      resolution=(24, 24), outdim=outdim)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
     elif encoder_type == 'slot':
       self.encoder = slot_attention.SlotAttentionEncoder(
-      resolution=(64, 64), outdim=1)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
+      resolution=(64, 64), outdim=outdim)  # hardcoded for now. Later will be agnostic to resolution and outdim will be larger
     else:
       raise NotImplementedError
 
@@ -700,10 +702,11 @@ class DefaultUpdate(common.Module):
 
 
 class SlimAttentionUpdate(common.Module):
-  def __init__(self, deter, act, norm):
+  def __init__(self, deter, act, norm, embed_dim):
     self._deter = deter
     self._act = act
     self._norm = norm
+    self._embed_dim = embed_dim
 
     self._cell = GRUCell(self._deter, norm=True)
     self.context_attention = attention.ContextAttention(self._deter, num_heads=1)
@@ -713,9 +716,9 @@ class SlimAttentionUpdate(common.Module):
 
   def __call__(self, deter, embed):
     batch_size = deter.shape[0]
-    embed_dim = embed.shape[-1]
+    # embed_dim = embed.shape[-1]
 
-    context = embed.reshape((batch_size, -1, embed_dim))  # TODO
+    context = embed.reshape((batch_size, -1, self._embed_dim))  # TODO
     query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
 
     out = self.context_attention(query, context, mask=None)
@@ -725,16 +728,17 @@ class SlimAttentionUpdate(common.Module):
     return x
 
 class SlotAttentionUpdate(common.Module):
-  def __init__(self, deter, act, norm):
+  def __init__(self, deter, act, norm, embed_dim):
     self._deter = deter
     self._act = act
     self._norm = norm
+    self._embed_dim = embed_dim
 
     self.slot_attention =slot_attention.SlotAttention(
       num_iterations=3, 
-      num_slots=self.num_slots, 
-      slot_size=self._deter, 
-      mlp_hidden_size=self._deter)
+      # num_slots=self.num_slots, 
+      slot_size=self._deter//self.num_slots, 
+      mlp_hidden_size=self._deter//self.num_slots)
 
   def register_num_slots(self, num_slots):
     self.num_slots = num_slots
@@ -752,7 +756,7 @@ class SlotAttentionUpdate(common.Module):
     assert len(embed.shape) == 3
     context = embed
     # context = embed.reshape((batch_size, -1, embed_dim))  # this shouldn't be necessary
-    query = deter.reshape((batch_size, self.num_slots, -1))  # (B, K, D)
+    query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
 
     # out = self.context_attention(query, context, mask=None)
     # x = out.reshape((-1, self._hidden))
