@@ -127,6 +127,7 @@ class WorldModel(common.Module):
     """
     data = self.preprocess(data)
     embed = self.encoder(data)
+    self.rssm.register_num_slots(self.config.num_slots)  # TODO later this may vary based on the episode
     post, prior = self.rssm.observe(
         embed, data['action'], data['is_first'], state)
     kl_loss, kl_value = self.rssm.kl_loss(post, prior, **self.config.kl)

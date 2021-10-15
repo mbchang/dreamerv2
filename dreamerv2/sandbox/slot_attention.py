@@ -22,7 +22,7 @@ import tensorflow.keras.layers as layers
 class SlotAttention(layers.Layer):
   """Slot Attention module."""
 
-  def __init__(self, num_iterations, num_slots, slot_size, mlp_hidden_size,
+  def __init__(self, num_iterations, slot_size, mlp_hidden_size,
                epsilon=1e-8):
     """Builds the Slot Attention module.
 
@@ -35,7 +35,6 @@ class SlotAttention(layers.Layer):
     """
     super().__init__()
     self.num_iterations = num_iterations
-    self.num_slots = num_slots
     self.slot_size = slot_size
     self.mlp_hidden_size = mlp_hidden_size
     self.epsilon = epsilon
@@ -67,6 +66,9 @@ class SlotAttention(layers.Layer):
         layers.Dense(self.mlp_hidden_size, activation="relu"),
         layers.Dense(self.slot_size)
     ], name="mlp")
+
+  def register_num_slots(self, num_slots):
+    self.num_slots = num_slots
 
   def reset(self, batch_size):
     # Initialize the slots. Shape: [batch_size, num_slots, slot_size].

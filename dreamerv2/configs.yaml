@@ -60,7 +60,7 @@ defaults:
   decoder_type: 'default'
 
   # Slot Attention
-  slot_dim: 200
+  num_slots: 1
 
   # Actor Critic
   actor: {layers: 4, units: 400, act: elu, norm: none, dist: auto, min_std: 0.1}

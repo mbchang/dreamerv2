@@ -50,3 +50,6 @@ python dreamerv2/train.py --logdir runs/debug --configs debug --task dmc_walker_
 
 do this as reference
 python dreamerv2/train.py --logdir runs/debug --configs debug --task dmc_walker_walk --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention
+
+
+
