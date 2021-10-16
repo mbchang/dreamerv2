@@ -99,7 +99,6 @@ class WorldModel(common.Module):
 
     if config.decoder_type == 'default':
       self.heads['decoder'] = machine.Decoder(shapes, **config.decoder)
-    # elif config.decoder_type == 'slot':
     elif config.decoder_type in ['slot', 'slimmerslot']:
       decoder_in_dim = config.rssm.deter + config.rssm.stoch * config.rssm.discrete
       self.heads['decoder'] = machine.SlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
