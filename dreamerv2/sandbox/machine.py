@@ -716,7 +716,6 @@ class SlimAttentionUpdate(common.Module):
 
   def __call__(self, deter, embed):
     batch_size = deter.shape[0]
-    # embed_dim = embed.shape[-1]
 
     context = embed.reshape((batch_size, -1, self._embed_dim))  # TODO
     query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
@@ -736,9 +735,9 @@ class SlotAttentionUpdate(common.Module):
 
     self.slot_attention =slot_attention.SlotAttention(
       num_iterations=3, 
-      # num_slots=self.num_slots, 
-      slot_size=self._deter//self.num_slots, 
-      mlp_hidden_size=self._deter//self.num_slots)
+      slot_size=self._deter,#//self.num_slots, 
+      mlp_hidden_size=self._deter)#//self.num_slots)
+    # TODO: this needs to divide by self.num_slots
 
   def register_num_slots(self, num_slots):
     self.num_slots = num_slots
@@ -750,26 +749,12 @@ class SlotAttentionUpdate(common.Module):
 
   def __call__(self, deter, embed):
     batch_size = deter.shape[0]
-    # embed_dim = embed.shape[-1]
-    # deter_dim = deter.shape[-1]
-    # assert deter_dim == self._hidden  # this assert shouldn't be necessary if we do the config right
-    assert len(embed.shape) == 3
-    context = embed
-    # context = embed.reshape((batch_size, -1, embed_dim))  # this shouldn't be necessary
-    query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
 
-    # out = self.context_attention(query, context, mask=None)
-    # x = out.reshape((-1, self._hidden))
-    # x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
-    # x = self._act(x)
+    context = embed.reshape((batch_size, -1, self._embed_dim))  # TODO
+    query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
 
     updated_slots = self.slot_attention(query, context)
     updated_slots = updated_slots.reshape((batch_size, -1))
 
     return updated_slots
-
-    # return x
-
-
-
 
