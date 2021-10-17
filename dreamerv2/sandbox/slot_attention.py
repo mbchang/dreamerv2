@@ -23,7 +23,7 @@ class SlotAttention(layers.Layer):
   """Slot Attention module."""
 
   def __init__(self, num_iterations, slot_size, mlp_hidden_size,
-               epsilon=1e-8):
+               epsilon=1e-8, learn_initial_dist=True):
     """Builds the Slot Attention module.
 
     Args:
@@ -43,17 +43,29 @@ class SlotAttention(layers.Layer):
     self.norm_slots = layers.LayerNormalization()
     self.norm_mlp = layers.LayerNormalization()
 
-    # Parameters for Gaussian init (shared by all slots).
-    self.slots_mu = self.add_weight(
-        initializer="glorot_uniform",
-        shape=[1, 1, self.slot_size],
-        dtype=tf.float32,
-        name="slots_mu")
-    self.slots_log_sigma = self.add_weight(
-        initializer="glorot_uniform",
-        shape=[1, 1, self.slot_size],
-        dtype=tf.float32,
-        name="slots_log_sigma")
+    # # Parameters for Gaussian init (shared by all slots).
+    if learn_initial_dist:
+      self.slots_mu = self.add_weight(
+          initializer="glorot_uniform",
+          shape=[1, 1, self.slot_size],
+          dtype=tf.float32,
+          name="slots_mu")
+      self.slots_log_sigma = self.add_weight(
+          initializer="glorot_uniform",
+          shape=[1, 1, self.slot_size],
+          dtype=tf.float32,
+          name="slots_log_sigma")
+    else:
+      self.slots_mu = tf.constant(
+          # initializer="glorot_uniform",
+          tf.zeros([1, 1, self.slot_size]),
+          dtype=tf.float32,
+          name="slots_mu")
+      self.slots_log_sigma = tf.constant(
+          # initializer="glorot_uniform",
+          tf.zeros([1, 1, self.slot_size]),
+          dtype=tf.float32,
+          name="slots_log_sigma")
 
     # Linear maps for the attention module.
     self.project_q = layers.Dense(self.slot_size, use_bias=False, name="q")
@@ -324,9 +336,10 @@ class SlotAttentionAutoEncoder(layers.Layer):
     self.encoder = SlotAttentionEncoder(self.resolution, 64)
     self.slot_attention = SlotAttention(
         num_iterations=self.num_iterations,
-        num_slots=self.num_slots,
+        # num_slots=self.num_slots,
         slot_size=64,
         mlp_hidden_size=128)
+    self.slot_attention.register_num_slots(self.num_slots)
     self.decoder = SlotAttentionDecoder(64)
 
   def call(self, image):
