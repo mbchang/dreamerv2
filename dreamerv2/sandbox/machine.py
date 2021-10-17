@@ -27,25 +27,27 @@ class EnsembleRSSM(common.Module):
     self._min_std = min_std
     self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
 
+    self._dynamics_type = dynamics
+    self._update_type = update
     self._embed_dim = embed_dim
 
-    if dynamics == 'default':
+    if self._dynamics_type == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
-    elif dynamics == 'cross_attention':
+    elif self._dynamics_type == 'cross_attention':
       self.dynamics = CrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm)  # TODO: later manually set the number of slots for the specific episode
-    elif dynamics == 'separate_embedding':
+    elif self._dynamics_type == 'separate_embedding':
       self.dynamics = SeparateEmbeddingDynamics(self._deter, self._hidden, self._act, self._norm)
-    elif dynamics == 'slim_cross_attention':
+    elif self._dynamics_type == 'slim_cross_attention':
       self.dynamics = SlimCrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm)  # TODO: later manually set the number of slots for the specific episode
     else:
       raise NotImplementedError
 
-    if update == 'default':
+    if self._update_type == 'default':
       self.update = DefaultUpdate(self._hidden, self._act, self._norm)
-    elif update == 'slim_attention':
+    elif self._update_type == 'slim_attention':
       self.update = SlimAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim)  # TODO: later manually set the number of slots for the specific episode
       # NOTE that I am treating self._deter = self._hidden
-    elif update == 'slot_attention':
+    elif self._update_type == 'slot_attention':
       self.update = SlotAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim)  # TODO: later manually set the number of slots for the specific episode
       # NOTE that I am treating self._deter = self._hidden
     else:
@@ -57,8 +59,11 @@ class EnsembleRSSM(common.Module):
       state = dict(
           logit=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
           stoch=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
-          deter=self.dynamics._cell.get_initial_state(None, batch_size, dtype)
+          deter=self.dynamics._cell.get_initial_state(None, batch_size, dtype)  # initialized to zero
           )
+      if self._update_type == 'slot_attention':
+        slots = tf.cast(self.update.reset(batch_size), dtype)
+        state['deter'] = state['deter'] + slots.reshape((batch_size, -1))
     else:
       state = dict(
           mean=tf.zeros([batch_size, self._stoch], dtype),
@@ -733,11 +738,13 @@ class SlotAttentionUpdate(common.Module):
     self._norm = norm
     self._embed_dim = embed_dim
 
-    self.slot_attention =slot_attention.SlotAttention(
+    self.slot_attention = slot_attention.SlotAttention(
       num_iterations=3, 
       slot_size=self._deter,#//self.num_slots, 
-      mlp_hidden_size=self._deter)#//self.num_slots)
+      mlp_hidden_size=self._deter,
+      learn_initial_dist=False)#//self.num_slots)
     # TODO: this needs to divide by self.num_slots
+    # THIS ONLY WORKS BECAUSE WE ASSUME self.num_slots == 1!
 
   def register_num_slots(self, num_slots):
     self.num_slots = num_slots
