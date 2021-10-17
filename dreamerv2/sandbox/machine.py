@@ -53,6 +53,7 @@ class EnsembleRSSM(common.Module):
     else:
       raise NotImplementedError
 
+
   def initial(self, batch_size):
     dtype = prec.global_policy().compute_dtype
     if self._discrete:

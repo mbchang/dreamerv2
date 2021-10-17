@@ -35,10 +35,16 @@ class CausalAgent(common.Module):
       state = latent, action
     latent, action = state
     embed = self.wm.encoder(self.wm.preprocess(obs))
+    ###########################################################
+    # encoder to latent?
+    ###########################################################
     sample = (mode == 'train') or not self.config.eval_state_mean
     latent, _ = self.wm.rssm.obs_step(
         latent, action, embed, obs['is_first'], sample)
     feat = self.wm.rssm.get_feat(latent)
+    ###########################################################
+    # latent to decoder?
+    ###########################################################
     if mode == 'eval':
       actor = self._task_behavior.actor(feat)
       action = actor.mode()
@@ -80,6 +86,17 @@ class CausalAgent(common.Module):
     return report
 
 
+class ModelInterfaces():
+  def __init__(self, encoder_outdim, latent_dim, decoder_indim,
+    encoder_type, decoder_type, dynamics):
+    self.encoder_outdim = encoder_out
+    self.latent_dim = latent_dim
+    self.decoder_indim = decoder_in
+
+  def encoder_to_latent(self, enc_out):
+    if self.encoder_type 
+
+
 class WorldModel(common.Module):
 
   def __init__(self, config, obs_space, tfstep):
@@ -87,6 +104,8 @@ class WorldModel(common.Module):
     self.config = config
     self.tfstep = tfstep
     self.rssm = machine.EnsembleRSSM(**config.rssm)
+
+    self.rssm.register_num_slots(self.config.num_slots)  # TODO later this may vary based on the episode
 
     if config.encoder_type == 'default':
       self.encoder = machine.Encoder(shapes, **config.encoder)
@@ -126,7 +145,9 @@ class WorldModel(common.Module):
     """
     data = self.preprocess(data)
     embed = self.encoder(data)
-    self.rssm.register_num_slots(self.config.num_slots)  # TODO later this may vary based on the episode
+    ###########################################################
+    # encoder to latent?
+    ###########################################################
     post, prior = self.rssm.observe(
         embed, data['action'], data['is_first'], state)
     kl_loss, kl_value = self.rssm.kl_loss(post, prior, **self.config.kl)
@@ -134,6 +155,9 @@ class WorldModel(common.Module):
     likes = {}
     losses = {'kl': kl_loss}
     feat = self.rssm.get_feat(post)
+    ###########################################################
+    # latent to decoder?
+    ###########################################################
     for name, head in self.heads.items():
       grad_head = (name in self.config.grad_heads)
       inp = feat if grad_head else tf.stop_gradient(feat)
@@ -159,12 +183,18 @@ class WorldModel(common.Module):
     flatten = lambda x: x.reshape([-1] + list(x.shape[2:]))
     start = {k: flatten(v) for k, v in start.items()}
     start['feat'] = self.rssm.get_feat(start)
+    ###########################################################
+    # latent to decoder?
+    ###########################################################
     start['action'] = tf.zeros_like(policy(start['feat']).mode())
     seq = {k: [v] for k, v in start.items()}
     for _ in range(horizon):
       action = policy(tf.stop_gradient(seq['feat'][-1])).sample()
       state = self.rssm.img_step({k: v[-1] for k, v in seq.items()}, action)
       feat = self.rssm.get_feat(state)
+      ###########################################################
+      # latent to decoder?
+      ###########################################################
       for key, value in {**state, 'action': action, 'feat': feat}.items():
         seq[key].append(value)
     seq = {k: tf.stack(v, 0) for k, v in seq.items()}
