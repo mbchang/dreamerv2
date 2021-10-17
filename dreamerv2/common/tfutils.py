@@ -119,6 +119,10 @@ class Optimizer(tf.Module):
     # Distributed sync.
     context = tf.distribute.get_replica_context()
     if context:
+      if len([grad for grad in grads if grad is None]) > 0:
+        print('Some gradients are None. Are there any variables you have defined but did not use in the computation graph?')
+        import IPython
+        IPython.embed()
       grads = context.all_reduce('mean', grads)
 
     # Gradient clipping.
