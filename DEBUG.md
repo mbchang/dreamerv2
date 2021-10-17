@@ -36,6 +36,8 @@ CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/decoder/batch8 --
 
 CUDA_VISIBLE_DEVICES=3 python dreamerv2/train.py --logdir runs/encoderdecoder/batch8_slimslot --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --decoder_type slot --dataset.batch 8 --encoder_type slimslot > runs/encoderdecoder/batch8_slimslot/debug.log &
 
+CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/encoderdecoder/batch8_slimslot_3dembed --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --decoder_type slot --dataset.batch 8 --encoder_type slimslot > runs/encoderdecoder/batch8_slimslot_3dembed/debug.log &
+
 debug:
 
 CUDA_VISIBLE_DEVICES=2 python dreamerv2/train.py --logdir runs/debug --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --encoder_type default
@@ -52,4 +54,6 @@ do this as reference
 python dreamerv2/train.py --logdir runs/debug --configs debug --task dmc_walker_walk --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention
 
 
+10/16/21
 
+CUDA_VISIBLE_DEVICES=3 python dreamerv2/train.py --logdir runs/slot_attention/ns1_constant --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slot --dataset.batch 8 --encoder_type slimslot > runs/slot_attention/ns1_constant/debug.log &
