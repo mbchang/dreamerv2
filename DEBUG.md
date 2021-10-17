@@ -57,3 +57,13 @@ python dreamerv2/train.py --logdir runs/debug --configs debug --task dmc_walker_
 10/16/21
 
 CUDA_VISIBLE_DEVICES=3 python dreamerv2/train.py --logdir runs/slot_attention/ns1_constant --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slot --dataset.batch 8 --encoder_type slimslot > runs/slot_attention/ns1_constant/debug.log &
+
+
+10/17/21
+Debugging:
+
+python dreamerv2/train.py --logdir runs/debug/slim_update --configs debug --task dmc_walker_walk --agent causal --rssm.dynamics slim_cross_attention --rssm.update slim_attention --decoder_type slimmerslot --encoder_type slimmerslot --rssm.num_slots 1
+
+python dreamerv2/train.py --logdir runs/debug/slot --configs debug --task dmc_walker_walk --agent causal --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slimmerslot --encoder_type slimmerslot
+
+python dreamerv2/train.py --logdir runs/debug/default --configs debug --task dmc_walker_walk --agent causal

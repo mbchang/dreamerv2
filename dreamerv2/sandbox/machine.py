@@ -14,7 +14,7 @@ class EnsembleRSSM(common.Module):
 
   def __init__(
       self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default', update='default', embed_dim=16):
+      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default', update='default', embed_dim=16, num_slots=1):
     super().__init__()
     self._ensemble = ensemble
     self._stoch = stoch
@@ -27,6 +27,7 @@ class EnsembleRSSM(common.Module):
     self._min_std = min_std
     self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
 
+    self.num_slots = num_slots
     self._dynamics_type = dynamics
     self._update_type = update
     self._embed_dim = embed_dim
@@ -38,17 +39,17 @@ class EnsembleRSSM(common.Module):
     elif self._dynamics_type == 'separate_embedding':
       self.dynamics = SeparateEmbeddingDynamics(self._deter, self._hidden, self._act, self._norm)
     elif self._dynamics_type == 'slim_cross_attention':
-      self.dynamics = SlimCrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm)  # TODO: later manually set the number of slots for the specific episode
+      self.dynamics = SlimCrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm, self.num_slots)  # TODO: later manually set the number of slots for the specific episode
     else:
       raise NotImplementedError
 
     if self._update_type == 'default':
       self.update = DefaultUpdate(self._hidden, self._act, self._norm)
     elif self._update_type == 'slim_attention':
-      self.update = SlimAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim)  # TODO: later manually set the number of slots for the specific episode
+      self.update = SlimAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim, self.num_slots)  # TODO: later manually set the number of slots for the specific episode
       # NOTE that I am treating self._deter = self._hidden
     elif self._update_type == 'slot_attention':
-      self.update = SlotAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim)  # TODO: later manually set the number of slots for the specific episode
+      self.update = SlotAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim, self.num_slots)  # TODO: later manually set the number of slots for the specific episode
       # NOTE that I am treating self._deter = self._hidden
     else:
       raise NotImplementedError
@@ -160,6 +161,8 @@ class EnsembleRSSM(common.Module):
     stats = {k: v[index] for k, v in stats.items()}
     dist = self.get_dist(stats)
     stoch = dist.sample() if sample else dist.mode()
+    # print('sampled', stoch.shape)
+    # assert False
     prior = {'stoch': stoch, 'deter': deter, **stats}
     return prior
 
@@ -580,8 +583,8 @@ class DefaultDynamics(common.Module):
 
     self._cell = GRUCell(self._deter, norm=True)
 
-  def register_num_slots(self, num_slots):
-    self.num_slots = num_slots
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
     x = tf.concat([prev_stoch, prev_action], -1)
@@ -611,8 +614,8 @@ class CrossAttentionDynamics(common.Module):
     self.n_layers = 1
     self.cross_attention = [attention.CrossAttentionBlock(self._deter, self.n_heads, rate=0) for i in range(self.n_layers)]
 
-  def register_num_slots(self, num_slots):
-    self.num_slots = num_slots
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
     stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
@@ -631,27 +634,51 @@ class CrossAttentionDynamics(common.Module):
 
 # ok great, so this works.
 class SlimCrossAttentionDynamics(common.Module):
-  def __init__(self, deter, hidden, act, norm):
+  def __init__(self, deter, hidden, act, norm, num_slots):
     self._deter = deter
     self._hidden = hidden
     self._act = act
     self._norm = norm
 
-    self._cell = GRUCell(self._deter, norm=True)
-    self.context_attention = attention.ContextAttention(self._deter, num_heads=1)
-
-  def register_num_slots(self, num_slots):
     self.num_slots = num_slots
 
+    self._cell = GRUCell(self._deter, norm=True)
+    self.context_attention = attention.ContextAttention(self._deter//self.num_slots, num_heads=1)
+
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
+
   def __call__(self, prev_deter, prev_stoch, prev_action):
+    # print(prev_stoch.shape)  # (B, stoch*discrete)
+
+    # need to reshape this to (B, num_slots, stoch/num_slots)
+
+    # make this works such that a complete group of categories gets siphoned into the num_slots
+    # assert False
+
+
+
     stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
+
+
+
+
     act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)
     context = tf.stack([stoch_embed, act_embed], 1)  # (B, K, H)
 
     batch_size = prev_deter.shape[0]
     query = prev_deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
+    # print('SlimCrossAttentionDynamics query', query.shape)
+    # print('SlimCrossAttentionDynamics context', context.shape)
+
     out = self.context_attention(query, context, mask=None)
+
+    # print('SlimCrossAttentionDynamics out', out.shape)
+
+
     x = out.reshape((-1, self._deter))
+
+    # print('SlimCrossAttentionDynamics x', x.shape)
 
     x = self.get('img_in_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
@@ -670,8 +697,8 @@ class SeparateEmbeddingDynamics(common.Module):
     # just to get the initial state for now
     self._cell = GRUCell(self._deter, norm=True)
 
-  def register_num_slots(self, num_slots):
-    self.num_slots = num_slots
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
     stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
@@ -696,8 +723,8 @@ class DefaultUpdate(common.Module):
     self._act = act
     self._norm = norm
 
-  def register_num_slots(self, num_slots):
-    self.num_slots = num_slots
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
 
   def __call__(self, deter, embed):
     x = tf.concat([deter, embed], -1)
@@ -708,17 +735,19 @@ class DefaultUpdate(common.Module):
 
 
 class SlimAttentionUpdate(common.Module):
-  def __init__(self, deter, act, norm, embed_dim):
+  def __init__(self, deter, act, norm, embed_dim, num_slots):
     self._deter = deter
     self._act = act
     self._norm = norm
     self._embed_dim = embed_dim
 
-    self._cell = GRUCell(self._deter, norm=True)
-    self.context_attention = attention.ContextAttention(self._deter, num_heads=1)
-
-  def register_num_slots(self, num_slots):
     self.num_slots = num_slots
+
+    self._cell = GRUCell(self._deter, norm=True)
+    self.context_attention = attention.ContextAttention(self._deter//self.num_slots, num_heads=1)
+
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
 
   def __call__(self, deter, embed):
     batch_size = deter.shape[0]
@@ -726,18 +755,31 @@ class SlimAttentionUpdate(common.Module):
     context = embed.reshape((batch_size, -1, self._embed_dim))  # TODO
     query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
 
+    # print('SlimAttentionUpdate context', context.shape)
+    # print('SlimAttentionUpdate query', query.shape)
+
     out = self.context_attention(query, context, mask=None)
+
+    # print('SlimAttentionUpdate out', out.shape)
+
+
     x = out.reshape((batch_size, self._deter))
+
+    # print('SlimAttentionUpdate x', x.shape)
+
+
     x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
     return x
 
 class SlotAttentionUpdate(common.Module):
-  def __init__(self, deter, act, norm, embed_dim):
+  def __init__(self, deter, act, norm, embed_dim, num_slots):
     self._deter = deter
     self._act = act
     self._norm = norm
     self._embed_dim = embed_dim
+
+    self.num_slots = num_slots
 
     self.slot_attention = slot_attention.SlotAttention(
       num_iterations=3, 
@@ -747,9 +789,11 @@ class SlotAttentionUpdate(common.Module):
     # TODO: this needs to divide by self.num_slots
     # THIS ONLY WORKS BECAUSE WE ASSUME self.num_slots == 1!
 
-  def register_num_slots(self, num_slots):
-    self.num_slots = num_slots
     self.slot_attention.register_num_slots(num_slots)
+
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
+  #   self.slot_attention.register_num_slots(num_slots)
 
   def reset(self, batch_size):
     slots =  self.slot_attention.reset(batch_size)
@@ -761,8 +805,22 @@ class SlotAttentionUpdate(common.Module):
     context = embed.reshape((batch_size, -1, self._embed_dim))  # TODO
     query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
 
+    # print('SlotAttentionUpdate context', context.shape)
+    # print('SlotAttentionUpdate query', query.shape)
+
+
     updated_slots = self.slot_attention(query, context)
+
+    # print('SlotAttentionUpdate updated_slots', updated_slots.shape)
+
+
+
+
     updated_slots = updated_slots.reshape((batch_size, -1))
+
+    # print('SlotAttentionUpdate updated_slots reshaped', updated_slots.shape)
+
+
 
     return updated_slots
 

@@ -86,15 +86,15 @@ class CausalAgent(common.Module):
     return report
 
 
-class ModelInterfaces():
-  def __init__(self, encoder_outdim, latent_dim, decoder_indim,
-    encoder_type, decoder_type, dynamics):
-    self.encoder_outdim = encoder_out
-    self.latent_dim = latent_dim
-    self.decoder_indim = decoder_in
+# class ModelInterfaces():
+#   def __init__(self, encoder_outdim, latent_dim, decoder_indim,
+#     encoder_type, decoder_type, dynamics):
+#     self.encoder_outdim = encoder_out
+#     self.latent_dim = latent_dim
+#     self.decoder_indim = decoder_in
 
-  def encoder_to_latent(self, enc_out):
-    if self.encoder_type 
+#   def encoder_to_latent(self, enc_out):
+#     if self.encoder_type 
 
 
 class WorldModel(common.Module):
@@ -103,9 +103,15 @@ class WorldModel(common.Module):
     shapes = {k: tuple(v.shape) for k, v in obs_space.items()}
     self.config = config
     self.tfstep = tfstep
+
+    if config.rssm.num_slots > 1:
+      from sandbox import slots_machine as machine
+    else:
+      from sandbox import machine
+
     self.rssm = machine.EnsembleRSSM(**config.rssm)
 
-    self.rssm.register_num_slots(self.config.num_slots)  # TODO later this may vary based on the episode
+    # self.rssm.register_num_slots(self.config.num_slots)  # TODO later this may vary based on the episode
 
     if config.encoder_type == 'default':
       self.encoder = machine.Encoder(shapes, **config.encoder)
