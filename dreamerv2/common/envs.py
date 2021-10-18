@@ -1,4 +1,5 @@
 import atexit
+from loguru import logger as lgr
 import os
 import sys
 import threading
@@ -99,7 +100,7 @@ class DMC:
     self._ignored_keys = []
     for key, value in self._env.observation_spec().items():
       if value.shape == (0,):
-        print(f"Ignoring empty observation key '{key}'.")
+        lgr.warning(f"Ignoring empty observation key '{key}'.")
         self._ignored_keys.append(key)
 
   @property
@@ -448,7 +449,7 @@ class ResizeImage:
     self._keys = [
         k for k, v in env.obs_space.items()
         if len(v.shape) > 1 and v.shape[:2] != size]
-    print(f'Resizing keys {",".join(self._keys)} to {self._size}.')
+    lgr.debug(f'Resizing keys {",".join(self._keys)} to {self._size}.')
     if self._keys:
       from PIL import Image
       self._Image = Image
@@ -631,7 +632,7 @@ class Async:
         raise KeyError('Received message of unknown type {}'.format(message))
     except Exception:
       stacktrace = ''.join(traceback.format_exception(*sys.exc_info()))
-      print('Error in environment process: {}'.format(stacktrace))
+      lgr.error('Error in environment process: {}'.format(stacktrace))
       conn.send((self._EXCEPTION, stacktrace))
     finally:
       try:

@@ -1,4 +1,5 @@
 import json
+from loguru import logger as lgr
 import os
 import pathlib
 import time
@@ -63,7 +64,7 @@ class TerminalOutput:
     step = max(s for s, _, _, in summaries)
     scalars = {k: float(v) for _, k, v in summaries if len(v.shape) == 0}
     formatted = {k: self._format_value(v) for k, v in scalars.items()}
-    print(f'[{step}]', ' / '.join(f'{k} {v}' for k, v in formatted.items()))
+    lgr.info(f'[{step}] '+' / '.join(f'{k} {v}' for k, v in formatted.items()))
 
   def _format_value(self, value):
     if value == 0:
@@ -139,7 +140,7 @@ class TensorBoardOutput:
       summary.value.add(tag=name, image=image)
       tf.summary.experimental.write_raw_pb(summary.SerializeToString(), step)
     except (IOError, OSError) as e:
-      print('GIF summaries require ffmpeg in $PATH.', e)
+      lgr.error('GIF summaries require ffmpeg in $PATH.', e)
       tf.summary.image(name, video, step)
 
 

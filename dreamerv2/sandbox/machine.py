@@ -1,3 +1,4 @@
+from loguru import logger as lgr
 import re
 from einops import rearrange
 import numpy as np
@@ -234,8 +235,8 @@ class Encoder(common.Module):
         k for k, v in shapes.items() if re.match(cnn_keys, k) and len(v) == 3]
     self.mlp_keys = [
         k for k, v in shapes.items() if re.match(mlp_keys, k) and len(v) == 1]
-    print('Encoder CNN inputs:', list(self.cnn_keys))
-    print('Encoder MLP inputs:', list(self.mlp_keys))
+    lgr.info('Encoder CNN inputs:', list(self.cnn_keys))
+    lgr.info('Encoder MLP inputs:', list(self.mlp_keys))
     self._act = get_act(act)
     self._norm = norm
     self._cnn_depth = cnn_depth
@@ -337,8 +338,8 @@ class Decoder(common.Module):
         k for k, v in shapes.items() if re.match(cnn_keys, k) and len(v) == 3]
     self.mlp_keys = [
         k for k, v in shapes.items() if re.match(mlp_keys, k) and len(v) == 1]
-    print('Decoder CNN outputs:', list(self.cnn_keys))
-    print('Decoder MLP outputs:', list(self.mlp_keys))
+    lgr.info('Decoder CNN outputs:', list(self.cnn_keys))
+    lgr.info('Decoder MLP outputs:', list(self.mlp_keys))
     self._act = get_act(act)
     self._norm = norm
     self._cnn_depth = cnn_depth
@@ -645,7 +646,7 @@ class SlimCrossAttentionDynamics(common.Module):
   #   self.num_slots = num_slots
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
-    # print(prev_stoch.shape)  # (B, stoch*discrete)
+    # lgr.info(prev_stoch.shape)  # (B, stoch*discrete)
 
     # need to reshape this to (B, num_slots, stoch/num_slots)
 
@@ -664,17 +665,17 @@ class SlimCrossAttentionDynamics(common.Module):
 
     batch_size = prev_deter.shape[0]
     query = prev_deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
-    # print('SlimCrossAttentionDynamics query', query.shape)
-    # print('SlimCrossAttentionDynamics context', context.shape)
+    # lgr.info('SlimCrossAttentionDynamics query', query.shape)
+    # lgr.info('SlimCrossAttentionDynamics context', context.shape)
 
     out = self.context_attention(query, context, mask=None)
 
-    # print('SlimCrossAttentionDynamics out', out.shape)
+    # lgr.info('SlimCrossAttentionDynamics out', out.shape)
 
 
     x = out.reshape((-1, self._deter))
 
-    # print('SlimCrossAttentionDynamics x', x.shape)
+    # lgr.info('SlimCrossAttentionDynamics x', x.shape)
 
     x = self.get('img_in_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
@@ -751,17 +752,17 @@ class SlimAttentionUpdate(common.Module):
     context = embed.reshape((batch_size, -1, self._embed_dim))  # TODO
     query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
 
-    # print('SlimAttentionUpdate context', context.shape)
-    # print('SlimAttentionUpdate query', query.shape)
+    # lgr.info('SlimAttentionUpdate context', context.shape)
+    # lgr.info('SlimAttentionUpdate query', query.shape)
 
     out = self.context_attention(query, context, mask=None)
 
-    # print('SlimAttentionUpdate out', out.shape)
+    # lgr.info('SlimAttentionUpdate out', out.shape)
 
 
     x = out.reshape((batch_size, self._deter))
 
-    # print('SlimAttentionUpdate x', x.shape)
+    # lgr.info('SlimAttentionUpdate x', x.shape)
 
 
     x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
@@ -801,20 +802,20 @@ class SlotAttentionUpdate(common.Module):
     context = embed.reshape((batch_size, -1, self._embed_dim))  # TODO
     query = deter.reshape((batch_size, self.num_slots, self._deter//self.num_slots))  # (B, K, D)
 
-    # print('SlotAttentionUpdate context', context.shape)
-    # print('SlotAttentionUpdate query', query.shape)
+    # lgr.info('SlotAttentionUpdate context', context.shape)
+    # lgr.info('SlotAttentionUpdate query', query.shape)
 
 
     updated_slots = self.slot_attention(query, context)
 
-    # print('SlotAttentionUpdate updated_slots', updated_slots.shape)
+    # lgr.info('SlotAttentionUpdate updated_slots', updated_slots.shape)
 
 
 
 
     updated_slots = updated_slots.reshape((batch_size, -1))
 
-    # print('SlotAttentionUpdate updated_slots reshaped', updated_slots.shape)
+    # lgr.info('SlotAttentionUpdate updated_slots reshaped', updated_slots.shape)
 
 
 

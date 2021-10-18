@@ -1,3 +1,4 @@
+from loguru import logger as lgr
 import pathlib
 import pickle
 import re
@@ -41,7 +42,7 @@ class Module(tf.Module):
     values = tf.nest.map_structure(lambda x: x.numpy(), self.variables)
     amount = len(tf.nest.flatten(values))
     count = int(sum(np.prod(x.shape) for x in tf.nest.flatten(values)))
-    print(f'Save checkpoint with {amount} tensors and {count} parameters.')
+    lgr.info(f'Save checkpoint with {amount} tensors and {count} parameters.')
     with pathlib.Path(filename).open('wb') as f:
       pickle.dump(values, f)
 
@@ -50,7 +51,7 @@ class Module(tf.Module):
       values = pickle.load(f)
     amount = len(tf.nest.flatten(values))
     count = int(sum(np.prod(x.shape) for x in tf.nest.flatten(values)))
-    print(f'Load checkpoint with {amount} tensors and {count} parameters.')
+    lgr.info(f'Load checkpoint with {amount} tensors and {count} parameters.')
     tf.nest.map_structure(lambda x, y: x.assign(y), self.variables, values)
 
   def get(self, name, ctor, *args, **kwargs):
@@ -99,7 +100,7 @@ class Optimizer(tf.Module):
     varibs = tf.nest.flatten([module.variables for module in modules])
     count = sum(np.prod(x.shape) for x in varibs)
     if self._once:
-      print(f'Found {count} {self._name} parameters.')
+      lgr.info(f'Found {count} {self._name} parameters.')
       self._once = False
 
     # Check loss.
@@ -120,7 +121,7 @@ class Optimizer(tf.Module):
     context = tf.distribute.get_replica_context()
     if context:
       if len([grad for grad in grads if grad is None]) > 0:
-        print('Some gradients are None. Are there any variables you have defined but did not use in the computation graph?')
+        lgr.debug('Some gradients are None. Are there any variables you have defined but did not use in the computation graph?')
         import IPython
         IPython.embed()
       grads = context.all_reduce('mean', grads)
@@ -147,9 +148,9 @@ class Optimizer(tf.Module):
   def _apply_weight_decay(self, varibs):
     nontrivial = (self._wd_pattern != r'.*')
     if nontrivial:
-      print('Applied weight decay to variables:')
+      lgr.info('Applied weight decay to variables:')
     for var in varibs:
       if re.search(self._wd_pattern, self._name + '/' + var.name):
         if nontrivial:
-          print('- ' + self._name + '/' + var.name)
+          lgr.info('- ' + self._name + '/' + var.name)
         var.assign((1 - self._wd) * var)

@@ -1,6 +1,7 @@
 import collections
 import functools
 import logging
+from loguru import logger as lgr
 import os
 import pathlib
 import re
@@ -38,9 +39,16 @@ def main():
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
+
+  # initialize lgr
+  lgr.remove()   # remove default handler
+  lgr.add(os.path.join(logdir, 'debug.log'))
+  if not config.headless:
+    lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
+
   config.save(logdir / 'config.yaml')
-  print(config, '\n')
-  print('Logdir', logdir)
+  lgr.info(f'{config}\n')
+  lgr.info(f'Logdir: {logdir}')
 
   import tensorflow as tf
 
@@ -105,7 +113,7 @@ def main():
   def per_episode(ep, mode):
     length = len(ep['reward']) - 1
     score = float(ep['reward'].astype(np.float64).sum())
-    print(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
+    lgr.info(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
     logger.scalar(f'{mode}_return', score)
     logger.scalar(f'{mode}_length', length)
     for key, value in ep.items():
@@ -123,7 +131,7 @@ def main():
     logger.add(replay.stats, prefix=mode)
     logger.write()
 
-  print('Create envs.')
+  lgr.info('Create envs.')
   num_eval_envs = min(config.envs, config.eval_eps)
   if config.envs_parallel == 'none':
     train_envs = [make_env('train') for _ in range(config.envs)]
@@ -146,14 +154,14 @@ def main():
 
   prefill = max(0, config.prefill - train_replay.stats['total_steps'])
   if prefill:
-    print(f'Prefill dataset ({prefill} steps).')
+    lgr.info(f'Prefill dataset ({prefill} steps).')
     random_agent = common.RandomAgent(act_space)
     train_driver(random_agent, steps=prefill, episodes=1)
     eval_driver(random_agent, episodes=1)
     train_driver.reset()
     eval_driver.reset()
 
-  print('Create agent.')
+  lgr.info('Create agent.')
   train_dataset = iter(train_replay.dataset(**config.dataset))
   report_dataset = iter(train_replay.dataset(**config.dataset))
   eval_dataset = iter(eval_replay.dataset(**config.dataset))
@@ -173,7 +181,7 @@ def main():
   if (logdir / 'variables.pkl').exists():
     agnt.load(logdir / 'variables.pkl')
   else:
-    print('Pretrain agent.')
+    lgr.info('Pretrain agent.')
     for _ in range(config.pretrain):
       train_agent(next(train_dataset))
   train_policy = lambda *args: agnt.policy(
@@ -195,10 +203,10 @@ def main():
 
   while step < config.steps:
     logger.write()
-    print('Start evaluation.')
+    lgr.info('Start evaluation.')
     logger.add(agnt.report(next(eval_dataset)), prefix='eval')
     eval_driver(eval_policy, episodes=config.eval_eps)
-    print('Start training.')
+    lgr.info('Start training.')
     train_driver(train_policy, steps=config.eval_every)
     agnt.save(logdir / 'variables.pkl')
   for env in train_envs + eval_envs:

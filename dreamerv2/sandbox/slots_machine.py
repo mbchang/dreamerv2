@@ -1,3 +1,4 @@
+from loguru import logger as lgr
 import re
 from einops import rearrange
 import numpy as np
@@ -239,8 +240,8 @@ class Encoder(common.Module):
         k for k, v in shapes.items() if re.match(cnn_keys, k) and len(v) == 3]
     self.mlp_keys = [
         k for k, v in shapes.items() if re.match(mlp_keys, k) and len(v) == 1]
-    print('Encoder CNN inputs:', list(self.cnn_keys))
-    print('Encoder MLP inputs:', list(self.mlp_keys))
+    lgr.info('Encoder CNN inputs:', list(self.cnn_keys))
+    lgr.info('Encoder MLP inputs:', list(self.mlp_keys))
     self._act = get_act(act)
     self._norm = norm
     self._cnn_depth = cnn_depth
@@ -342,8 +343,8 @@ class Decoder(common.Module):
         k for k, v in shapes.items() if re.match(cnn_keys, k) and len(v) == 3]
     self.mlp_keys = [
         k for k, v in shapes.items() if re.match(mlp_keys, k) and len(v) == 1]
-    print('Decoder CNN outputs:', list(self.cnn_keys))
-    print('Decoder MLP outputs:', list(self.mlp_keys))
+    lgr.info('Decoder CNN outputs:', list(self.cnn_keys))
+    lgr.info('Decoder MLP outputs:', list(self.mlp_keys))
     self._act = get_act(act)
     self._norm = norm
     self._cnn_depth = cnn_depth
