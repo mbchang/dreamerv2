@@ -1,5 +1,5 @@
 import re
-
+from einops import rearrange
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers as tfkl
@@ -109,8 +109,7 @@ class EnsembleRSSM(common.Module):
   def get_feat(self, state):
     stoch = self._cast(state['stoch'])
     if self._discrete:
-      shape = stoch.shape[:-2] + [self._stoch * self._discrete]
-      stoch = tf.reshape(stoch, shape)
+      stoch = rearrange(stoch, '... s v -> ... (s v)')
     return tf.concat([stoch, state['deter']], -1)
 
   def get_dist(self, state, ensemble=False):
@@ -150,8 +149,7 @@ class EnsembleRSSM(common.Module):
     prev_stoch = self._cast(prev_state['stoch'])
     prev_action = self._cast(prev_action)
     if self._discrete:
-      shape = prev_stoch.shape[:-2] + [self._stoch * self._discrete]
-      prev_stoch = tf.reshape(prev_stoch, shape)
+      prev_stoch = rearrange(prev_stoch, '... s v -> ... (s v)')
     ###########################################################
     # replace with this transformer
     x, deter = self.dynamics(prev_state['deter'], prev_stoch, prev_action)
@@ -161,14 +159,12 @@ class EnsembleRSSM(common.Module):
     stats = {k: v[index] for k, v in stats.items()}
     dist = self.get_dist(stats)
     stoch = dist.sample() if sample else dist.mode()
-    # print('sampled', stoch.shape)
-    # assert False
     prior = {'stoch': stoch, 'deter': deter, **stats}
     return prior
 
   def _suff_stats_ensemble(self, inp):
-    bs = list(inp.shape[:-1])
-    inp = inp.reshape([-1, inp.shape[-1]])
+    # bs = list(inp.shape[:-1])
+    # inp = inp.reshape([-1, inp.shape[-1]])
     stats = []
     for k in range(self._ensemble):
       x = self.get(f'img_out_{k}', tfkl.Dense, self._hidden)(inp)
@@ -178,15 +174,15 @@ class EnsembleRSSM(common.Module):
     stats = {
         k: tf.stack([x[k] for x in stats], 0)
         for k, v in stats[0].items()}
-    stats = {
-        k: v.reshape([v.shape[0]] + bs + list(v.shape[2:]))
-        for k, v in stats.items()}
+    # stats = {
+    #     k: v.reshape([v.shape[0]] + bs + list(v.shape[2:]))
+    #     for k, v in stats.items()}
     return stats
 
   def _suff_stats_layer(self, name, x):
     if self._discrete:
       x = self.get(name, tfkl.Dense, self._stoch * self._discrete, None)(x)
-      logit = tf.reshape(x, x.shape[:-1] + [self._stoch, self._discrete])
+      logit = rearrange(x, '... (s v) -> ... s v', v=self._discrete)
       return {'logit': logit}
     else:
       x = self.get(name, tfkl.Dense, 2 * self._stoch, None)(x)
