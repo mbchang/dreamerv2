@@ -67,3 +67,12 @@ python dreamerv2/train.py --logdir runs/debug/slim_update --configs debug --task
 python dreamerv2/train.py --logdir runs/debug/slot --configs debug --task dmc_walker_walk --agent causal --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slimmerslot --encoder_type slimmerslot
 
 python dreamerv2/train.py --logdir runs/debug/default --configs debug --task dmc_walker_walk --agent causal
+
+
+Next:
+Run and debug
+python dreamerv2/train.py --logdir runs/debug/slot2 --configs debug --task dmc_walker_walk --agent causal --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slimmerslot --encoder_type slimmerslot --rssm.num_slots 2
+
+Once you get the multi-slot version to work, then make sure that the above commands (10/17/21) for slot=1 still works as expected.
+
+Then after that remove the //self.num_slots. It would be nice at that point to use ml_collections
