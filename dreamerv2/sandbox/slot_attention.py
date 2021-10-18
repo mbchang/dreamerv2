@@ -14,6 +14,7 @@
 # limitations under the License.
 
 """Slot Attention model for object discovery and set prediction."""
+from einops import rearrange, repeat
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.layers as layers
@@ -122,19 +123,19 @@ class SlotAttention(layers.Layer):
 def spatial_broadcast(slots, resolution):
   """Broadcast slot features to a 2D grid and collapse slot dimension."""
   # `slots` has shape: [batch_size, num_slots, slot_size].
-  slots = tf.reshape(slots, [-1, slots.shape[-1]])[:, None, None, :]
-  grid = tf.tile(slots, [1, resolution[0], resolution[1], 1])
+  slots = rearrange(slots, 'b k d -> (b k) d')
+  grid = repeat(slots, f'bk d -> bk {resolution[0]} {resolution[1]} d')
   # `grid` has shape: [batch_size*num_slots, width, height, slot_size].
   return grid
 
 
 def spatial_flatten(x):
-  return tf.reshape(x, [-1, x.shape[1] * x.shape[2], x.shape[-1]])
+  return rearrange(x, 'b h w c -> b (h w) c')
 
 
 def unstack_and_split(x, batch_size, num_channels=3):
   """Unstack batch dimension and split into channels and alpha mask."""
-  unstacked = tf.reshape(x, [batch_size, -1] + x.shape.as_list()[1:])
+  unstacked = rearrange(x, '(b k) ... -> b k ...', b=batch_size)
   channels, masks = tf.split(unstacked, [num_channels, 1], axis=-1)
   return channels, masks
 
