@@ -1,3 +1,4 @@
+from einops import rearrange
 import tensorflow as tf
 from tensorflow.keras import mixed_precision as prec
 
@@ -44,6 +45,8 @@ class CausalAgent(common.Module):
     feat = self.wm.rssm.get_feat(latent)
     ###########################################################
     # latent to decoder?
+    if self.config.rssm.num_slots > 1:
+      feat = rearrange(feat, '... k featdim -> ... (k featdim)')
     ###########################################################
     if mode == 'eval':
       actor = self._task_behavior.actor(feat)
@@ -163,6 +166,8 @@ class WorldModel(common.Module):
     feat = self.rssm.get_feat(post)
     ###########################################################
     # latent to decoder?
+    if self.config.rssm.num_slots > 1:
+      feat = rearrange(feat, '... k featdim -> ... (k featdim)')
     ###########################################################
     for name, head in self.heads.items():
       grad_head = (name in self.config.grad_heads)
@@ -191,6 +196,8 @@ class WorldModel(common.Module):
     start['feat'] = self.rssm.get_feat(start)
     ###########################################################
     # latent to decoder?
+    if self.config.rssm.num_slots > 1:
+      start['feat'] = rearrange(start['feat'], '... k featdim -> ... (k featdim)')
     ###########################################################
     start['action'] = tf.zeros_like(policy(start['feat']).mode())
     seq = {k: [v] for k, v in start.items()}
@@ -200,6 +207,8 @@ class WorldModel(common.Module):
       feat = self.rssm.get_feat(state)
       ###########################################################
       # latent to decoder?
+      if self.config.rssm.num_slots > 1:
+        feat = rearrange(feat, '... k featdim -> ... (k featdim)')
       ###########################################################
       for key, value in {**state, 'action': action, 'feat': feat}.items():
         seq[key].append(value)
@@ -249,10 +258,16 @@ class WorldModel(common.Module):
     embed = self.encoder(data)
     states, _ = self.rssm.observe(
         embed[:6, :5], data['action'][:6, :5], data['is_first'][:6, :5])
-    recon = decoder(self.rssm.get_feat(states))[key].mode()[:6]
+    post_feat = self.rssm.get_feat(states)
+    if self.config.rssm.num_slots > 1:
+      post_feat = rearrange(post_feat, '... k featdim -> ... (k featdim)')
+    recon = decoder(post_feat)[key].mode()[:6]
     init = {k: v[:, -1] for k, v in states.items()}
     prior = self.rssm.imagine(data['action'][:6, 5:], init)
-    openl = decoder(self.rssm.get_feat(prior))[key].mode()
+    prior_feat = self.rssm.get_feat(prior)
+    if self.config.rssm.num_slots > 1:
+      prior_feat = rearrange(prior_feat, '... k featdim -> ... (k featdim)')
+    openl = decoder(prior_feat)[key].mode()
     model = tf.concat([recon[:, :5] + 0.5, openl + 0.5], 1)
     error = (model - truth + 1) / 2
     video = tf.concat([truth, model, error], 2)
