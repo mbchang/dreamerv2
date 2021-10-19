@@ -10,6 +10,7 @@ from tensorflow.keras.mixed_precision import experimental as prec
 import common
 
 from sandbox import attention, slot_attention
+from sandbox import normalize as nmlz
 
 class EnsembleRSSM(common.Module):
 
@@ -431,8 +432,17 @@ class SlotDecoder(Decoder):
 
     # Normalize alpha masks over slots.
     masks = tf.nn.softmax(masks, axis=1)
+
+    # uncenter the components
+    recons = nmlz.uncenter(recons)
+
+    # combine
     recon_combined = einops.reduce(recons * masks, 'bt k h w c -> bt h w c', 'sum')  # Recombine image.
     # `recon_combined` has shape: [batch_size, width, height, num_channels].
+
+    # center the combination
+    recon_combined = nmlz.center(recon_combined)
+
     x = einops.rearrange(recon_combined, '(b t) ... -> b t ...', b=batch_size)
     #############################################################
     means = tf.split(x, list(channels.values()), -1)  # [(B, T, H, W, C)]
