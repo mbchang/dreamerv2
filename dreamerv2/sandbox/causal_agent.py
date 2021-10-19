@@ -6,7 +6,7 @@ import common
 import expl
 
 from sandbox import machine
-
+from sandbox import normalize as nmlz
 
 class CausalAgent(common.Module):
 
@@ -240,7 +240,7 @@ class WorldModel(common.Module):
       if value.dtype == tf.int32:
         value = value.astype(dtype)
       if value.dtype == tf.uint8:
-        value = value.astype(dtype) / 255.0 - 0.5
+        value = nmlz.center(value.astype(dtype) / 255.0)
       obs[key] = value
     obs['reward'] = {
         'identity': tf.identity,
@@ -254,7 +254,7 @@ class WorldModel(common.Module):
   @tf.function
   def video_pred(self, data, key):
     decoder = self.heads['decoder']
-    truth = data[key][:6] + 0.5
+    truth = nmlz.uncenter(data[key][:6])
     embed = self.encoder(data)
     states, _ = self.rssm.observe(
         embed[:6, :5], data['action'][:6, :5], data['is_first'][:6, :5])
@@ -268,7 +268,7 @@ class WorldModel(common.Module):
     if self.config.rssm.num_slots > 1:
       prior_feat = rearrange(prior_feat, '... k featdim -> ... (k featdim)')
     openl = decoder(prior_feat)[key].mode()
-    model = tf.concat([recon[:, :5] + 0.5, openl + 0.5], 1)
+    model = tf.concat([nmlz.uncenter(recon[:, :5]), nmlz.uncenter(openl)], 1)
     error = (model - truth + 1) / 2
     video = tf.concat([truth, model, error], 2)
     return rearrange(video, 'b t h w c -> t h (b w) c')
