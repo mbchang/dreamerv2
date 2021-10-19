@@ -85,7 +85,10 @@ class CausalAgent(common.Module):
     data = self.wm.preprocess(data)
     for key in self.wm.heads['decoder'].cnn_keys:
       name = key.replace('/', '_')
-      report[f'openl_{name}'] = self.wm.video_pred(data, key)
+      if self.config.rssm.num_slots > 1:
+        report[f'openl_{name}'] = self.wm.slot_video_pred(data, key)
+      else:
+        report[f'openl_{name}'] = self.wm.video_pred(data, key)
     return report
 
 
@@ -271,6 +274,44 @@ class WorldModel(common.Module):
     model = tf.concat([nmlz.uncenter(recon[:, :5]), nmlz.uncenter(openl)], 1)
     error = (model - truth + 1) / 2
     video = tf.concat([truth, model, error], 2)
+    return rearrange(video, 'b t h w c -> t h (b w) c')
+
+  @tf.function
+  def slot_video_pred(self, data, key):
+    decoder = self.heads['decoder']
+    truth = nmlz.uncenter(data[key][:6])
+    embed = self.encoder(data)
+    states, _ = self.rssm.observe(
+        embed[:6, :5], data['action'][:6, :5], data['is_first'][:6, :5])
+    post_feat = self.rssm.get_feat(states)
+    if self.config.rssm.num_slots > 1:
+      post_feat = rearrange(post_feat, '... k featdim -> ... (k featdim)')
+      decoded = decoder(post_feat, return_components=True)
+      recon = decoded[key].mode()[:6]
+      recon_components = decoded['components'].mode()[:6]
+    else:
+      recon = decoder(post_feat)[key].mode()[:6]
+    init = {k: v[:, -1] for k, v in states.items()}
+    prior = self.rssm.imagine(data['action'][:6, 5:], init)
+    prior_feat = self.rssm.get_feat(prior)
+    if self.config.rssm.num_slots > 1:
+      prior_feat = rearrange(prior_feat, '... k featdim -> ... (k featdim)')
+      decoded = decoder(prior_feat, return_components=True)
+      openl = decoded[key].mode()
+      openl_components = decoded['components'].mode()[:6]
+    else:
+      openl = decoder(prior_feat)[key].mode()
+
+    if self.config.rssm.num_slots > 1:
+      model = tf.concat([nmlz.uncenter(recon[:, :5]), nmlz.uncenter(openl)], 1)
+      model_components = tf.concat([nmlz.uncenter(recon_components[:, :5]), nmlz.uncenter(openl_components)], 1)
+      model_components = rearrange(model_components, 'b t k h w c -> b t (k h) w c')
+      error = (model - truth + 1) / 2
+      video = tf.concat([truth, model, error, model_components], 2)
+    else:
+      model = tf.concat([nmlz.uncenter(recon[:, :5]), nmlz.uncenter(openl)], 1)
+      error = (model - truth + 1) / 2
+      video = tf.concat([truth, model, error], 2)
     return rearrange(video, 'b t h w c -> t h (b w) c')
 
 
