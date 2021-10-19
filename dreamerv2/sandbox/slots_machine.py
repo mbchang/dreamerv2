@@ -414,7 +414,16 @@ class SlotDecoder(Decoder):
     else:
       raise NotImplementedError
 
-  def _cnn(self, features):
+  def __call__(self, features, return_components=False):
+    features = tf.cast(features, prec.global_policy().compute_dtype)
+    outputs = {}
+    if self.cnn_keys:
+      outputs.update(self._cnn(features, return_components))
+    if self.mlp_keys:
+      outputs.update(self._mlp(features))
+    return outputs
+
+  def _cnn(self, features, return_components=False):
     """
       features: (B, T, D)
     """
@@ -435,9 +444,10 @@ class SlotDecoder(Decoder):
 
     # uncenter the components
     recons = nmlz.uncenter(recons)
+    masked_components = recons * masks
 
     # combine
-    recon_combined = einops.reduce(recons * masks, 'bt k h w c -> bt h w c', 'sum')  # Recombine image.
+    recon_combined = einops.reduce(masked_components, 'bt k h w c -> bt h w c', 'sum')  # Recombine image.
     # `recon_combined` has shape: [batch_size, width, height, num_channels].
 
     # center the combination
@@ -449,6 +459,13 @@ class SlotDecoder(Decoder):
     dists = {
         key: tfd.Independent(tfd.Normal(mean, 1), 3)
         for (key, shape), mean in zip(channels.items(), means)}
+
+    if return_components:
+      masked_components = einops.rearrange(masked_components, '(b t) ... -> b t ...', b=batch_size)
+      masked_components = nmlz.center(masked_components)
+      dists['components'] = tfd.Independent(tfd.Normal(masked_components, 1), 3)  # (b t k h w c)
+      dists['masks'] = masks
+
     return dists
 
 
