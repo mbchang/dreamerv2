@@ -76,3 +76,16 @@ python dreamerv2/train.py --logdir runs/debug/slot2 --configs debug --task dmc_w
 Once you get the multi-slot version to work, then make sure that the above commands (10/17/21) for slot=1 still works as expected.
 
 Then after that remove the //self.num_slots. It would be nice at that point to use ml_collections
+
+
+10/19/21
+CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/slot_attention/ns2_d200_s32 --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slot --encoder_type slimslot --dataset.batch 8 --rssm.num_slots 2 &
+
+CUDA_VISIBLE_DEVICES=1 python dreamerv2/train.py --logdir runs/slot_attention/ns4_d200_s32 --configs dmc_vision --task dmc_cheetah_run --agent causal --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slot --encoder_type slimslot --dataset.batch 8 --rssm.num_slots 4 &
+
+(but did not run because nfs seemed to be hanging)
+
+
+
+
+
