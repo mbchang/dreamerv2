@@ -258,34 +258,6 @@ class DebugSlotAttentionDecoder6464(layers.Layer):
     # `x` has shape: [batch_size*num_slots, width, height, num_channels+1].
     return x
 
-class SlotAttentionDecoder6464(layers.Layer):
-  def __init__(self, in_dim):
-    super().__init__()
-    self.decoder_initial_size = (8, 8)
-    self.in_dim = in_dim
-
-    self.decoder_pos = SoftPositionEmbed(self.in_dim, self.decoder_initial_size)
-    self.decoder_cnn = tf.keras.Sequential([
-        layers.Conv2DTranspose(
-            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
-        layers.Conv2DTranspose(
-            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
-        layers.Conv2DTranspose(
-            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
-        layers.Conv2DTranspose(
-            64, 5, strides=(1, 1), padding="SAME", activation="relu"),
-        layers.Conv2DTranspose(
-            4, 3, strides=(1, 1), padding="SAME", activation=None)
-    ], name="decoder_cnn")
-
-  def call(self, slots):
-    # Spatial broadcast decoder.
-    x = spatial_broadcast(slots, self.decoder_initial_size)
-    # `x` has shape: [batch_size*num_slots, width_init, height_init, slot_size].
-    x = self.decoder_pos(x)
-    x = self.decoder_cnn(x)
-    # `x` has shape: [batch_size*num_slots, width, height, num_channels+1].
-    return x
 
 class SlotAttentionDecoder(layers.Layer):
   def __init__(self, in_dim, resolution):
