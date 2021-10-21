@@ -288,26 +288,30 @@ class SlotAttentionDecoder6464(layers.Layer):
     return x
 
 class SlotAttentionDecoder(layers.Layer):
-  def __init__(self, in_dim):
+  def __init__(self, in_dim, resolution):
     super().__init__()
     self.decoder_initial_size = (8, 8)
     self.in_dim = in_dim
+    self.resolution = resolution
+
+    if self.resolution == (128, 128):
+      num_layers = 4
+    elif self.resolution == (64, 64):
+      num_layers = 3
+    else:
+      raise NotImplementedError
 
     self.decoder_pos = SoftPositionEmbed(self.in_dim, self.decoder_initial_size)
-    self.decoder_cnn = tf.keras.Sequential([
-        layers.Conv2DTranspose(
-            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
-        layers.Conv2DTranspose(
-            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
-        layers.Conv2DTranspose(
-            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
-        layers.Conv2DTranspose(
-            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
+    decoder_layers = [layers.Conv2DTranspose(
+            64, 5, strides=(2, 2), padding="SAME", activation="relu")
+      for _ in range(num_layers)]
+    decoder_layers.extend([
         layers.Conv2DTranspose(
             64, 5, strides=(1, 1), padding="SAME", activation="relu"),
         layers.Conv2DTranspose(
-            4, 3, strides=(1, 1), padding="SAME", activation=None)
-    ], name="decoder_cnn")
+            4, 3, strides=(1, 1), padding="SAME", activation=None),
+      ])
+    self.decoder_cnn = tf.keras.Sequential(decoder_layers, name="decoder_cnn")
 
   def call(self, slots):
     # Spatial broadcast decoder.
@@ -341,7 +345,7 @@ class SlotAttentionAutoEncoder(layers.Layer):
         slot_size=64,
         mlp_hidden_size=128)
     self.slot_attention.register_num_slots(self.num_slots)
-    self.decoder = SlotAttentionDecoder(64)
+    self.decoder = SlotAttentionDecoder(64, resolution)
 
   def call(self, image):
     # `image` has shape: [batch_size, width, height, num_channels].
