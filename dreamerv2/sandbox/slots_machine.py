@@ -408,7 +408,7 @@ class SlotDecoder(Decoder):
     super().__init__(shapes, **kwargs)
     self.indim = indim
     if decoder_type == 'slot':
-      self.decoder = slot_attention.SlotAttentionDecoder6464(indim)  # hardcoded to (64, 64) with indim 112
+      self.decoder = slot_attention.SlotAttentionDecoder(indim, (64, 64))  # hardcoded to (64, 64) with indim 112
     elif decoder_type == 'slimmerslot':
       self.decoder = slot_attention.DebugSlotAttentionDecoder6464(indim)  # hardcoded to (64, 64) with indim 112
     else:
