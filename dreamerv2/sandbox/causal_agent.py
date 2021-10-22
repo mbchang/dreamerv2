@@ -144,6 +144,17 @@ class WorldModel(common.Module):
     self.model_opt = common.Optimizer('model', **config.model_opt)
 
   def train(self, data, state=None):
+    """
+      reward (B, T)
+      is_first (B, T)
+      is_last (B, T)
+      is_terminal (B, T)
+      image (B, T, H, W, C)
+      orientations (B, T, D)
+      height (B, T)
+      velocity (B, T, V)
+      action (B, T, A)
+    """
     with tf.GradientTape() as model_tape:
       model_loss, state, outputs, metrics = self.loss(data, state)
     modules = [self.encoder, self.rssm, *self.heads.values()]
@@ -313,6 +324,18 @@ class WorldModel(common.Module):
       error = (model - truth + 1) / 2
       video = tf.concat([truth, model, error], 2)
     return rearrange(video, 'b t h w c -> t h (b w) c')
+
+  @tf.function
+  def report(self, data):
+    report = {}
+    data = self.preprocess(data)
+    for key in self.heads['decoder'].cnn_keys:
+      name = key.replace('/', '_')
+      if self.config.rssm.num_slots > 1:
+        report[f'openl_{name}'] = self.slot_video_pred(data, key)
+      else:
+        report[f'openl_{name}'] = self.video_pred(data, key)
+    return report
 
 
 class ActorCritic(common.Module):

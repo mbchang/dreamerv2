@@ -200,3 +200,14 @@ class CarryOverState:
   def __call__(self, *args):
     self._state, out = self._fn(*args, self._state)
     return out
+
+
+class CarryOverStateMultipleOutputs:
+
+  def __init__(self, fn):
+    self._fn = fn
+    self._state = None
+
+  def __call__(self, *args):
+    self._state, *out = self._fn(*args, self._state)
+    return out
