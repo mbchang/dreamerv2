@@ -105,6 +105,15 @@ def main():
       reward = bool(['noreward', 'reward'].index(task)) or mode == 'eval'
       env = common.Crafter(outdir, reward)
       env = common.OneHotAction(env)
+    elif suite == 'balls':
+      from sandbox import debugging_envs
+      env = debugging_envs.Balls(
+        name=task, 
+        action_repeat=config.action_repeat, 
+        size=config.render_size, 
+        seed=config.seed, 
+        headless=config.headless)
+      env = common.NormalizeAction(env)
     else:
       raise NotImplementedError(suite)
     env = common.TimeLimit(env, config.time_limit)
