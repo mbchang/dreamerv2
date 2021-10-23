@@ -205,6 +205,7 @@ def main():
   train_driver.on_step(train_step)
 
   lgr.info('Training...')
+  random_agent = common.RandomAgent(act_space)
   while step < config.steps:
 
     outputs, mets = train_agent(next(train_dataset))
