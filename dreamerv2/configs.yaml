@@ -31,6 +31,8 @@ defaults:
   cpu: False
   headless: True
 
+  video_pred: {batch_size: 6, seed_steps: 5}
+
   agent: 'dv2'
 
   # Agent
