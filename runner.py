@@ -212,33 +212,32 @@ def train_model_single_step_sanity_10_22_21():
 
         Note though that the buffer has only been prefilled to 1000
     """
-    # r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[3])
-    # r.add_flag('configs', ['dmc_vision'])
-    # r.add_flag('task', ['dmc_cheetah_run'])
-    # r.add_flag('agent', ['causal'])
-    # r.add_flag('prefill', [10000])
-    # r.add_flag('log_every', [100])  # ends up being double for some reason
-    # r.add_flag('eval_every', [500])  # ends up being double for some reason
-    # r.add_flag('dataset.length', [1])
-    # r.add_flag('logdir', ['runs/model/default_cheetah_t1'])
-    # r.generate_commands(args.for_real)
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[3])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [1])
+    r.add_flag('logdir', ['runs/model/default_cheetah_t1'])
+    r.generate_commands(args.for_real)
 
-    # r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[3])
-    # r.add_flag('configs', ['dmc_vision'])
-    # r.add_flag('task', ['dmc_cheetah_run'])
-    # r.add_flag('agent', ['causal'])
-    # r.add_flag('rssm.dynamics', ['slim_cross_attention'])
-    # r.add_flag('rssm.update', ['slot_attention'])
-    # r.add_flag('decoder_type', ['slot'])
-    # r.add_flag('encoder_type', ['slimslot'])
-    # r.add_flag('prefill', [10000])
-    # r.add_flag('log_every', [100])  # ends up being double for some reason
-    # r.add_flag('eval_every', [500])  # ends up being double for some reason
-    # r.add_flag('dataset.length', [1])
-    # r.add_flag('rssm.num_slots', [1])
-    # r.add_flag('logdir', ['runs/model/sa_ns1_t1'])
-    # r.generate_commands(args.for_real)
-
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[3])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    r.add_flag('rssm.update', ['slot_attention'])
+    r.add_flag('decoder_type', ['slot'])
+    r.add_flag('encoder_type', ['slimslot'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [1])
+    r.add_flag('rssm.num_slots', [1])
+    r.add_flag('logdir', ['runs/model/sa_ns1_t1'])
+    r.generate_commands(args.for_real)
 
     r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[3])
     r.add_flag('configs', ['dmc_vision'])
@@ -274,6 +273,173 @@ def train_model_single_step_sanity_10_22_21():
 
 
 
+def train_model_two_step_sanity_10_22_21():
+    """
+        Just want to test whether the pipeline for training the model works
+
+        I'm manually creating these just because I have not done the "watch" thing yet
+
+        Note though that the buffer has only been prefilled to 1000
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[3])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [2])
+    r.add_flag('logdir', ['runs/model/default_cheetah_t2'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[3])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    r.add_flag('rssm.update', ['slot_attention'])
+    r.add_flag('decoder_type', ['slot'])
+    r.add_flag('encoder_type', ['slimslot'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [2])
+    r.add_flag('rssm.num_slots', [1])
+    r.add_flag('logdir', ['runs/model/sa_ns1_t2'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[3])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    r.add_flag('rssm.update', ['slot_attention'])
+    r.add_flag('decoder_type', ['slot'])
+    r.add_flag('encoder_type', ['slimslot'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [2])
+    r.add_flag('rssm.num_slots', [2])
+    r.add_flag('logdir', ['runs/model/sa_ns2_t2'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    r.add_flag('rssm.update', ['slot_attention'])
+    r.add_flag('decoder_type', ['slot'])
+    r.add_flag('encoder_type', ['slimslot'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [2])
+    r.add_flag('rssm.num_slots', [4])
+    r.add_flag('logdir', ['runs/model/sa_ns4_t2'])
+    r.generate_commands(args.for_real)
+
+
+
+def train_model_balls_sanity_10_23_21():
+    """
+        Just want to test whether the pipeline for training the model works
+
+        I'm manually creating these just because I have not done the "watch" thing yet
+
+        Note though that the buffer has only been prefilled to 1000
+    """
+    # r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0])
+    # r.add_flag('configs', ['dmc_vision'])
+    # r.add_flag('task', ['balls_whiteball_push'])
+    # r.add_flag('agent', ['causal'])
+    # r.add_flag('prefill', [10000])
+    # r.add_flag('log_every', [100])  # ends up being double for some reason
+    # r.add_flag('eval_every', [500])  # ends up being double for some reason
+    # r.add_flag('dataset.length', [2])
+    # r.add_flag('logdir', ['runs/model/balls_df_t2'])
+    # r.generate_commands(args.for_real)
+
+    # r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0])
+    # r.add_flag('configs', ['dmc_vision'])
+    # r.add_flag('task', ['balls_whiteball_push'])
+    # r.add_flag('agent', ['causal'])
+    # r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    # r.add_flag('rssm.update', ['slot_attention'])
+    # r.add_flag('decoder_type', ['slot'])
+    # r.add_flag('encoder_type', ['slimslot'])
+    # r.add_flag('prefill', [10000])
+    # r.add_flag('log_every', [100])  # ends up being double for some reason
+    # r.add_flag('eval_every', [500])  # ends up being double for some reason
+    # r.add_flag('dataset.length', [2])
+    # r.add_flag('rssm.num_slots', [1])
+    # r.add_flag('logdir', ['runs/model/balls_sa_ns1_t2'])
+    # r.generate_commands(args.for_real)
+
+    # r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0])
+    # r.add_flag('configs', ['dmc_vision'])
+    # r.add_flag('task', ['balls_whiteball_push'])
+    # r.add_flag('agent', ['causal'])
+    # r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    # r.add_flag('rssm.update', ['slot_attention'])
+    # r.add_flag('decoder_type', ['slot'])
+    # r.add_flag('encoder_type', ['slimslot'])
+    # r.add_flag('prefill', [10000])
+    # r.add_flag('log_every', [100])  # ends up being double for some reason
+    # r.add_flag('eval_every', [500])  # ends up being double for some reason
+    # r.add_flag('dataset.length', [2])
+    # r.add_flag('rssm.num_slots', [5])
+    # r.add_flag('logdir', ['runs/model/balls_sa_ns5_t2'])
+    # r.generate_commands(args.for_real)
+
+    # one step
+
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['balls_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [1])
+    r.add_flag('logdir', ['runs/model/balls_df_t1'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['balls_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    r.add_flag('rssm.update', ['slot_attention'])
+    r.add_flag('decoder_type', ['slot'])
+    r.add_flag('encoder_type', ['slimslot'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [1])
+    r.add_flag('rssm.num_slots', [1])
+    r.add_flag('logdir', ['runs/model/balls_sa_ns1_t1'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['balls_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    r.add_flag('rssm.update', ['slot_attention'])
+    r.add_flag('decoder_type', ['slot'])
+    r.add_flag('encoder_type', ['slimslot'])
+    r.add_flag('prefill', [10000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [1])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('rssm.stoch', [40])  # must be divisible by num_slots
+    r.add_flag('logdir', ['runs/model/balls_sa_ns5_t1'])
+    r.generate_commands(args.for_real)
+
+
 
 
 
@@ -281,4 +447,6 @@ def train_model_single_step_sanity_10_22_21():
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
-    train_model_single_step_sanity_10_22_21()
+    # train_model_single_step_sanity_10_22_21()
+    # train_model_two_step_sanity_10_22_21()
+    train_model_balls_sanity_10_23_21()

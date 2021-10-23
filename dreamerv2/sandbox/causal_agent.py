@@ -319,11 +319,14 @@ class WorldModel(common.Module):
       else:
         openl = decoder(prior_feat)[key].mode()
       model = tf.concat([nmlz.uncenter(recon[:, :t]), nmlz.uncenter(openl)], 1)
+      if self.config.rssm.num_slots > 1:
+        model_components = tf.concat([nmlz.uncenter(recon_components[:, :t]), nmlz.uncenter(openl_components)], 1)
     else:
       model = nmlz.uncenter(recon[:, :t])
+      if self.config.rssm.num_slots > 1:
+        model_components = nmlz.uncenter(recon_components[:, :t])
 
     if self.config.rssm.num_slots > 1:
-      model_components = tf.concat([nmlz.uncenter(recon_components[:, :t]), nmlz.uncenter(openl_components)], 1)
       model_components = rearrange(model_components, 'b t k h w c -> b t (k h) w c')
       error = (model - truth + 1) / 2
       video = tf.concat([truth, model, error, model_components], 2)
