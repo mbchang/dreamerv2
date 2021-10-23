@@ -143,14 +143,12 @@ def main():
     eval_envs = [make_async_env('eval') for _ in range(eval_envs)]
   act_space = train_envs[0].act_space
   obs_space = train_envs[0].obs_space
-  # train_driver = common.Driver(train_envs)
-  train_driver = common.ModelDriver(train_envs)
+  train_driver = common.Driver(train_envs)
   train_driver.on_episode(lambda ep: per_episode(ep, mode='train'))
   train_driver.on_step(lambda tran, worker: step.increment())
-  # train_driver.on_step(train_replay.add_step)
-  # train_driver.on_reset(train_replay.add_step)
-  # eval_driver = common.Driver(eval_envs)
-  eval_driver = common.ModelDriver(eval_envs)
+  train_driver.on_step(train_replay.add_step)
+  train_driver.on_reset(train_replay.add_step)
+  eval_driver = common.Driver(eval_envs)
   eval_driver.on_episode(lambda ep: per_episode(ep, mode='eval'))
   eval_driver.on_episode(eval_replay.add_episode)
 
@@ -206,15 +204,28 @@ def main():
       logger.write(fps=True)
   train_driver.on_step(train_step)
 
+  lgr.info('Training...')
   while step < config.steps:
-    logger.write()
-    lgr.info('Start evaluation.')
-    logger.add(agnt.report(next(eval_dataset)), prefix='eval')
-    # eval_driver(eval_policy, episodes=config.eval_eps)
-    lgr.info('Start training.')
-    # train_driver(train_policy, steps=config.eval_every)
-    train_driver(steps=config.eval_every)
-    agnt.save(logdir / 'variables.pkl')
+
+    outputs, mets = train_agent(next(train_dataset))
+    [metrics[key].append(value) for key, value in mets.items()]
+
+    if should_log(step):
+      for name, values in metrics.items():
+        logger.scalar(name, np.array(values, np.float64).mean())
+        metrics[name].clear()
+      logger.add(agnt.report(next(report_dataset)), prefix='train')
+      logger.write(fps=True)
+
+    step.increment()
+
+    if step.value % config.eval_every == 0:
+      logger.write()
+      lgr.info('Start evaluation.')
+      logger.add(agnt.report(next(eval_dataset)), prefix='eval')
+      eval_driver(random_agent, episodes=config.eval_eps)
+      agnt.save(logdir / 'variables.pkl')
+
   for env in train_envs + eval_envs:
     try:
       env.close()
@@ -224,3 +235,11 @@ def main():
 
 if __name__ == '__main__':
   main()
+
+
+"""
+What are the current differences from the pytorch version?
+- I do not learn the initial slot
+- I feed the stoch into the dynamics transformer rather than the deterministic latents
+- My deter state was from the posterior rather than the prior -- it could be that the reason why dreamer learns to predict so well is just because it's trained ot predict from the predicted deter rather than the posterior
+"""
