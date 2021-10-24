@@ -22,6 +22,7 @@ from absl import flags
 from absl import logging
 import tensorflow as tf
 
+import datetime
 import einops
 import h5py
 from loguru import logger as lgr
@@ -31,6 +32,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import os
 import sys
+import wandb
 
 # import slot_attention.data as data_utils
 import slot_attention as model_utils
@@ -39,8 +41,10 @@ import slot_attention_utils as utils
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string("model_dir", "/tmp/object_discovery/",
+flags.DEFINE_string("subroot", "runs",
                     "Where to save the checkpoints.")
+flags.DEFINE_string("expname", "",
+                    "name of experiment")
 flags.DEFINE_integer("seed", 0, "Random seed.")
 flags.DEFINE_integer("batch_size", 64, "Batch size for the model.")
 flags.DEFINE_integer("num_slots", 5, "Number of slots in Slot Attention.")
@@ -56,6 +60,13 @@ flags.DEFINE_integer("decay_steps", 100000,
 flags.DEFINE_string("dataroot", "ball_data/U-Dk4s5n5t10_ab", "path to h5 file")
 flags.DEFINE_bool("cpu", False, "use cpu")
 flags.DEFINE_bool("headless", True, "headless")
+
+flags.DEFINE_integer("log_every", 100, "log every")
+flags.DEFINE_integer("save_every", 1000, "save every")
+flags.DEFINE_integer("vis_every", 1000, "visualize every")
+
+flags.DEFINE_string("jobtype", "train", "train | eval")
+
 
 
 class WhiteBallDataLoader():
@@ -113,13 +124,8 @@ def get_prediction(model, batch, idx=0):
   masks = masks[idx]
   return image, recon_combined, recons, masks
 
-def visualize(itr, batch, model):
+def visualize(fname, batch, model):
   image, recon_combined, recons, masks = get_prediction(model, batch)
-  # print(np.max(image), np.min(image))
-  # print(np.max(recon_combined), np.min(recon_combined))
-  # print(np.max(recons), np.min(recons))
-  # print(np.max(masks), np.min(masks))
-  # # assert False
   num_slots = len(masks)
   fig, ax = plt.subplots(1, num_slots + 2, figsize=(15, 2))
   ax[0].imshow(image)
@@ -132,8 +138,12 @@ def visualize(itr, batch, model):
   for i in range(len(ax)):
     ax[i].grid(False)
     ax[i].axis('off')
-  plt.savefig(os.path.join(FLAGS.model_dir, f'{itr}.png'))
+  # plt.savefig(os.path.join(FLAGS.subroot, f'{itr}.png'))
+  plt.savefig(fname)
   plt.close()
+
+def flags_to_dict(flags):
+  return {v.name: v.value for v in FLAGS.flags_by_module_dict()[os.path.basename(__file__)]}
 
 def main(argv):
   del argv
@@ -149,17 +159,28 @@ def main(argv):
   tf.random.set_seed(FLAGS.seed)
   resolution = (64, 64)
 
-  tf.config.experimental_run_functions_eagerly(True)
+  tf.config.run_functions_eagerly(True)
   if not FLAGS.cpu:
     message = 'No GPU found. To actually train on CPU remove this assert.'
     assert tf.config.experimental.list_physical_devices('GPU'), message
   for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
-  os.makedirs(FLAGS.model_dir, exist_ok=True)
+  expdir = os.path.join(FLAGS.subroot, FLAGS.expname)
+  os.makedirs(expdir, exist_ok=True)
+
+  wandb.init(
+      config=flags_to_dict(FLAGS),
+      project='slot attention',
+      dir=expdir,
+      group=os.path.basename(FLAGS.subroot),
+      job_type=FLAGS.jobtype,
+      id=FLAGS.expname+'_{date:%Y%m%d%H%M%S}'.format(
+          date=datetime.datetime.now())
+      )
 
   lgr.remove()   # remove default handler
-  lgr.add(os.path.join(FLAGS.model_dir, 'debug.log'))
+  lgr.add(os.path.join(expdir, 'debug.log'))
   if not FLAGS.headless:
     lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
 
@@ -180,7 +201,7 @@ def main(argv):
   ckpt = tf.train.Checkpoint(
       network=model, optimizer=optimizer, global_step=global_step)
   ckpt_manager = tf.train.CheckpointManager(
-      checkpoint=ckpt, directory=FLAGS.model_dir, max_to_keep=5)
+      checkpoint=ckpt, directory=expdir, max_to_keep=5)
   ckpt.restore(ckpt_manager.latest_checkpoint)
   if ckpt_manager.latest_checkpoint:
     lgr.info(f"Restored from {ckpt_manager.latest_checkpoint}")
@@ -209,24 +230,34 @@ def main(argv):
     global_step.assign_add(1)
 
     # Log the training loss.
-    if not global_step % 100:
-      # lgr.info("Step: %s, Loss: %.6f, Time: %s".format(
-      #              global_step.numpy(), loss_value,
-      #              datetime.timedelta(seconds=time.time() - start)))
-      lgr.info(f"Step: {global_step.numpy()}, Loss: {loss_value:.6f}, Time: {datetime.timedelta(seconds=time.time() - start)}")
+    if not global_step % FLAGS.log_every:
+      lgr.info(f"Step: {global_step.numpy()}, Loss: {loss_value:.6f}, LR: {learning_rate.numpy():.3e}, Time: {datetime.timedelta(seconds=time.time() - start)}")
+
+      wandb.log({
+          f'{FLAGS.jobtype}/itr': global_step.numpy(),
+          f'{FLAGS.jobtype}/loss': loss_value,
+          f'{FLAGS.jobtype}/learning_rate': learning_rate.numpy(),
+          })
 
     # We save the checkpoints every 1000 iterations.
-    if not global_step  % 1000:
+    if not global_step  % FLAGS.save_every:
       # Save the checkpoint of the model.
       saved_ckpt = ckpt_manager.save()
       lgr.info(f"Saved checkpoint: {saved_ckpt}")
 
-    if not global_step % 1000:
-      visualize(global_step.numpy(), batch, model)
+    if not global_step % FLAGS.vis_every:
+      visualize(os.path.join(expdir, f'{global_step.numpy()}.png'), batch, model)
 
 
 if __name__ == "__main__":
   app.run(main)
 
-  # python train_slot_attention.py --batch_size 3 --model_dir runs/sanity
-  # python train_slot_attention.py --dataroot ball_data/Dk4s0n2000t10_a --model_dir runs/sanity
+"""
+  # python train_slot_attention.py --batch_size 3 --subroot runs/sanity
+  # CUDA_VISIBLE_DEVICES=0 python train_slot_attention.py --dataroot ball_data/Dk4s0n2000t10_ab --model_dir runs/sanity_again 
+
+
+  10/24/21
+  CUDA_VISIBLE_DEVICES=2 python train_slot_attention.py --dataroot ball_data/Dk4s0n2000t10_ab --expname t1_b16
+"""
+
