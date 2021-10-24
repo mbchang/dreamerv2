@@ -35,7 +35,7 @@ import sys
 import wandb
 
 # import slot_attention.data as data_utils
-import slot_attention as model_utils
+import slot_attention_learners as model_utils
 import slot_attention_utils as utils
 # import balls_dataloader
 
@@ -138,7 +138,6 @@ def visualize(fname, batch, model):
   for i in range(len(ax)):
     ax[i].grid(False)
     ax[i].axis('off')
-  # plt.savefig(os.path.join(FLAGS.subroot, f'{itr}.png'))
   plt.savefig(fname)
   plt.close()
 
@@ -237,7 +236,7 @@ def main(argv):
           f'{FLAGS.jobtype}/itr': global_step.numpy(),
           f'{FLAGS.jobtype}/loss': loss_value,
           f'{FLAGS.jobtype}/learning_rate': learning_rate.numpy(),
-          })
+          }, step=global_step.numpy())
 
     # We save the checkpoints every 1000 iterations.
     if not global_step  % FLAGS.save_every:

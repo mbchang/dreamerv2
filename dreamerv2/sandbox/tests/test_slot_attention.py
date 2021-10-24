@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 import slot_attention_utils as utils
-import slot_attention as model_utils
+import slot_attention_learners as model_utils
 
 def test_slot_attention():
     learning_rate = 0.001
