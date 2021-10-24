@@ -77,7 +77,7 @@ class WhiteBallDataLoader():
   def get_batch(self, batch_size, num_frames):
     batch_indices = np.random.choice(self.h5['observations'].shape[0], size=batch_size, replace=False)
     obs_batch = self.h5['observations'][sorted(batch_indices), :num_frames]
-    obs_batch = normalize(obs_batch)
+    obs_batch = utils.normalize(obs_batch)
     obs_batch = einops.rearrange(obs_batch, '... c h w -> ... h w c')
     obs_batch = tf.convert_to_tensor(obs_batch)
     if num_frames > 1:
@@ -90,56 +90,6 @@ class WhiteBallDataLoader():
       return {'image': obs_batch}
 
 
-# We use `tf.function` compilation to speed up execution. For debugging,
-# consider commenting out the `@tf.function` decorator.
-@tf.function
-def train_step(batch, model, optimizer):
-  """Perform a single training step."""
-
-  # Get the prediction of the models and compute the loss.
-  with tf.GradientTape() as tape:
-    preds = model(batch["image"], training=True)
-    recon_combined, recons, masks, slots = preds
-    loss_value = utils.l2_loss(batch["image"], recon_combined)
-    del recons, masks, slots  # Unused.
-
-  # Get and apply gradients.
-  gradients = tape.gradient(loss_value, model.trainable_weights)
-  optimizer.apply_gradients(zip(gradients, model.trainable_weights))
-
-  return loss_value
-
-def normalize(x):
-  return (x - 0.5) * 2.0  # Rescale to [-1, 1]
-
-def renormalize(x):
-  """Renormalize from [-1, 1] to [0, 1]."""
-  return x / 2. + 0.5
-
-def get_prediction(model, batch, idx=0):
-  recon_combined, recons, masks, _ = model(batch["image"])
-  image = renormalize(batch["image"])[idx]
-  recon_combined = renormalize(recon_combined)[idx]
-  recons = renormalize(recons)[idx]
-  masks = masks[idx]
-  return image, recon_combined, recons, masks
-
-def visualize(fname, batch, model):
-  image, recon_combined, recons, masks = get_prediction(model, batch)
-  num_slots = len(masks)
-  fig, ax = plt.subplots(1, num_slots + 2, figsize=(15, 2))
-  ax[0].imshow(image)
-  ax[0].set_title('Image')
-  ax[1].imshow(recon_combined)
-  ax[1].set_title('Recon.')
-  for i in range(num_slots):
-    ax[i + 2].imshow(recons[i] * masks[i] + (1 - masks[i]))
-    ax[i + 2].set_title('Slot %s' % str(i + 1))
-  for i in range(len(ax)):
-    ax[i].grid(False)
-    ax[i].axis('off')
-  plt.savefig(fname)
-  plt.close()
 
 def flags_to_dict(flags):
   return {v.name: v.value for v in FLAGS.flags_by_module_dict()[os.path.basename(__file__)]}
@@ -222,7 +172,7 @@ def main(argv):
         tf.cast(global_step, tf.float32) / tf.cast(decay_steps, tf.float32)))
     optimizer.lr = learning_rate.numpy()
 
-    loss_value = train_step(batch, model, optimizer)
+    loss_value = model.train_step(batch=batch, optimizer=optimizer)
 
     # Update the global step. We update it before logging the loss and saving
     # the model so that the last checkpoint is saved at the last iteration.
@@ -245,7 +195,7 @@ def main(argv):
       lgr.info(f"Saved checkpoint: {saved_ckpt}")
 
     if not global_step % FLAGS.vis_every:
-      visualize(os.path.join(expdir, f'{global_step.numpy()}.png'), batch, model)
+      model.visualize(os.path.join(expdir, f'{global_step.numpy()}.png'), batch)
 
 
 if __name__ == "__main__":

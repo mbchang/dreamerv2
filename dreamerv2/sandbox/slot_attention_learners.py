@@ -4,6 +4,7 @@ import tensorflow as tf
 import tensorflow.keras.layers as layers
 
 import slot_attention as sa
+import slot_attention_utils as utils
 
 
 class SlotAttentionAutoEncoder(layers.Layer):
@@ -58,6 +59,52 @@ class SlotAttentionAutoEncoder(layers.Layer):
     # `recon_combined` has shape: [batch_size, width, height, num_channels].
 
     return recon_combined, recons, masks, slots
+
+
+  # We use `tf.function` compilation to speed up execution. For debugging,
+  # consider commenting out the `@tf.function` decorator.
+  @tf.function
+  def train_step(self, batch, optimizer):
+    """Perform a single training step."""
+
+    # Get the prediction of the models and compute the loss.
+    with tf.GradientTape() as tape:
+      preds = self(batch["image"], training=True)
+      recon_combined, recons, masks, slots = preds
+      loss_value = utils.l2_loss(batch["image"], recon_combined)
+      del recons, masks, slots  # Unused.
+
+    # Get and apply gradients.
+    gradients = tape.gradient(loss_value, self.trainable_weights)
+    optimizer.apply_gradients(zip(gradients, self.trainable_weights))
+
+    return loss_value
+
+  def get_prediction(self, batch, idx=0):
+    recon_combined, recons, masks, _ = self(batch["image"])
+    image = utils.renormalize(batch["image"])[idx]
+    recon_combined = utils.renormalize(recon_combined)[idx]
+    recons = utils.renormalize(recons)[idx]
+    masks = masks[idx]
+    return image, recon_combined, recons, masks
+
+  def visualize(self, fname, batch):
+    image, recon_combined, recons, masks = self.get_prediction(batch)
+    num_slots = len(masks)
+    fig, ax = plt.subplots(1, num_slots + 2, figsize=(15, 2))
+    ax[0].imshow(image)
+    ax[0].set_title('Image')
+    ax[1].imshow(recon_combined)
+    ax[1].set_title('Recon.')
+    for i in range(num_slots):
+      ax[i + 2].imshow(recons[i] * masks[i] + (1 - masks[i]))
+      ax[i + 2].set_title('Slot %s' % str(i + 1))
+    for i in range(len(ax)):
+      ax[i].grid(False)
+      ax[i].axis('off')
+    plt.savefig(fname)
+    plt.close()
+
 
 
 class SlotAttentionClassifier(layers.Layer):
@@ -126,6 +173,21 @@ class SlotAttentionClassifier(layers.Layer):
     return predictions
 
 
+# def build_model(resolution, batch_size, num_slots, num_iterations,
+#                 num_channels=3, model_type="object_discovery"):
+#   """Build keras model."""
+#   if model_type == "object_discovery":
+#     model_def = SlotAttentionAutoEncoder
+#   elif model_type == "set_prediction":
+#     model_def = SlotAttentionClassifier
+#   else:
+#     raise ValueError("Invalid name for model type.")
+
+#   image = tf.keras.Input(list(resolution) + [num_channels], batch_size)
+#   outputs = model_def(resolution, num_slots, num_iterations)(image)
+#   model = tf.keras.Model(inputs=image, outputs=outputs)
+#   return model
+
 def build_model(resolution, batch_size, num_slots, num_iterations,
                 num_channels=3, model_type="object_discovery"):
   """Build keras model."""
@@ -136,7 +198,4 @@ def build_model(resolution, batch_size, num_slots, num_iterations,
   else:
     raise ValueError("Invalid name for model type.")
 
-  image = tf.keras.Input(list(resolution) + [num_channels], batch_size)
-  outputs = model_def(resolution, num_slots, num_iterations)(image)
-  model = tf.keras.Model(inputs=image, outputs=outputs)
-  return model
+  return model_def(resolution, num_slots, num_iterations)

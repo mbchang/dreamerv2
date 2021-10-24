@@ -18,6 +18,13 @@ import numpy as np
 import scipy.optimize
 import tensorflow as tf
 
+def normalize(x):
+  return (x - 0.5) * 2.0  # Rescale to [-1, 1]
+
+def renormalize(x):
+  """Renormalize from [-1, 1] to [0, 1]."""
+  return x / 2. + 0.5
+
 
 def l2_loss(prediction, target):
   return tf.reduce_mean(tf.math.squared_difference(prediction, target))
