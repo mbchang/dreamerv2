@@ -33,7 +33,6 @@ def bottle(fn):
     bsize = len(x)
     flatten = lambda z: rearrange(z, 'b t ... -> (b t) ...', b=bsize)
     unflatten = lambda z: rearrange(z, '(b t) ... -> b t ...', b=bsize)
-    # x = rearrange(x, 'b t ... -> (b t) ...', b=bsize)
     y = fn(flatten(x))
     if isinstance(y, tuple):
       return (unflatten(yy) for yy in y)
