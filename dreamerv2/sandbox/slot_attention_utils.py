@@ -21,23 +21,6 @@ from PIL import Image, ImageOps
 import scipy.optimize
 import tensorflow as tf
 
-# or maybe you can apply this to directly to the function itself
-# def bottle(fn, x):
-#   """
-#     1. x: b t ...
-#     2. x: (b t) ...
-#     3. fn(x): (b t) ...
-#     4. fn(x): b t ...
-#   """
-#   # assert len(x.shape) > 2
-#   bsize = len(x)
-#   x = rearrange(x, 'b t ... -> (b t) ...', b=bsize)
-#   y = fn(x)
-#   if isinstance(y, tuple):
-#     return (rearrange(yy, '(b t) ... -> b t ...', b=bsize) for yy in y)
-#   else:
-#     return rearrange(y, '(b t) ... -> b t ...', b=bsize)
-
 
 def bottle(fn):
   """
@@ -59,7 +42,6 @@ def bottle(fn):
   return bottled_fn
 
 
-
 def add_border(video, tau):
   if np.issubdtype(video.dtype, np.floating):
     video = np.clip(255 * video, 0, 255).astype(np.uint8)
@@ -68,6 +50,7 @@ def add_border(video, tau):
   video = np.concatenate([seed_video, imag_video])
   return video
 
+
 def save_gif(video, fname, fps=3):
   """
   video: (T, H, W, C)
@@ -75,8 +58,10 @@ def save_gif(video, fname, fps=3):
   clip = ImageSequenceClip(list(video), fps=fps)
   clip.write_gif(f'{fname}.gif', fps=fps)
 
+
 def normalize(x):
   return (x - 0.5) * 2.0  # Rescale to [-1, 1]
+
 
 def renormalize(x):
   """Renormalize from [-1, 1] to [0, 1]."""

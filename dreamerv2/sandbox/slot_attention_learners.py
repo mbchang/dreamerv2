@@ -78,14 +78,6 @@ class SlotAttentionAutoEncoder(layers.Layer):
 
     return loss_value
 
-  # def get_prediction(self, batch, idx=0):
-  #   recon_combined, comp, masks, _ = self(batch["image"])
-  #   image = utils.renormalize(batch["image"])[idx]
-  #   recon_combined = utils.renormalize(recon_combined)[idx]
-  #   comp = utils.renormalize(comp)[idx]
-  #   masks = masks[idx]
-  #   return image, recon_combined, comp, masks
-
   def visualize(self, fname, batch, idx=0):
     recon_combined, comp, masks, _ = self(batch["image"])
     image = utils.renormalize(batch["image"])[idx]
@@ -333,21 +325,6 @@ class SlotAttentionClassifier(layers.Layer):
     return predictions
 
 
-# def build_model(resolution, batch_size, num_slots, num_iterations,
-#                 num_channels=3, model_type="object_discovery"):
-#   """Build keras model."""
-#   if model_type == "object_discovery":
-#     model_def = SlotAttentionAutoEncoder
-#   elif model_type == "set_prediction":
-#     model_def = SlotAttentionClassifier
-#   else:
-#     raise ValueError("Invalid name for model type.")
-
-  # image = tf.keras.Input(list(resolution) + [num_channels], batch_size)
-  # outputs = model_def(resolution, num_slots, num_iterations)(image)
-#   model = tf.keras.Model(inputs=image, outputs=outputs)
-#   return model
-
 def build_model(resolution, batch_size, num_slots, model_type="object_discovery"):
   num_channels = 3
 
@@ -356,14 +333,17 @@ def build_model(resolution, batch_size, num_slots, model_type="object_discovery"
     model = SlotAttentionAutoEncoder(resolution, num_slots)
     # image = tf.keras.Input(list(resolution) + [num_channels], batch_size)
     # outputs = model(image)
+    # model = tf.keras.Model(inputs=image, outputs=outputs)
   elif model_type == "set_prediction":
     model = SlotAttentionClassifier(resolution, num_slots)
     # image = tf.keras.Input(list(resolution) + [num_channels], batch_size)
     # outputs = model(image)
+    # model = tf.keras.Model(inputs=image, outputs=outputs)
   elif model_type == 'factorized_world_model':
     model = FactorizedWorldModel(resolution, num_slots)
     # image = tf.keras.Input([1] + list(resolution) + [num_channels], batch_size)
     # outputs = model(image)
+    # model = tf.keras.Model(inputs=image, outputs=outputs)
   else:
     raise ValueError("Invalid name for model type.")
 
