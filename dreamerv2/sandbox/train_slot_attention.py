@@ -200,7 +200,11 @@ def main(argv):
       lgr.info(f"Saved checkpoint: {saved_ckpt}")
 
     if not global_step % FLAGS.vis_every:
-      model.visualize(os.path.join(expdir, f'{global_step.numpy()}.png'), batch)
+      if FLAGS.num_frames > 1:
+        model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch, 
+          seed_steps=FLAGS.num_frames-1, pred_horizon=1)  # for now
+      else:
+        model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch)
 
 
 if __name__ == "__main__":
@@ -216,5 +220,12 @@ if __name__ == "__main__":
 
 
   python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --num_train_steps 10
+
+
+  10/25/21
+  CUDA_VISIBLE_DEVICES=0 python train_slot_attention.py --dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --expname t3_b32 --model_type factorized_world_model --num_frames 3 --batch_size 32
+
+  debug:
+  python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1
 """
 
