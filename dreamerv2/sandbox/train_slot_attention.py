@@ -69,6 +69,7 @@ flags.DEFINE_integer("vis_every", 1000, "visualize every")
 flags.DEFINE_string("jobtype", "train", "train | eval")
 flags.DEFINE_string("model_type", "object_discovery", "object_discovery | factoried_world_model")
 
+flags.DEFINE_integer("pred_horizon", 0, "prediction horizon")
 
 
 class WhiteBallDataLoader():
@@ -113,6 +114,8 @@ def main(argv):
 
   if FLAGS.model_type == 'object_discovery':
     assert FLAGS.num_frames == 1
+  if FLAGS.num_frames > 1:
+    assert FLAGS.pred_horizon < FLAGS.num_frames
 
   tf.config.run_functions_eagerly(True)
   if not FLAGS.cpu:
@@ -202,7 +205,7 @@ def main(argv):
     if not global_step % FLAGS.vis_every:
       if FLAGS.num_frames > 1:
         model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch, 
-          seed_steps=FLAGS.num_frames-1, pred_horizon=1)  # for now
+          seed_steps=FLAGS.num_frames-FLAGS.pred_horizon, pred_horizon=FLAGS.pred_horizon)  # for now
       else:
         model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch)
 
@@ -227,5 +230,10 @@ if __name__ == "__main__":
 
   debug:
   python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1
+
+  2:54pm
+  CUDA_VISIBLE_DEVICES=1 python train_slot_attention.py --dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --expname t3_ph1_b32_geb --model_type factorized_world_model --num_frames 3 --batch_size 32 --pred_horizon 1 &
+
+  CUDA_VISIBLE_DEVICES=0 python train_slot_attention.py --dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --expname t4_ph2_b32_geb --model_type factorized_world_model --num_frames 4 --batch_size 32 --pred_horizon 2 &
 """
 
