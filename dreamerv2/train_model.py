@@ -252,4 +252,9 @@ What are the current differences from the pytorch version?
 - I do not learn the initial slot
 - I feed the stoch into the dynamics transformer rather than the deterministic latents
 - My deter state was from the posterior rather than the prior -- it could be that the reason why dreamer learns to predict so well is just because it's trained ot predict from the predicted deter rather than the posterior
+
+
+python dreamerv2/train_model.py --logdir runs/debug/model/default_cheetah --configs debug --task dmc_cheetah_run --agent causal --log_every 5 --dataset.batch 10 --video_pred.seed_steps 2 --dataset.length 5
+
+python dreamerv2/train_model.py --logdir runs/debug/model/slot2 --configs debug --task dmc_cheetah_run --agent causal --log_every 5 --dataset.batch 10 --video_pred.seed_steps 2 --dataset.length 5 --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slimmerslot --encoder_type slimmerslot --rssm.num_slots 2
 """
