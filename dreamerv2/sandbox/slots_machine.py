@@ -767,9 +767,9 @@ class SlotAttentionUpdate(common.Module):
     self.num_slots = num_slots
 
     self.slot_attention = slot_attention.SlotAttention(
-      num_iterations=3, 
+      # num_iterations=3, 
       slot_size=self._deter//self.num_slots, 
-      mlp_hidden_size=self._deter//self.num_slots,
+      # mlp_hidden_size=self._deter//self.num_slots,
       learn_initial_dist=False)#//self.num_slots)
     # TODO: this needs to divide by self.num_slots
     # THIS ONLY WORKS BECAUSE WE ASSUME self.num_slots == 1!

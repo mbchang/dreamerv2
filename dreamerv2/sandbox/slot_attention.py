@@ -22,9 +22,10 @@ import tensorflow.keras.layers as layers
 
 class SlotAttention(layers.Layer):
   """Slot Attention module."""
+  epsilon = 1e-8
+  num_iterations = 3
 
-  def __init__(self, num_iterations, slot_size, mlp_hidden_size,
-               epsilon=1e-8, learn_initial_dist=True):
+  def __init__(self, slot_size, learn_initial_dist=True):
     """Builds the Slot Attention module.
 
     Args:
@@ -35,10 +36,8 @@ class SlotAttention(layers.Layer):
       epsilon: Offset for attention coefficients before normalization.
     """
     super().__init__()
-    self.num_iterations = num_iterations
     self.slot_size = slot_size
-    self.mlp_hidden_size = mlp_hidden_size
-    self.epsilon = epsilon
+    self.mlp_hidden_size = 2 * slot_size
 
     self.norm_inputs = layers.LayerNormalization()
     self.norm_slots = layers.LayerNormalization()

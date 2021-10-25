@@ -48,7 +48,8 @@ flags.DEFINE_string("expname", "",
 flags.DEFINE_integer("seed", 0, "Random seed.")
 flags.DEFINE_integer("batch_size", 64, "Batch size for the model.")
 flags.DEFINE_integer("num_slots", 5, "Number of slots in Slot Attention.")
-flags.DEFINE_integer("num_iterations", 3, "Number of attention iterations.")
+flags.DEFINE_integer("num_frames", 1, "Number of frames")
+# flags.DEFINE_integer("num_iterations", 3, "Number of attention iterations.")
 flags.DEFINE_float("learning_rate", 0.0004, "Learning rate.")
 flags.DEFINE_integer("num_train_steps", 500000, "Number of training steps.")
 flags.DEFINE_integer("warmup_steps", 10000,
@@ -66,6 +67,7 @@ flags.DEFINE_integer("save_every", 1000, "save every")
 flags.DEFINE_integer("vis_every", 1000, "visualize every")
 
 flags.DEFINE_string("jobtype", "train", "train | eval")
+flags.DEFINE_string("model_type", "object_discovery", "object_discovery | factoried_world_model")
 
 
 
@@ -82,7 +84,7 @@ class WhiteBallDataLoader():
     obs_batch = tf.convert_to_tensor(obs_batch)
     if num_frames > 1:
       act_batch = self.h5['actions'][sorted(batch_indices), :num_frames]
-      act_batch = act_batch[1:]  # (T-1, B, A)
+      act_batch = act_batch[:, 1:]  # (B, T-1, A)
       act_batch = tf.convert_to_tensor(act_batch)
       return {'image': obs_batch, 'action': act_batch}
     else:
@@ -99,14 +101,18 @@ def main(argv):
   # Hyperparameters of the model.
   batch_size = FLAGS.batch_size
   num_slots = FLAGS.num_slots
-  num_iterations = FLAGS.num_iterations
+  # num_iterations = FLAGS.num_iterations
   base_learning_rate = FLAGS.learning_rate
   num_train_steps = FLAGS.num_train_steps
   warmup_steps = FLAGS.warmup_steps
   decay_rate = FLAGS.decay_rate
   decay_steps = FLAGS.decay_steps
   tf.random.set_seed(FLAGS.seed)
+  np.random.seed(FLAGS.seed)
   resolution = (64, 64)
+
+  if FLAGS.model_type == 'object_discovery':
+    assert FLAGS.num_frames == 1
 
   tf.config.run_functions_eagerly(True)
   if not FLAGS.cpu:
@@ -141,8 +147,7 @@ def main(argv):
 
   optimizer = tf.keras.optimizers.Adam(base_learning_rate, epsilon=1e-08)
 
-  model = model_utils.build_model(resolution, batch_size, num_slots,
-                                  num_iterations, model_type="object_discovery")
+  model = model_utils.build_model(resolution, batch_size, num_slots, model_type=FLAGS.model_type)
 
   # Prepare checkpoint manager.
   global_step = tf.Variable(
@@ -160,7 +165,7 @@ def main(argv):
   start = time.time()
   for itr in range(num_train_steps):
     # batch = next(data_iterator)
-    batch = data_iterator.get_batch(batch_size, 1)
+    batch = data_iterator.get_batch(batch_size, FLAGS.num_frames)
 
     # Learning rate warm-up.
     if global_step < warmup_steps:
@@ -208,5 +213,8 @@ if __name__ == "__main__":
 
   10/24/21
   CUDA_VISIBLE_DEVICES=2 python train_slot_attention.py --dataroot ball_data/Dk4s0n2000t10_ab --expname t1_b16
+
+
+  python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --num_train_steps 10
 """
 
