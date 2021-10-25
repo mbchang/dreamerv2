@@ -14,9 +14,66 @@
 # limitations under the License.
 
 """Misc. utilities."""
+from einops import rearrange
+from moviepy.editor import ImageSequenceClip
 import numpy as np
+from PIL import Image, ImageOps
 import scipy.optimize
 import tensorflow as tf
+
+# or maybe you can apply this to directly to the function itself
+# def bottle(fn, x):
+#   """
+#     1. x: b t ...
+#     2. x: (b t) ...
+#     3. fn(x): (b t) ...
+#     4. fn(x): b t ...
+#   """
+#   # assert len(x.shape) > 2
+#   bsize = len(x)
+#   x = rearrange(x, 'b t ... -> (b t) ...', b=bsize)
+#   y = fn(x)
+#   if isinstance(y, tuple):
+#     return (rearrange(yy, '(b t) ... -> b t ...', b=bsize) for yy in y)
+#   else:
+#     return rearrange(y, '(b t) ... -> b t ...', b=bsize)
+
+
+def bottle(fn):
+  """
+    1. x: b t ...
+    2. x: (b t) ...
+    3. fn(x): (b t) ...
+    4. fn(x): b t ...
+  """
+  def bottled_fn(x):
+    bsize = len(x)
+    flatten = lambda z: rearrange(z, 'b t ... -> (b t) ...', b=bsize)
+    unflatten = lambda z: rearrange(z, '(b t) ... -> b t ...', b=bsize)
+    # x = rearrange(x, 'b t ... -> (b t) ...', b=bsize)
+    y = fn(flatten(x))
+    if isinstance(y, tuple):
+      return (unflatten(yy) for yy in y)
+    else:
+      return unflatten(y)
+  return bottled_fn
+
+
+
+def add_border(video, tau):
+  if np.issubdtype(video.dtype, np.floating):
+    video = np.clip(255 * video, 0, 255).astype(np.uint8)
+  seed_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='red') for frame in video[:tau]])
+  imag_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='green') for frame in video[tau:]])
+  video = np.concatenate([seed_video, imag_video])
+  return video
+
+def save_gif(video, fname, fps=3):
+  """
+  video: (T, H, W, C)
+  """
+  clip = ImageSequenceClip(list(video), fps=fps)
+  clip.write_gif(f'{fname}.gif', fps=fps)
 
 def normalize(x):
   return (x - 0.5) * 2.0  # Rescale to [-1, 1]

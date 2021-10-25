@@ -39,8 +39,8 @@ class SlotAttentionAutoEncoder(layers.Layer):
     slots = self.slot_attention(slots, x)
     # `slots` has shape: [batch_size, num_slots, slot_size].
 
-    recon_combined, recons, masks = self.decode(slots)
-    return recon_combined, recons, masks, slots
+    recon_combined, comp, masks = self.decode(slots)
+    return recon_combined, comp, masks, slots
 
   def decode(self, slots):
     # Spatial broadcast decoder.
@@ -48,15 +48,15 @@ class SlotAttentionAutoEncoder(layers.Layer):
     # `x` has shape: [batch_size*num_slots, width, height, num_channels+1].
 
     # Undo combination of slot and batch dimension; split alpha masks.
-    recons, masks = sa.unstack_and_split(x, batch_size=slots.shape[0])
-    # `recons` has shape: [batch_size, num_slots, width, height, num_channels].
+    comp, masks = sa.unstack_and_split(x, batch_size=slots.shape[0])
+    # `comp` has shape: [batch_size, num_slots, width, height, num_channels].
     # `masks` has shape: [batch_size, num_slots, width, height, 1].
 
     # Normalize alpha masks over slots.
     masks = tf.nn.softmax(masks, axis=1)
-    recon_combined = tf.reduce_sum(recons * masks, axis=1)  # Recombine image.
+    recon_combined = tf.reduce_sum(comp * masks, axis=1)  # Recombine image.
     # `recon_combined` has shape: [batch_size, width, height, num_channels].
-    return recon_combined, recons, masks
+    return recon_combined, comp, masks
 
 
   # We use `tf.function` compilation to speed up execution. For debugging,
@@ -68,9 +68,9 @@ class SlotAttentionAutoEncoder(layers.Layer):
     # Get the prediction of the models and compute the loss.
     with tf.GradientTape() as tape:
       preds = self(batch["image"], training=True)
-      recon_combined, recons, masks, slots = preds
+      recon_combined, comp, masks, slots = preds
       loss_value = utils.l2_loss(batch["image"], recon_combined)
-      del recons, masks, slots  # Unused.
+      del comp, masks, slots  # Unused.
 
     # Get and apply gradients.
     gradients = tape.gradient(loss_value, self.trainable_weights)
@@ -78,16 +78,21 @@ class SlotAttentionAutoEncoder(layers.Layer):
 
     return loss_value
 
-  def get_prediction(self, batch, idx=0):
-    recon_combined, recons, masks, _ = self(batch["image"])
+  # def get_prediction(self, batch, idx=0):
+  #   recon_combined, comp, masks, _ = self(batch["image"])
+  #   image = utils.renormalize(batch["image"])[idx]
+  #   recon_combined = utils.renormalize(recon_combined)[idx]
+  #   comp = utils.renormalize(comp)[idx]
+  #   masks = masks[idx]
+  #   return image, recon_combined, comp, masks
+
+  def visualize(self, fname, batch, idx=0):
+    recon_combined, comp, masks, _ = self(batch["image"])
     image = utils.renormalize(batch["image"])[idx]
     recon_combined = utils.renormalize(recon_combined)[idx]
-    recons = utils.renormalize(recons)[idx]
+    comp = utils.renormalize(comp)[idx]
     masks = masks[idx]
-    return image, recon_combined, recons, masks
 
-  def visualize(self, fname, batch):
-    image, recon_combined, recons, masks = self.get_prediction(batch)
     num_slots = len(masks)
     fig, ax = plt.subplots(1, num_slots + 2, figsize=(15, 2))
     ax[0].imshow(image)
@@ -95,16 +100,19 @@ class SlotAttentionAutoEncoder(layers.Layer):
     ax[1].imshow(recon_combined)
     ax[1].set_title('Recon.')
     for i in range(num_slots):
-      ax[i + 2].imshow(recons[i] * masks[i] + (1 - masks[i]))
+      ax[i + 2].imshow(comp[i] * masks[i] + (1 - masks[i]))
       ax[i + 2].set_title('Slot %s' % str(i + 1))
     for i in range(len(ax)):
       ax[i].grid(False)
       ax[i].axis('off')
-    plt.savefig(fname)
+    plt.savefig(f'{fname}.png')
     plt.close()
 
 
 class FactorizedWorldModel(SlotAttentionAutoEncoder):
+  # model specific args
+  # video_pred: {seed_steps: 3, prediction_horizon: 7, num_ex: 5}
+
   def __init__(self, resolution, num_slots):
     super().__init__(resolution, num_slots)
     self.action_encoder = tf.keras.Sequential([
@@ -123,55 +131,58 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
 
       print(output['prior']['latent'].shape)  # (2, 3, 5, 64)
       print(output['prior']['pred']['comb'].shape)  # (2, 3, 64, 64, 3)
-      print(output['prior']['pred']['recons'].shape)  # (2, 3, 5, 64, 64, 3)
+      print(output['prior']['pred']['comp'].shape)  # (2, 3, 5, 64, 64, 3)
       print(output['prior']['pred']['masks'].shape)  # (2, 3, 5, 64, 64, 1)
       print(output['posterior']['latent'].shape)  # (2, 4, 5, 64)
       print(output['posterior']['pred']['comb'].shape)  # (2, 4, 64, 64, 3)
-      print(output['posterior']['pred']['recons'].shape)  # (2, 4, 5, 64, 64, 3)
+      print(output['posterior']['pred']['comp'].shape)  # (2, 4, 5, 64, 64, 3)
       print(output['posterior']['pred']['masks'].shape)  # (2, 4, 5, 64, 64, 1)
     """ 
     bsize = data['image'].shape[0]
-    embed = self.encoder(rearrange(data['image'], 'b t ... -> (b t) ...'))  # (b*t, h*w, do)
+    embed = utils.bottle(self.encoder)(data['image'])  # (b, t, h*w, do)
     priors, posteriors = self.filter(
       slots=self.slot_attention.reset(batch_size=bsize),  # (b, k, ds)
-      embeds=rearrange(embed, '(b t) ... -> t b ...', b=bsize), 
-      actions=rearrange(data['action'], 'b t ... -> t b ...', b=bsize))
-    rs_decode = lambda x: rearrange(x, 't b ... -> (b t) ...')
-    prior_comb, prior_recons, prior_masks = self.decode(rs_decode(priors))
-    post_comb, post_recons, post_masks = self.decode(rs_decode(posteriors))
-    rs_out = lambda x: rearrange(x, '(b t) ... -> b t ...', b=bsize)
+      embeds=embed, 
+      actions=data['action'])
+    prior_comb, prior_comp, prior_masks = utils.bottle(self.decode)(priors)
+    post_comb, post_comp, post_masks = utils.bottle(self.decode)(posteriors)
     output = dict(
       prior=dict(
-        latent=rearrange(priors, 't b ... -> b t ...'), 
-        pred=dict(comb=rs_out(prior_comb), recons=rs_out(prior_recons), masks=rs_out(prior_masks))),
+        latent=priors,
+        pred=dict(comb=prior_comb, comp=prior_comp, masks=prior_masks)),
       posterior=dict(
-        latent=rearrange(posteriors, 't b ... -> b t ...'), 
-        pred=dict(comb=rs_out(post_comb), recons=rs_out(post_recons), masks=rs_out(post_masks))))
+        latent = posteriors,
+        pred=dict(comb=post_comb, comp=post_comp, masks=post_masks)))
     return output
 
   def filter(self, slots, embeds, actions):
     """
       slots: (b, k, ds)
-      embeds: (t, b, h*w, do)
-      actions: (t-1, b, da)
+      embeds: (b, t, h*w, do)
+      actions: (b, t-1, da)
 
       this can be done using a transformer
       you can also try and see how the static scan thing works
     """
+    bsize = slots.shape[0]
     actions = self.action_encoder(actions)
+
     priors, posteriors = [], []
     # initial step
-    posterior = self.slot_attention(slots, embeds[0])
+    posterior = self.slot_attention(slots, embeds[:, 0])
     posteriors.append(posterior)
     # subsequent steps
-    for i in range(len(actions)):
-      context = tf.concat([posterior, rearrange(actions[i], 'b a -> b 1 a')], 1)
+    for i in range(actions.shape[1]):
+      context = tf.concat([posterior, rearrange(actions[:, i], 'b a -> b 1 a')], 1)
       # prior: t-1 to t'
       prior = self.dynamics(posterior, context)
       # posterior t' to t
-      posterior = self.slot_attention(prior, embeds[i+1])
+      posterior = self.slot_attention(prior, embeds[:, i+1])
       priors.append(prior)
       posteriors.append(posterior)
+
+    priors = rearrange(priors, 't b ... -> b t ...')
+    posteriors = rearrange(posteriors, 't b ... -> b t ...')
     return priors, posteriors
 
   def generate(self, slots, actions):
@@ -179,12 +190,16 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
       slots: (b, k, ds)
       actions: (b, t, da)
     """
+    bsize = slots.shape[0]
     actions = self.action_encoder(actions)
+
     latents = []
-    for i in range(len(actions)):
-      context = tf.concat([slots, rearrange(actions[i], 'b a -> b 1 a')], 1)
+    for i in range(actions.shape[1]):
+      context = tf.concat([slots, rearrange(actions[:, i], 'b a -> b 1 a')], 1)
       slots = self.dynamics(slots, context)
       latents.append(slots)
+
+    latents = rearrange(latents, 't b ... -> b t ...')
     return latents
 
   @tf.function
@@ -210,21 +225,46 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
 
     return loss_value
 
-  def get_prediction(self, batch, idx=0):
-    raise NotImplementedError
-    output = self(batch, training=True)
+  def imagine(self, slots, actions):
+    """
+      slots: (b, k, ds)
+      actions: (b, t, da)
+    """
+    bsize = slots.shape[0]
+    imag_latent = self.generate(slots, actions)
+    imag_comb, imag_comp, imag_masks = utils.bottle(self.decode)(imag_latent)
+    imag_output = dict(
+      latent=imag_latent,
+      pred=dict(comb=imag_comb, comp=imag_comp, masks=imag_masks)
+      )
+    return imag_output
 
-    recon_combined, recons, masks, _ = self(batch["image"])
-    image = utils.renormalize(batch["image"])[idx]
-    recon_combined = utils.renormalize(recon_combined)[idx]
-    recons = utils.renormalize(recons)[idx]
-    masks = masks[idx]
-    return image, recon_combined, recons, masks
+  def visualize(self, fname, batch, seed_steps=3, pred_horizon=5, num_ex=2):
+    obs = batch['image'][:num_ex, :seed_steps + pred_horizon]
+    act = batch['action'][:num_ex, :seed_steps - 1 + pred_horizon]
+    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps-1]})
+    imag_output = self.imagine(
+      recon_output['prior']['latent'][:, -1], 
+      act[:, seed_steps-1:])
+    recon_comb = recon_output['posterior']['pred']['comb']
+    recon_comp = recon_output['posterior']['pred']['comp']
+    recon_masks = recon_output['posterior']['pred']['masks']
+    imag_comb = imag_output['pred']['comb']
+    imag_comp = imag_output['pred']['comp']
+    imag_masks = imag_output['pred']['masks']
 
+    truth = utils.renormalize(obs)  # (b, t, h, w, c)
+    model = utils.renormalize(tf.concat([recon_comb, imag_comb], 1))  # (b, t, h, w, c)
+    components = tf.concat([
+      utils.renormalize(recon_comp) * recon_masks + (1 - recon_masks),
+      utils.renormalize(imag_comp) * imag_masks + (1 - imag_masks),
+      ], 1)  # (b, t, k, h, w, c)
+    error = (model - truth + 1) / 2  # (b, t, h, w, c)
 
+    video = tf.concat([truth, model, error, rearrange(components, 'b t k h w c -> b t (k h) w c')], 2)
+    video = rearrange(video, 'b t h w c -> t h (b w) c')
 
-
-
+    utils.save_gif(utils.add_border(video.numpy(), seed_steps), fname)
 
 
 class SlotAttentionClassifier(layers.Layer):
