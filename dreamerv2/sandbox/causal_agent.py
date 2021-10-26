@@ -294,6 +294,8 @@ class WorldModel(common.Module):
   @tf.function
   def slot_video_pred(self, data, key):
     n, t = self.config.video_pred.batch_size, self.config.video_pred.seed_steps
+    # n actually turns out to be min(config.video_pred.batch_size, config.dataset.batch)
+    # t actually turns out to be min(config.video_pred.seed_steps, config.dataset.length)
     decoder = self.heads['decoder']
     truth = nmlz.uncenter(data[key][:n])
     embed = self.encoder(data)

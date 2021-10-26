@@ -10,7 +10,9 @@ from tensorflow_probability import distributions as tfd
 from . import dists
 from . import tfutils
 
-
+"""
+when we use this RandomAgent in the driver, it takes a state of None and outputs a state of None
+"""
 class RandomAgent:
 
   def __init__(self, act_space, logprob=False):
@@ -44,6 +46,33 @@ def static_scan(fn, inputs, start, reverse=False):
     outputs = [list(reversed(x)) for x in outputs]
   outputs = [tf.stack(x, 0) for x in outputs]
   return tf.nest.pack_sequence_as(start, outputs)
+
+"""
+for observe:
+  start is (state, state)
+  len(inputs) is 3
+    inputs[0] is action: (T, B, A)
+    inputs[1] is embed: (T, B, X)
+    inputs[2] is is_first: (T, B)
+  outputs: a list of 6 empty lists, 3 for post, 3 for prior
+
+"""
+
+
+"""
+for imagine:
+
+inputs would be the action
+start would be the initial state
+indices are the indices of the timesteps. If len(inputs) = 3, then indices would be: [0, 1, 2]
+inp: selects the [index] entry from inputs
+last: might be a dict
+[o.append(l)...]: we distribute the stuff in the dict of last into outputs
+outputs = [tf.stack(x, 0)...]: then we stack the outputs at the end, so each entry in outputs is a key, and each entry would then be (T, ...) where T is the length of the inputs
+tf.nest.pack_sequence_as(start, outputs): assigns keys from start to the entries in outputs
+
+Hmm. I wonder if they could have just kept the keys throughout, rather than converting a dict into a list of lists and then converting the list of lists to a dict again.
+"""
 
 
 def schedule(string, step):

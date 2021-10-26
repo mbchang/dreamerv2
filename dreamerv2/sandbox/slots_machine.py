@@ -85,12 +85,19 @@ class EnsembleRSSM(common.Module):
   @tf.function
   def observe(self, embed, action, is_first, state=None):
     """
-      embed: (16, 50, 1536)
-      action: (16, 50, 6)
+      embed: (B, T, X)
+      action: (B, T, A)
       state: 
-        logit: (B, num_variables, vocab_size)
-        stoch: (B, num_variables, vocab_size)
-        deter: (B, deter)
+        logit: (B, K, S, V)
+        stoch: (B, K, S, V)
+        deter: (B, K, D)
+
+      if embed goes from [t : t+T]
+      then action goes from [t-1: t+T-1]
+      and state is from t-1
+
+      prev is (prior, posterior) from the previous step
+      so prev[0] refers to using the prior from the previous step as the input state
     """
     swap = lambda x: tf.transpose(x, [1, 0] + list(range(2, len(x.shape))))
     if state is None:
@@ -104,6 +111,19 @@ class EnsembleRSSM(common.Module):
 
   @tf.function
   def imagine(self, action, state=None):
+    """
+    t: seed steps
+    T: total length
+    H: prediction horizon. H = T-t
+
+    action        (H, B, A)
+    state logit   (B, K, S, V)
+    state stoch   (B, K, S, V)
+    state deter   (B, K, D)
+    prior logit   (H, B, K, S, V)
+    prior stoch   (H, B, K, S, V)
+    prior deter   (H, B, K, D)
+    """
     swap = lambda x: tf.transpose(x, [1, 0] + list(range(2, len(x.shape))))
     if state is None:
       state = self.initial(tf.shape(action)[0])
@@ -135,7 +155,16 @@ class EnsembleRSSM(common.Module):
 
   @tf.function
   def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
-    # if is_first.any():
+    """
+      prev_state:
+        logit   (B, K, S, V)
+        stoch   (B, K, S, V)
+        deter   (B, K, D)
+      action: (B, A)
+      embed: (B, X)
+      is_first: (B)
+    """
+    # if is_first[idx] then we zero out prev_state[idx] and prev_action[idx]
     prev_state, prev_action = tf.nest.map_structure(
         lambda x: tf.einsum(
             'b,b...->b...', 1.0 - is_first.astype(x.dtype), x),

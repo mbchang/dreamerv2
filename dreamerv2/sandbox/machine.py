@@ -98,6 +98,19 @@ class EnsembleRSSM(common.Module):
 
   @tf.function
   def imagine(self, action, state=None):
+    """
+    t: seed steps
+    T: total length
+    H: prediction horizon. H = T-t
+
+    action        (H, B, A)
+    state logit   (B, S, V)
+    state stoch   (B, S, V)
+    state deter   (B, D)
+    prior logit   (H, B, S, V)
+    prior stoch   (H, B, S, V)
+    prior deter   (H, B, D)
+    """
     swap = lambda x: tf.transpose(x, [1, 0] + list(range(2, len(x.shape))))
     if state is None:
       state = self.initial(tf.shape(action)[0])
