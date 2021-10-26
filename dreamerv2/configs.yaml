@@ -59,6 +59,8 @@ defaults:
   kl: {free: 0.0, forward: False, balance: 0.8, free_avg: True}
   model_opt: {opt: adam, lr: 1e-4, eps: 1e-5, clip: 100, wd: 1e-6}
 
+  wm: 'default'
+
   # Testing out Encoders and Decoders
   encoder_type: 'default'
   decoder_type: 'default'

@@ -182,7 +182,17 @@ def main():
   elif config.agent == 'causal':
     from sandbox import causal_agent
     # agnt = causal_agent.CausalAgent(config, obs_space, act_space, step)
-    agnt = causal_agent.WorldModel(config, obs_space, tf.Variable(int(step), tf.int64))
+    # agnt = causal_agent.WorldModel(config, obs_space, tf.Variable(int(step), tf.int64))
+
+    if config.wm == 'default':
+      agnt = causal_agent.WorldModel(config, obs_space, tf.Variable(int(step), tf.int64))
+    elif config.wm == 'fwm':
+      # from sandbox.dreamer_wrapper import FactorizedWorldModelWrapperForDreamer
+      from sandbox import dreamer_wrapper
+      agnt = dreamer_wrapper.FactorizedWorldModelWrapperForDreamer(config, obs_space, tf.Variable(int(step), tf.int64))
+    else:
+      raise NotImplementedError
+
   else:
     raise NotImplementedError
   #############################################################
@@ -257,4 +267,8 @@ What are the current differences from the pytorch version?
 python dreamerv2/train_model.py --logdir runs/debug/model/default_cheetah --configs debug --task dmc_cheetah_run --agent causal --log_every 5 --dataset.batch 10 --video_pred.seed_steps 2 --dataset.length 5
 
 python dreamerv2/train_model.py --logdir runs/debug/model/slot2 --configs debug --task dmc_cheetah_run --agent causal --log_every 5 --dataset.batch 10 --video_pred.seed_steps 2 --dataset.length 5 --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slimmerslot --encoder_type slimmerslot --rssm.num_slots 2
+
+
+10/25/21
+python dreamerv2/train_model.py --logdir runs/debug/model/slot2 --configs debug --task dmc_cheetah_run --agent causal --log_every 5 --dataset.batch 10 --video_pred.seed_steps 2 --dataset.length 5 --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slimmerslot --encoder_type slimmerslot --rssm.num_slots 2 --wm fwm
 """
