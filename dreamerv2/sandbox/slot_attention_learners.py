@@ -232,13 +232,12 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
       )
     return imag_output
 
-  def visualize(self, fname, batch, seed_steps=3, pred_horizon=5, num_ex=2):
+  def visualize(self, fname, batch, seed_steps=3, pred_horizon=5, num_ex=5):
     obs = batch['image'][:num_ex, :seed_steps + pred_horizon]
     act = batch['action'][:num_ex, :seed_steps - 1 + pred_horizon]
     recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps-1]})
-    imag_output = self.imagine(
-      recon_output['prior']['latent'][:, -1], 
-      act[:, seed_steps-1:])
+    imag_output = self.imagine(recon_output['prior']['latent'][:, -1], act[:, seed_steps-1:])
+
     recon_comb = recon_output['posterior']['pred']['comb']
     recon_comp = recon_output['posterior']['pred']['comp']
     recon_masks = recon_output['posterior']['pred']['masks']
