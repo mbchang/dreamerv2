@@ -11,7 +11,7 @@ import attention
 class SlotAttentionAutoEncoder(layers.Layer):
   """Slot Attention-based auto-encoder for object discovery."""
 
-  def __init__(self, resolution, num_slots):
+  def __init__(self, resolution, num_slots, temp):
     """Builds the Slot Attention-based auto-encoder.
 
     Args:
@@ -23,7 +23,7 @@ class SlotAttentionAutoEncoder(layers.Layer):
     self.num_slots = num_slots
 
     self.encoder = sa.SlotAttentionEncoder(self.resolution, 64)
-    self.slot_attention = sa.SlotAttention(slot_size=64)
+    self.slot_attention = sa.SlotAttention(slot_size=64, temp=temp)
     self.slot_attention.register_num_slots(self.num_slots)
     self.decoder = sa.SlotAttentionDecoder(64, resolution)
 
@@ -105,8 +105,8 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
   # model specific args
   # video_pred: {seed_steps: 3, prediction_horizon: 7, num_ex: 5}
 
-  def __init__(self, resolution, num_slots):
-    super().__init__(resolution, num_slots)
+  def __init__(self, resolution, num_slots, temp):
+    super().__init__(resolution, num_slots, temp)
     self.action_encoder = tf.keras.Sequential([
       layers.Dense(64, activation='relu'),
       layers.Dense(64)
@@ -325,12 +325,12 @@ class SlotAttentionClassifier(layers.Layer):
     return predictions
 
 
-def build_model(resolution, batch_size, num_slots, model_type="object_discovery"):
+def build_model(resolution, batch_size, num_slots, temp, model_type="object_discovery"):
   num_channels = 3
 
   """Build keras model."""
   if model_type == "object_discovery":
-    model = SlotAttentionAutoEncoder(resolution, num_slots)
+    model = SlotAttentionAutoEncoder(resolution, num_slots, temp)
     # image = tf.keras.Input(list(resolution) + [num_channels], batch_size)
     # outputs = model(image)
     # model = tf.keras.Model(inputs=image, outputs=outputs)
@@ -340,7 +340,7 @@ def build_model(resolution, batch_size, num_slots, model_type="object_discovery"
     # outputs = model(image)
     # model = tf.keras.Model(inputs=image, outputs=outputs)
   elif model_type == 'factorized_world_model':
-    model = FactorizedWorldModel(resolution, num_slots)
+    model = FactorizedWorldModel(resolution, num_slots, temp)
     # image = tf.keras.Input([1] + list(resolution) + [num_channels], batch_size)
     # outputs = model(image)
     # model = tf.keras.Model(inputs=image, outputs=outputs)

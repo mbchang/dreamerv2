@@ -71,6 +71,9 @@ flags.DEFINE_string("model_type", "object_discovery", "object_discovery | factor
 
 flags.DEFINE_integer("pred_horizon", 0, "prediction horizon")
 
+flags.DEFINE_float("slot_temp", 1, "slot temp")
+
+
 
 class WhiteBallDataLoader():
   def __init__(self, h5):
@@ -150,7 +153,7 @@ def main(argv):
 
   optimizer = tf.keras.optimizers.Adam(base_learning_rate, epsilon=1e-08)
 
-  model = model_utils.build_model(resolution, batch_size, num_slots, model_type=FLAGS.model_type)
+  model = model_utils.build_model(resolution, batch_size, num_slots, FLAGS.slot_temp, model_type=FLAGS.model_type)
 
   # Prepare checkpoint manager.
   global_step = tf.Variable(

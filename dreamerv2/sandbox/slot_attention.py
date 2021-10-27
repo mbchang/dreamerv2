@@ -25,7 +25,7 @@ class SlotAttention(layers.Layer):
   epsilon = 1e-8
   num_iterations = 3
 
-  def __init__(self, slot_size, learn_initial_dist=True):
+  def __init__(self, slot_size, temp=1, learn_initial_dist=True):
     """Builds the Slot Attention module.
 
     Args:
@@ -38,6 +38,7 @@ class SlotAttention(layers.Layer):
     super().__init__()
     self.slot_size = slot_size
     self.mlp_hidden_size = 2 * slot_size
+    self.temp = temp
 
     self.norm_inputs = layers.LayerNormalization()
     self.norm_slots = layers.LayerNormalization()
@@ -100,7 +101,7 @@ class SlotAttention(layers.Layer):
 
         # Attention.
         q = self.project_q(slots)  # Shape: [batch_size, num_slots, slot_size].
-        q *= self.slot_size ** -0.5  # Normalization.
+        q *= (self.slot_size ** -0.5 / self.temp)  # Normalization.
         attn_logits = tf.keras.backend.batch_dot(k, q, axes=-1)
         attn = tf.nn.softmax(attn_logits, axis=-1)
         # `attn` has shape: [batch_size, num_inputs, num_slots].
