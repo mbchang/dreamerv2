@@ -85,7 +85,8 @@ class SlotAttention(layers.Layer):
 
   def reset(self, batch_size):
     # Initialize the slots. Shape: [batch_size, num_slots, slot_size].
-    slots = self.slots_mu + tf.exp(self.slots_log_sigma) * tf.random.normal([batch_size, self.num_slots, self.slot_size]) 
+    noise = tf.random.normal([batch_size, self.num_slots, self.slot_size])
+    slots = self.slots_mu + tf.exp(self.slots_log_sigma) * tf.cast(noise, self.slots_mu.dtype)
     return slots
 
   def call(self, slots, inputs):
