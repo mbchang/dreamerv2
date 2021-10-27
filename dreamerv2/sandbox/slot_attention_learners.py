@@ -236,7 +236,8 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
     obs = batch['image'][:num_ex, :seed_steps + pred_horizon]
     act = batch['action'][:num_ex, :seed_steps - 1 + pred_horizon]
     recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps-1]})
-    imag_output = self.imagine(recon_output['prior']['latent'][:, -1], act[:, seed_steps-1:])
+    # imag_output = self.imagine(recon_output['prior']['latent'][:, -1], act[:, seed_steps-1:])  # shouldn't the initial state here be the posterior?
+    imag_output = self.imagine(recon_output['posterior']['latent'][:, -1], act[:, seed_steps-1:])  # shouldn't the initial state here be the posterior?
 
     recon_comb = recon_output['posterior']['pred']['comb']
     recon_comp = recon_output['posterior']['pred']['comp']
