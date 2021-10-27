@@ -82,11 +82,11 @@ class EnsembleRSSM(common.Module):
       embed: (16, 50, 1536)
       action: (16, 50, 6)
       state: 
-        logit: (B, num_variables, vocab_size)
-        stoch: (B, num_variables, vocab_size)
-        deter: (B, deter)
+        logit: (B, S, V)
+        stoch: (B, S, V)
+        deter: (B, D)
     """
-    swap = lambda x: tf.transpose(x, [1, 0] + list(range(2, len(x.shape))))
+    swap = lambda x: rearrange(x, 'x y ... -> y x ...')
     if state is None:
       state = self.initial(tf.shape(action)[0])
     post, prior = common.static_scan(
@@ -111,7 +111,7 @@ class EnsembleRSSM(common.Module):
     prior stoch   (H, B, S, V)
     prior deter   (H, B, D)
     """
-    swap = lambda x: tf.transpose(x, [1, 0] + list(range(2, len(x.shape))))
+    swap = lambda x: rearrange(x, 'x y ... -> y x ...')
     if state is None:
       state = self.initial(tf.shape(action)[0])
     assert isinstance(state, dict), state

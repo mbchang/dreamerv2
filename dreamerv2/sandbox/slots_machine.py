@@ -99,7 +99,7 @@ class EnsembleRSSM(common.Module):
       prev is (prior, posterior) from the previous step
       so prev[0] refers to using the prior from the previous step as the input state
     """
-    swap = lambda x: tf.transpose(x, [1, 0] + list(range(2, len(x.shape))))
+    swap = lambda x: rearrange(x, 'x y ... -> y x ...')
     if state is None:
       state = self.initial(tf.shape(action)[0])
     post, prior = common.static_scan(
@@ -124,7 +124,7 @@ class EnsembleRSSM(common.Module):
     prior stoch   (H, B, K, S, V)
     prior deter   (H, B, K, D)
     """
-    swap = lambda x: tf.transpose(x, [1, 0] + list(range(2, len(x.shape))))
+    swap = lambda x: rearrange(x, 'x y ... -> y x ...')
     if state is None:
       state = self.initial(tf.shape(action)[0])
     assert isinstance(state, dict), state
