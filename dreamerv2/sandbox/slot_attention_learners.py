@@ -76,7 +76,11 @@ class SlotAttentionAutoEncoder(layers.Layer):
     gradients = tape.gradient(loss_value, self.trainable_weights)
     optimizer.apply_gradients(zip(gradients, self.trainable_weights))
 
-    return loss_value
+    # dummy variables
+    output = None
+    metrics = None
+
+    return loss_value, output, metrics
 
   def visualize(self, fname, batch, idx=0):
     recon_combined, comp, masks, _ = self(batch["image"])
@@ -104,6 +108,16 @@ class SlotAttentionAutoEncoder(layers.Layer):
 class FactorizedWorldModel(SlotAttentionAutoEncoder):
   # model specific args
   # video_pred: {seed_steps: 3, prediction_horizon: 7, num_ex: 5}
+
+
+  """
+  Good hyperparameters
+    - batch_size 32 (although I don't think this makes that much of a diff)
+    - lr: 1e-4 --> this seems to be important
+    - warmup_steps: 0 (although maybe having some warmup will help?)
+    - decay_rate: 0.5 (although I have not really tried others --> I should probably decay this more aggressively, or reduce the number of decay steps)
+    - slot_temp: 0.5 --> this seems to be important
+  """
 
   def __init__(self, resolution, num_slots, temp):
     super().__init__(resolution, num_slots, temp)
@@ -205,6 +219,13 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
         output['posterior']['latent'][:, 1:], output['prior']['latent'])
       # add overshooting loss here? 
 
+      metrics = {
+        'prior': prior_loss,
+        'posterior': posterior_loss,
+        'initial_latent': initial_latent_loss,
+        'subsequent_latent': subsequent_latent_loss
+      }
+
       loss_value = tf.reduce_sum([
         prior_loss,
         posterior_loss,
@@ -216,7 +237,7 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
     gradients = tape.gradient(loss_value, self.trainable_weights)
     optimizer.apply_gradients(zip(gradients, self.trainable_weights))
 
-    return loss_value
+    return loss_value, output, metrics
 
   def imagine(self, slots, actions):
     """
@@ -232,7 +253,7 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
       )
     return imag_output
 
-  def visualize(self, fname, batch, seed_steps=3, pred_horizon=5, num_ex=5):
+  def visualize(self, batch, seed_steps=3, pred_horizon=5, num_ex=5):
     obs = batch['image'][:num_ex, :seed_steps + pred_horizon]
     act = batch['action'][:num_ex, :seed_steps - 1 + pred_horizon]
     recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps-1]})
@@ -256,8 +277,7 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
 
     video = tf.concat([truth, model, error, rearrange(components, 'b t k h w c -> b t (k h) w c')], 2)
     video = rearrange(video, 'b t h w c -> t h (b w) c')
-
-    utils.save_gif(utils.add_border(video.numpy(), seed_steps), fname)
+    return video
 
 
 class SlotAttentionClassifier(layers.Layer):

@@ -71,7 +71,7 @@ flags.DEFINE_string("model_type", "object_discovery", "object_discovery | factor
 
 flags.DEFINE_integer("pred_horizon", 0, "prediction horizon")
 
-flags.DEFINE_float("slot_temp", 1, "slot temp")
+flags.DEFINE_float("slot_temp", 1, "slot temp")  # 5e-1 seems best so far
 
 
 
@@ -117,8 +117,6 @@ def main(argv):
 
   if FLAGS.model_type == 'object_discovery':
     assert FLAGS.num_frames == 1
-  if FLAGS.num_frames > 1:
-    assert FLAGS.pred_horizon < FLAGS.num_frames
 
   tf.config.run_functions_eagerly(True)
   if not FLAGS.cpu:
@@ -183,7 +181,7 @@ def main(argv):
         tf.cast(global_step, tf.float32) / tf.cast(decay_steps, tf.float32)))
     optimizer.lr = learning_rate.numpy()
 
-    loss_value = model.train_step(batch=batch, optimizer=optimizer)
+    loss_value, _, _ = model.train_step(batch=batch, optimizer=optimizer)
 
     # Update the global step. We update it before logging the loss and saving
     # the model so that the last checkpoint is saved at the last iteration.
@@ -207,8 +205,14 @@ def main(argv):
 
     if not global_step % FLAGS.vis_every:
       if FLAGS.num_frames > 1:
-        model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch, 
-          seed_steps=FLAGS.num_frames-FLAGS.pred_horizon, pred_horizon=FLAGS.pred_horizon)  # for now
+        # sequence_length = FLAGS.num_frames
+        sequence_length = 10
+        assert FLAGS.pred_horizon < sequence_length
+        seed_steps = sequence_length-FLAGS.pred_horizon
+
+        batch = data_iterator.get_batch(batch_size, sequence_length)
+        video = model.visualize(batch, seed_steps=seed_steps, pred_horizon=FLAGS.pred_horizon)  # for now
+        utils.save_gif(utils.add_border(video.numpy(), seed_steps), os.path.join(expdir, f'{global_step.numpy()}'))
       else:
         model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch)
 
