@@ -154,6 +154,33 @@ class WorldModel(common.Module):
       height (B, T)
       velocity (B, T, V)
       action (B, T, A)
+
+
+      outputs:
+        embed: (B, T, X)
+        feat: (B, T, F)
+        post: 
+          stoch: (B, T, S, V)
+          logit: (B, T, S, V)
+          deter: (B, T, D)
+        prior:
+          stoch: (B, T, S, V)
+          logit: (B, T, S, V)
+          deter: (B, T, D)
+        likes:
+          image: (B, T)
+          reward: (B, T)
+          discount: (B, T)
+        kl: (B, T)
+
+      metrics: (scalars)
+        kl_loss:
+        image_loss:
+        reward_loss:
+        discount_loss:
+        model_kl:
+        prior_ent:
+        post_ent:
     """
     with tf.GradientTape() as model_tape:
       model_loss, state, outputs, metrics = self.loss(data, state)
