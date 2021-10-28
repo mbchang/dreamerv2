@@ -441,6 +441,28 @@ def train_model_balls_sanity_10_23_21():
 
 
 
+def train_model_balls_fwm_10_27_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['balls_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.dynamics', ['slim_cross_attention'])
+    r.add_flag('rssm.update', ['slot_attention'])
+    r.add_flag('decoder_type', ['slot'])
+    r.add_flag('encoder_type', ['slimslot'])
+    r.add_flag('dataset.batch', [32])
+    r.add_flag('wm', ['fwm'])
+    r.add_flag('precision', [32])
+    r.add_flag('prefill', [20000])
+    r.add_flag('log_every', [100])  # ends up being double for some reason
+    r.add_flag('eval_every', [500])  # ends up being double for some reason
+    r.add_flag('dataset.length', [3])
+    r.add_flag('video_pred.seed_steps', [2])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('logdir', ['runs/model/balls_sa_ns5_t3_fwm'])
+    r.generate_commands(args.for_real)
 
 
 
@@ -449,4 +471,5 @@ if __name__ == '__main__':
     # train_model_sanity()
     # train_model_single_step_sanity_10_22_21()
     # train_model_two_step_sanity_10_22_21()
-    train_model_balls_sanity_10_23_21()
+    # train_model_balls_sanity_10_23_21()
+    train_model_balls_fwm_10_27_21()
