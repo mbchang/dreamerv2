@@ -49,7 +49,6 @@ flags.DEFINE_integer("seed", 0, "Random seed.")
 flags.DEFINE_integer("batch_size", 64, "Batch size for the model.")
 flags.DEFINE_integer("num_slots", 5, "Number of slots in Slot Attention.")
 flags.DEFINE_integer("num_frames", 1, "Number of frames")
-# flags.DEFINE_integer("num_iterations", 3, "Number of attention iterations.")
 flags.DEFINE_float("learning_rate", 0.0004, "Learning rate.")
 flags.DEFINE_integer("num_train_steps", 500000, "Number of training steps.")
 flags.DEFINE_integer("warmup_steps", 10000,
