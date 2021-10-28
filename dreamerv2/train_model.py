@@ -234,6 +234,7 @@ def main():
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
         metrics[name].clear()
+      lgr.info(f'Generating train report (step {step.value})...')
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
 
