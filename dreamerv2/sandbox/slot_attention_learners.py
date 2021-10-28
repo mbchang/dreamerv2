@@ -214,10 +214,10 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
       output = self(batch, training=True)
       prior_loss = utils.l2_loss(batch['image'][:, 1:], output['prior']['pred']['comb'])
       posterior_loss = utils.l2_loss(batch['image'], output['posterior']['pred']['comb'])
-      initial_latent_loss = 0  # do we want this?
       subsequent_latent_loss = utils.l2_loss(
         output['posterior']['latent'][:, 1:], output['prior']['latent'])
       # add overshooting loss here? 
+      initial_latent_loss = tf.cast(tf.convert_to_tensor(0), subsequent_latent_loss.dtype)  # do we want this?
 
       metrics = {
         'prior': prior_loss,
