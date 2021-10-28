@@ -134,6 +134,7 @@ class EnsembleRSSM(common.Module):
     return prior
 
   def get_feat(self, state):
+    # during sampling, we had cast stoch to f32, now we cast it back to f16
     stoch = self._cast(state['stoch'])
     if self._discrete:
       stoch = einops.rearrange(stoch, '... s v -> ... (s v)')
