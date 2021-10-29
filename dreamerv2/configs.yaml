@@ -60,6 +60,7 @@ defaults:
   model_opt: {opt: adam, lr: 1e-4, eps: 1e-5, clip: 100, wd: 1e-6}
 
   wm: 'default'
+  wm_only: False
 
   # Testing out Encoders and Decoders
   encoder_type: 'default'
