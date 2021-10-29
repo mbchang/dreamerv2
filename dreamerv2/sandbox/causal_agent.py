@@ -16,7 +16,16 @@ class CausalAgent(common.Module):
     self.act_space = act_space['action']
     self.step = step
     self.tfstep = tf.Variable(int(self.step), tf.int64)
-    self.wm = WorldModel(config, obs_space, self.tfstep)
+    # self.wm = WorldModel(config, obs_space, self.tfstep)
+
+    if config.wm == 'default':
+      self.wm = WorldModel(config, obs_space, self.tfstep)
+    elif config.wm == 'fwm':
+      from sandbox import dreamer_wrapper
+      self.wm = dreamer_wrapper.FactorizedWorldModelWrapperForDreamer(config, obs_space, self.tfstep)
+    else:
+      raise NotImplementedError
+
     self._task_behavior = ActorCritic(config, self.act_space, self.tfstep)
     if config.expl_behavior == 'greedy':
       self._expl_behavior = self._task_behavior
@@ -70,13 +79,14 @@ class CausalAgent(common.Module):
     metrics = {}
     state, outputs, mets = self.wm.train(data, state)
     metrics.update(mets)
-    start = outputs['post']
-    reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
-    metrics.update(self._task_behavior.train(
-        self.wm, start, data['is_terminal'], reward))
-    if self.config.expl_behavior != 'greedy':
-      mets = self._expl_behavior.train(start, outputs, data)[-1]
-      metrics.update({'expl_' + key: value for key, value in mets.items()})
+    if not self.config.wm_only:
+      start = outputs['post']
+      reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
+      metrics.update(self._task_behavior.train(
+          self.wm, start, data['is_terminal'], reward))
+      if self.config.expl_behavior != 'greedy':
+        mets = self._expl_behavior.train(start, outputs, data)[-1]
+        metrics.update({'expl_' + key: value for key, value in mets.items()})
     return state, metrics
 
   @tf.function
@@ -90,17 +100,6 @@ class CausalAgent(common.Module):
       else:
         report[f'openl_{name}'] = self.wm.video_pred(data, key)
     return report
-
-
-# class ModelInterfaces():
-#   def __init__(self, encoder_outdim, latent_dim, decoder_indim,
-#     encoder_type, decoder_type, dynamics):
-#     self.encoder_outdim = encoder_out
-#     self.latent_dim = latent_dim
-#     self.decoder_indim = decoder_in
-
-#   def encoder_to_latent(self, enc_out):
-#     if self.encoder_type 
 
 
 class WorldModel(common.Module):
