@@ -1,14 +1,19 @@
+import datetime
 from loguru import logger as lgr
 import ml_collections
 import os
+from pathlib import Path
 import sys
 sys.path.append(os.path.dirname(__file__))
 import tensorflow as tf
+import wandb
 
 import common
 
 from sandbox import causal_agent
 from sandbox import slot_attention_learners
+
+
 
 
 """
@@ -80,6 +85,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
           seed=0)),
         monitoring=ml_collections.ConfigDict(dict(
           log_every=100,
+          # log_every=1,
           save_every=1000,
           vis_every=1000))
         ))
@@ -88,9 +94,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
 
   def __init__(self, config, obs_space, tfstep):
     self.config = config
-
     self.defaults = FactorizedWorldModelWrapperForDreamer.get_default_args()
-
 
     self.model = slot_attention_learners.FactorizedWorldModel(
       num_slots=self.defaults.sess.num_slots,  # should be removed at some point
@@ -99,8 +103,14 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
 
     self.step = 0
 
-    # hyperparameters
-
+    wandb.init(
+        config=self.defaults.to_dict(),  # will need to change this
+        project='slot attention',
+        dir=self.config.logdir,
+        group=f'dreamer_wrapper_{Path(self.config.logdir).parent.name}',
+        job_type='train',
+        id=f'dw_{Path(self.config.logdir).name}_{datetime.datetime.now():%Y%m%d%H%M%S}'
+        )
 
   def adjust_lr(self, step):
     if self.step < self.defaults.optim.warmup_steps:
@@ -129,17 +139,23 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     # delete the first action
     data['action'] = data['action'][:, 1:]
 
-    # decay learning rate
-
-    # Learning rate warm-up.
+    # adjust learning rate
     lr = self.adjust_lr(self.step)
 
     # train step
     loss, outputs, mets = self.model.train_step(data, self.optimizer)
+
+    self.step += 1
+
     if self.step % self.defaults.monitoring.log_every == 0:
       lgr.info(f'step: {self.step}\tloss: {loss}\tlr: {lr}')
 
-    self.step += 1
+      wandb.log({
+          f'train/itr': self.step,
+          f'train/loss': loss,
+          f'train/learning_rate': lr,
+          }, step=self.step)
+
 
     # state is dummy
     state = None
@@ -176,4 +192,10 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
 
 """
 python dreamerv2/train_model.py --logdir runs/debug/model/slot2 --configs debug --task dmc_cheetah_run --agent causal --log_every 5 --dataset.batch 10 --video_pred.seed_steps 2 --dataset.length 5 --rssm.dynamics slim_cross_attention --rssm.update slot_attention --decoder_type slimmerslot --encoder_type slimmerslot --rssm.num_slots 2 --wm fwm --precision 32
+
+
+python dreamerv2/train_model.py --logdir runs/debug/merge/default --configs debug --task balls_whiteball_push --agent causal --wm_only=True --precision 32 --wm fwm
+
+
+python dreamerv2/train_model.py --logdir runs/debug/merge/default --configs debug --task balls_whiteball_push --agent causal --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm
 """
