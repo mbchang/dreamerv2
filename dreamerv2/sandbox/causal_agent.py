@@ -91,15 +91,16 @@ class CausalAgent(common.Module):
 
   @tf.function
   def report(self, data):
-    report = {}
-    data = self.wm.preprocess(data)
-    for key in self.wm.heads['decoder'].cnn_keys:
-      name = key.replace('/', '_')
-      if self.config.rssm.num_slots > 1:
-        report[f'openl_{name}'] = self.wm.slot_video_pred(data, key)
-      else:
-        report[f'openl_{name}'] = self.wm.video_pred(data, key)
-    return report
+    return self.wm.report(data)
+    # report = {}
+    # data = self.wm.preprocess(data)
+    # for key in self.wm.heads['decoder'].cnn_keys:
+    #   name = key.replace('/', '_')
+    #   if self.config.rssm.num_slots > 1:
+    #     report[f'openl_{name}'] = self.wm.slot_video_pred(data, key)
+    #   else:
+    #     report[f'openl_{name}'] = self.wm.video_pred(data, key)
+    # return report
 
 
 class WorldModel(common.Module):
