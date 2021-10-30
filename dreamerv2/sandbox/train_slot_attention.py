@@ -79,6 +79,11 @@ class WhiteBallDataLoader():
     self.h5 = h5
     assert 'observations' in self.h5.keys() and 'actions' in self.h5.keys()
 
+  def normalize_actions(self, act_batch):
+    # normalize actions from [0, 5] to [-1, 1]
+    act_batch = (act_batch * 2./5) - 1
+    return act_batch
+
   def get_batch(self, batch_size, num_frames):
     batch_indices = np.random.choice(self.h5['observations'].shape[0], size=batch_size, replace=False)
     obs_batch = self.h5['observations'][sorted(batch_indices), :num_frames]
@@ -88,6 +93,7 @@ class WhiteBallDataLoader():
     if num_frames > 1:
       act_batch = self.h5['actions'][sorted(batch_indices), :num_frames]
       act_batch = act_batch[:, 1:]  # (B, T-1, A)
+      act_batch = self.normalize_actions(act_batch)
       act_batch = tf.convert_to_tensor(act_batch)
       return {'image': obs_batch, 'action': act_batch}
     else:
@@ -171,13 +177,22 @@ def main(argv):
     batch = data_iterator.get_batch(batch_size, FLAGS.num_frames)
 
     # Learning rate warm-up.
+    # if global_step < warmup_steps:
+    #   learning_rate = base_learning_rate * tf.cast(
+    #       global_step, tf.float32) / tf.cast(warmup_steps, tf.float32)
+    # else:
+    #   learning_rate = base_learning_rate
+    # learning_rate = learning_rate * (decay_rate ** (
+    #     tf.cast(global_step, tf.float32) / tf.cast(decay_steps, tf.float32)))
+
     if global_step < warmup_steps:
-      learning_rate = base_learning_rate * tf.cast(
-          global_step, tf.float32) / tf.cast(warmup_steps, tf.float32)
+      learning_rate = tf.cast(base_learning_rate, tf.float32)
     else:
-      learning_rate = base_learning_rate
-    learning_rate = learning_rate * (decay_rate ** (
-        tf.cast(global_step, tf.float32) / tf.cast(decay_steps, tf.float32)))
+      learning_rate = base_learning_rate * (decay_rate ** (
+          tf.cast(global_step-warmup_steps, tf.float32) / tf.cast(decay_steps, tf.float32)))
+
+    # learning_rate = tf.cast(base_learning_rate, tf.float32)
+
     optimizer.lr = learning_rate.numpy()
 
     loss_value, _, _ = model.train_step(batch=batch, optimizer=optimizer)
