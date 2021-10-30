@@ -63,6 +63,17 @@ monitoring:
 
 
 class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
+  """
+    Ok, so for some reason 
+      runs/model/balls_sa/balls_sa_ns5_t3_fwm seems to be better than 
+      runs/dw_fwm_b32_t3_ph1.
+
+      The only difference is that in runs/model/balls_sa/balls_sa_ns5_t3_fwm there is no learning rate decay.
+
+      from train_slot_attention, I learned that it is better to have a constant learning rate in the beginning and the decay it later: t3_ph7_b32_lr1e-4_dr5e-1_st5e-1_imagpost_ds25e3_wuconstant_geb seems to be the best
+  """
+
+
   @staticmethod
   def get_default_args():
       default_args = ml_collections.ConfigDict(dict(
@@ -72,8 +83,9 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
           decay_steps=50000,  # or maybe 50000
           learning_rate=1e-4,
           num_train_steps=500000,
-          warmup_steps=0,
-          )),
+          warmup_steps=0,  # should probably be 10000
+          )),  
+          # maybe we should warmup, and then decay every 25000? we want to get to the initial dip, but once we hit that we'd want to decay it more aggressively.
         eval=ml_collections.ConfigDict(dict(
           pred_horizon=7)),
         model=ml_collections.ConfigDict(dict(
@@ -113,12 +125,21 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
         )
 
   def adjust_lr(self, step):
-    if self.step < self.defaults.optim.warmup_steps:
-      learning_rate = self.defaults.optim.learning_rate * float(self.step) / self.defaults.optim.warmup_steps
-    else:
-      learning_rate = self.defaults.optim.learning_rate
-    learning_rate = learning_rate * (self.defaults.optim.decay_rate ** (float(self.step) / self.defaults.optim.decay_steps))
+    # if self.step < self.defaults.optim.warmup_steps:
+    #   learning_rate = self.defaults.optim.learning_rate * float(self.step) / self.defaults.optim.warmup_steps
+    # else:
+    #   learning_rate = self.defaults.optim.learning_rate
+    # learning_rate = learning_rate * (self.defaults.optim.decay_rate ** (float(self.step) / self.defaults.optim.decay_steps))
+
+
+    learning_rate = self.defaults.optim.learning_rate
     self.optimizer.lr = learning_rate
+
+    # if self.step < self.defaults.optim.warmup_steps:
+    #   learning_rate = self.defaults.optim.learning_rate
+    # else:
+    #   learning_rate = self.defaults.optim.learning_rate * (self.defaults.optim.decay_rate ** (float(self.step-self.defaults.optim.warmup_steps) / self.defaults.optim.decay_steps))
+
     return learning_rate
 
 
@@ -196,6 +217,9 @@ python dreamerv2/train_model.py --logdir runs/debug/model/slot2 --configs debug 
 
 python dreamerv2/train_model.py --logdir runs/debug/merge/default --configs debug --task balls_whiteball_push --agent causal --wm_only=True --precision 32 --wm fwm
 
+10/28/21
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm_b32_t3_ph1/sanity --configs dmc_vision --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm &
 
-python dreamerv2/train_model.py --logdir runs/debug/merge/default --configs debug --task balls_whiteball_push --agent causal --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm
+10/29/21
+
 """
