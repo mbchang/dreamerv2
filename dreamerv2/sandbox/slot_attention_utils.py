@@ -58,13 +58,22 @@ def save_gif(video, fname, fps=3):
   clip.write_gif(f'{fname}.gif', fps=fps)
 
 
+# def normalize(x):
+#   return (x - 0.5) * 2.0  # Rescale to [-1, 1]
+
+
+# def renormalize(x):
+#   """Renormalize from [-1, 1] to [0, 1]."""
+#   return x / 2. + 0.5
+
+
 def normalize(x):
-  return (x - 0.5) * 2.0  # Rescale to [-1, 1]
+  return x - 0.5 # Rescale to [-0.5, 0.5]
 
 
 def renormalize(x):
-  """Renormalize from [-1, 1] to [0, 1]."""
-  return x / 2. + 0.5
+  """Renormalize from [-0.5, 0.5] to [0, 1]."""
+  return x  + 0.5
 
 
 def l2_loss(prediction, target):
