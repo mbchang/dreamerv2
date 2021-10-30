@@ -41,33 +41,42 @@ import slot_attention_learners as model_utils
 import slot_attention_utils as utils
 # import balls_dataloader
 
+launch_config = ml_collections.ConfigDict(dict(
+  dataroot='ball_data/U-Dk4s5n5t10_ab',
+  model_type='factorized_world_model',
 
-config = ml_collections.ConfigDict(
-  dict(
-    subroot='runs',
-    expname='',
-    seed=0,
-    batch_size=64,
-    num_slots=5,
-    num_frames=1,
-    learning_rate=0.0004,
-    num_train_steps=500000,
-    warmup_steps=10000,
-    decay_rate=0.5,
-    decay_steps=100000,
-    dataroot='ball_data/U-Dk4s5n5t10_ab',
+  jobtype='train',
+  seed=0,
+
+  subroot='runs',
+  expname='',
+
+  monitoring=ml_collections.ConfigDict(dict(
+      log_every=100,
+      save_every=1000,
+      vis_every=1000,
+    )),
+
+  system=ml_collections.ConfigDict(dict(
     cpu=False,
-    headless=True,
-    log_every=100,
-    save_every=1000,
-    vis_every=1000,
-    jobtype='train',
-    model_type='factorized_world_model',
-    pred_horizon=0,
-    slot_temp=1,
-    ))
+    headless=True))
+  ))
+
+
 FLAGS = flags.FLAGS
-config_flags.DEFINE_config_dict('cfg', config)
+
+learners = dict(
+
+  )
+
+
+# then we'd have another config that decide which learner to use
+
+config_flags.DEFINE_config_dict('lnch', launch_config)
+
+config_flags.DEFINE_config_dict('lnr', model_utils.FactorizedWorldModel.get_default_args())
+
+# what I want: give the model_type, and then it will load up the config dict for that model type and parse the args according to that 
 
 
 
@@ -99,27 +108,24 @@ class WhiteBallDataLoader():
 
 
 def main(argv):
-  args = ml_collections.ConfigDict(FLAGS.cfg.to_dict())
+  # print(argv)
 
-  # del argv
-  # Hyperparameters of the model.
-  batch_size = args.batch_size
-  num_slots = args.num_slots
-  # num_iterations = args.num_iterations
-  base_learning_rate = args.learning_rate
-  num_train_steps = args.num_train_steps
-  warmup_steps = args.warmup_steps
-  decay_rate = args.decay_rate
-  decay_steps = args.decay_steps
+  args = ml_collections.ConfigDict(FLAGS.lnch.to_dict())
+
+
+  # config_flags.DEFINE_config_dict('lnr', model_utils.FactorizedWorldModel.get_default_args())
+
+  lnr_args = ml_collections.ConfigDict(FLAGS.lnr.to_dict())
+
   tf.random.set_seed(args.seed)
   np.random.seed(args.seed)
   resolution = (64, 64)
 
   if args.model_type == 'object_discovery':
-    assert args.num_frames == 1
+    assert lnr_args.num_frames == 1
 
   tf.config.run_functions_eagerly(True)
-  if not args.cpu:
+  if not args.system.cpu:
     message = 'No GPU found. To actually train on CPU remove this assert.'
     assert tf.config.experimental.list_physical_devices('GPU'), message
   for gpu in tf.config.experimental.list_physical_devices('GPU'):
@@ -129,8 +135,7 @@ def main(argv):
   os.makedirs(expdir, exist_ok=True)
 
   wandb.init(
-      # config=flags_to_dict(FLAGS),
-      config=args.to_dict(),
+      config=lnr_args.to_dict(),
       project='slot attention',
       dir=expdir,
       group=os.path.basename(args.subroot),
@@ -141,7 +146,7 @@ def main(argv):
 
   lgr.remove()   # remove default handler
   lgr.add(os.path.join(expdir, 'debug.log'))
-  if not args.headless:
+  if not args.system.headless:
     lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
 
   # Build dataset iterators, optimizers and model.
@@ -150,9 +155,9 @@ def main(argv):
   #     max_n_objects=6, get_properties=False, apply_crop=True)
   data_iterator = WhiteBallDataLoader(h5=h5py.File(f'{args.dataroot}.h5', 'r'))
 
-  optimizer = tf.keras.optimizers.Adam(base_learning_rate, epsilon=1e-08)
+  optimizer = tf.keras.optimizers.Adam(lnr_args.optim.learning_rate, epsilon=1e-08)
 
-  model = model_utils.build_model(resolution, batch_size, num_slots, args.slot_temp, model_type=args.model_type)
+  model = model_utils.build_model(resolution, lnr_args.optim.batch_size, lnr_args.sess.num_slots, lnr_args.model.slot_temp, model_type=args.model_type)
 
   # Prepare checkpoint manager.
   global_step = tf.Variable(
@@ -168,26 +173,26 @@ def main(argv):
     lgr.info("Initializing from scratch.")
 
   start = time.time()
-  for itr in range(num_train_steps):
+  for itr in range(lnr_args.optim.num_train_steps):
     # batch = next(data_iterator)
-    batch = data_iterator.get_batch(batch_size, args.num_frames)
+    batch = data_iterator.get_batch(lnr_args.optim.batch_size, lnr_args.sess.num_frames)
 
     # Learning rate warm-up.
-    # if global_step < warmup_steps:
-    #   learning_rate = base_learning_rate * tf.cast(
-    #       global_step, tf.float32) / tf.cast(warmup_steps, tf.float32)
+    # if global_step < lnr_args.warmup_steps:
+    #   learning_rate = lnr_args.learning_rate * tf.cast(
+    #       global_step, tf.float32) / tf.cast(lnr_args.warmup_steps, tf.float32)
     # else:
-    #   learning_rate = base_learning_rate
-    # learning_rate = learning_rate * (decay_rate ** (
-    #     tf.cast(global_step, tf.float32) / tf.cast(decay_steps, tf.float32)))
+    #   learning_rate = lnr_args.learning_rate
+    # learning_rate = learning_rate * (lnr_args.decay_rate ** (
+    #     tf.cast(global_step, tf.float32) / tf.cast(lnr_args.decay_steps, tf.float32)))
 
-    if global_step < warmup_steps:
-      learning_rate = tf.cast(base_learning_rate, tf.float32)
+    if global_step < lnr_args.optim.warmup_steps:
+      learning_rate = tf.cast(lnr_args.optim.learning_rate, tf.float32)
     else:
-      learning_rate = base_learning_rate * (decay_rate ** (
-          tf.cast(global_step-warmup_steps, tf.float32) / tf.cast(decay_steps, tf.float32)))
+      learning_rate = lnr_args.optim.learning_rate * (lnr_args.optim.decay_rate ** (
+          tf.cast(global_step-lnr_args.optim.warmup_steps, tf.float32) / tf.cast(lnr_args.optim.decay_steps, tf.float32)))
 
-    # learning_rate = tf.cast(base_learning_rate, tf.float32)
+    # learning_rate = tf.cast(lnr_args.learning_rate, tf.float32)
 
     optimizer.lr = learning_rate.numpy()
 
@@ -198,7 +203,7 @@ def main(argv):
     global_step.assign_add(1)
 
     # Log the training loss.
-    if not global_step % args.log_every:
+    if not global_step % args.monitoring.log_every:
       lgr.info(f"Step: {global_step.numpy()}, Loss: {loss_value:.6f}, LR: {learning_rate.numpy():.3e}, Time: {datetime.timedelta(seconds=time.time() - start)}")
 
       wandb.log({
@@ -208,26 +213,31 @@ def main(argv):
           }, step=global_step.numpy())
 
     # We save the checkpoints every 1000 iterations.
-    if not global_step  % args.save_every:
+    if not global_step  % args.monitoring.save_every:
       # Save the checkpoint of the model.
       saved_ckpt = ckpt_manager.save()
       lgr.info(f"Saved checkpoint: {saved_ckpt}")
 
-    if not global_step % args.vis_every:
-      if args.num_frames > 1:
-        # sequence_length = args.num_frames
+    if not global_step % args.monitoring.vis_every:
+      if lnr_args.sess.num_frames > 1:
+        # sequence_length = lnr_args.num_frames
         sequence_length = 10
-        assert args.pred_horizon < sequence_length
-        seed_steps = sequence_length-args.pred_horizon
+        assert lnr_args.sess.pred_horizon < sequence_length
+        seed_steps = sequence_length-lnr_args.sess.pred_horizon
 
-        batch = data_iterator.get_batch(batch_size, sequence_length)
-        video = model.visualize(batch, seed_steps=seed_steps, pred_horizon=args.pred_horizon)  # for now
+        batch = data_iterator.get_batch(lnr_args.optim.batch_size, sequence_length)
+        video = model.visualize(batch, seed_steps=seed_steps, pred_horizon=lnr_args.sess.pred_horizon)  # for now
         utils.save_gif(utils.add_border(video.numpy(), seed_steps), os.path.join(expdir, f'{global_step.numpy()}'))
       else:
         model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch)
 
 
 if __name__ == "__main__":
+  # import sys
+  # print(sys.argv)
+
+  # maybe I can decide which configs to invoke here? 
+
   app.run(main)
 
 """
@@ -239,14 +249,14 @@ if __name__ == "__main__":
   CUDA_VISIBLE_DEVICES=2 python train_slot_attention.py --dataroot ball_data/Dk4s0n2000t10_ab --expname t1_b16
 
 
-  python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --num_train_steps 10
+  python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 10
 
 
   10/25/21
   CUDA_VISIBLE_DEVICES=0 python train_slot_attention.py --dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --expname t3_b32 --model_type factorized_world_model --num_frames 3 --batch_size 32
 
   debug:
-  python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1
+  python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1
 
   2:54pm
   CUDA_VISIBLE_DEVICES=1 python train_slot_attention.py --dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --expname t3_ph1_b32_geb --model_type factorized_world_model --num_frames 3 --batch_size 32 --pred_horizon 1 &
@@ -256,8 +266,11 @@ if __name__ == "__main__":
 
   10/17/21
   debug:
-    python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --num_train_steps 10
-    python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1 --pred_horizon 1
+    python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 10
+    python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1 --pred_horizon 1
+
+10/30/21
+python train_slot_attention_mlc_fwm.py --lnr.optim.batch_size 2 --lnch.subroot runs/sanity --lnch.system.cpu --lnch.system.headless=False --lnch.monitoring.log_every 1 --lnr.optim.num_train_steps 5 --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnch.monitoring.vis_every 1 --lnr.sess.pred_horizon 1
 
 
 """
