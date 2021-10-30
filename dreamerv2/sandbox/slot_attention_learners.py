@@ -1,4 +1,5 @@
 from einops import rearrange, repeat
+import ml_collections
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.layers as layers
@@ -10,6 +11,37 @@ import attention
 
 class SlotAttentionAutoEncoder(layers.Layer):
   """Slot Attention-based auto-encoder for object discovery."""
+
+  """
+config = ml_collections.ConfigDict(
+  dict(
+    subroot='runs',
+    expname='',
+    seed=0,
+    batch_size=64,
+    num_slots=5,
+    num_frames=1,
+    learning_rate=0.0004,
+    num_train_steps=500000,
+    warmup_steps=10000,
+    decay_rate=0.5,
+    decay_steps=100000,
+    dataroot='ball_data/U-Dk4s5n5t10_ab',
+    cpu=False,
+    headless=True,
+    jobtype='train',
+    model_type='factorized_world_model',
+    pred_horizon=0,
+    slot_temp=1,
+    ))
+
+
+monitoring_config = ml_collections.ConfigDict(dict(
+      log_every=100,
+      save_every=1000,
+      vis_every=1000,
+      ))
+  """
 
   def __init__(self, resolution, num_slots, temp):
     """Builds the Slot Attention-based auto-encoder.
@@ -119,6 +151,29 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
     - slot_temp: 0.5 --> this seems to be important
   """
 
+  @staticmethod
+  def get_default_args():
+      default_args = ml_collections.ConfigDict(
+        dict(
+          optim=ml_collections.ConfigDict(dict(
+            batch_size=32,
+            decay_rate=0.5,
+            decay_steps=50000,
+            learning_rate=1e-4,
+            num_train_steps=500000,
+            warmup_steps=0,
+            )),
+          model=ml_collections.ConfigDict(dict(
+            slot_temp=0.5,
+            )),
+          sess=ml_collections.ConfigDict(dict(
+            num_slots=5,
+            num_frames=3,
+            pred_horizon=7,
+            ))
+          ))
+      return default_args
+
   def __init__(self, resolution, num_slots, temp):
     super().__init__(resolution, num_slots, temp)
     self.action_encoder = tf.keras.Sequential([
@@ -144,6 +199,9 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
       print(output['posterior']['pred']['comp'].shape)  # (2, 4, 5, 64, 64, 3)
       print(output['posterior']['pred']['masks'].shape)  # (2, 4, 5, 64, 64, 1)
     """ 
+    # print(f"image | shape: {data['image'].shape} min: {tf.reduce_min(data['image'])} max: {tf.reduce_max(data['image'])}")
+    # print(f"action | shape: {data['action'].shape} min: {tf.reduce_min(data['action'])} max: {tf.reduce_max(data['action'])}")
+
     bsize = data['image'].shape[0]
     embed = utils.bottle(self.encoder)(data['image'])  # (b, t, h*w, do)
     priors, posteriors = self.filter(
@@ -369,3 +427,13 @@ def build_model(resolution, batch_size, num_slots, temp, model_type="object_disc
     raise ValueError("Invalid name for model type.")
 
   return model
+
+def get_learner(model_type):
+  learners = {
+    'object_discovery': SlotAttentionAutoEncoder,
+    'set_prediction': SlotAttentionClassifier,
+    'factorized_world_model': FactorizedWorldModel
+  }
+  return learners[model_type]
+
+
