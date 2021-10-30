@@ -270,7 +270,7 @@ if __name__ == "__main__":
     python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1 --pred_horizon 1
 
 10/30/21
-python train_slot_attention_mlc_fwm.py --lnr.optim.batch_size 2 --lnch.subroot runs/sanity --lnch.system.cpu --lnch.system.headless=False --lnch.monitoring.log_every 1 --lnr.optim.num_train_steps 5 --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnch.monitoring.vis_every 1 --lnr.sess.pred_horizon 1
+python train_slot_attention_mlc.py --lnr.optim.batch_size 2 --lnch.subroot runs/sanity --lnch.system.cpu --lnch.system.headless=False --lnch.monitoring.log_every 1 --lnr.optim.num_train_steps 5 --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnch.monitoring.vis_every 1 --lnr.sess.pred_horizon 1
 
 
 """
