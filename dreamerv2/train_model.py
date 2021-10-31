@@ -214,13 +214,9 @@ def main():
     agnt = agent.Agent(config, obs_space, act_space, step)
   elif config.agent == 'causal':
     from sandbox import causal_agent
-    # agnt = causal_agent.CausalAgent(config, obs_space, act_space, step)
-    # agnt = causal_agent.WorldModel(config, obs_space, tf.Variable(int(step), tf.int64))
-
     if config.wm == 'default':
       agnt = causal_agent.WorldModel(config, obs_space, tf.Variable(int(step), tf.int64))
     elif config.wm == 'fwm':
-      # from sandbox.dreamer_wrapper import FactorizedWorldModelWrapperForDreamer
       from sandbox import dreamer_wrapper
       agnt = dreamer_wrapper.FactorizedWorldModelWrapperForDreamer(config, obs_space, tf.Variable(int(step), tf.int64))
     else:
