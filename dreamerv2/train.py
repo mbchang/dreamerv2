@@ -28,6 +28,7 @@ import common
 
 
 def parse_args():
+  """ original """
   configs = yaml.safe_load((
       pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
   parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
@@ -37,8 +38,25 @@ def parse_args():
   config = common.Flags(config).parse(remaining)
   return config
 
+def parse_args_with_fwm():
+  configs = yaml.safe_load((
+      pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
+  parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
+
+  if 'fwm' in parsed.configs:
+    from sandbox.dreamer_wrapper import FactorizedWorldModelWrapperForDreamer
+    configs['defaults']['fwm'] = FactorizedWorldModelWrapperForDreamer.get_default_args().to_dict()
+  
+  config = common.Config(configs['defaults'])
+  for name in parsed.configs:
+    if name != 'fwm':
+      config = config.update(configs[name])
+  config = common.Flags(config).parse(remaining)
+  return config
+
 def main():
-  config = parse_args()
+  # config = parse_args()
+  config = parse_args_with_fwm()
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)

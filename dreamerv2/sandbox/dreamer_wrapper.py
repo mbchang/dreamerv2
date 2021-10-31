@@ -97,7 +97,6 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
           seed=0)),
         monitoring=ml_collections.ConfigDict(dict(
           log_every=100,
-          # log_every=1,
           save_every=1000,
           vis_every=1000))
         ))
@@ -106,8 +105,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
 
   def __init__(self, config, obs_space, tfstep):
     self.config = config
-    self.defaults = FactorizedWorldModelWrapperForDreamer.get_default_args()
-
+    self.defaults = ml_collections.ConfigDict(self.config.fwm)
     self.model = slot_attention_learners.FactorizedWorldModel(
       num_slots=self.defaults.sess.num_slots,  # should be removed at some point
       **self.defaults.model)
