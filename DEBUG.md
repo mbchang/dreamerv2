@@ -87,5 +87,9 @@ CUDA_VISIBLE_DEVICES=1 python dreamerv2/train.py --logdir runs/slot_attention/ns
 
 
 
+10/30/21
+debug:
+python dreamerv2/train.py --logdir runs/debug/merge/default --configs debug --task dmc_walker_walk --agent causal
 
+python dreamerv2/train.py --logdir runs/debug/merge/default --configs debug --task balls_whiteball_push --agent causal --wm_only=True
 
