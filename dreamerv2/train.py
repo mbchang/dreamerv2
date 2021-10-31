@@ -27,8 +27,7 @@ import ruamel.yaml as yaml
 import common
 
 
-def main():
-
+def parse_args():
   configs = yaml.safe_load((
       pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
   parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
@@ -36,6 +35,19 @@ def main():
   for name in parsed.configs:
     config = config.update(configs[name])
   config = common.Flags(config).parse(remaining)
+  return config
+
+def main():
+
+  # configs = yaml.safe_load((
+  #     pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
+  # parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
+  # config = common.Config(configs['defaults'])
+  # for name in parsed.configs:
+  #   config = config.update(configs[name])
+  # config = common.Flags(config).parse(remaining)
+  config = parse_args()
+
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
