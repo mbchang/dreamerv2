@@ -136,7 +136,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     self.step += 1
 
     if self.step % self.defaults.monitoring.log_every == 0:
-      lgr.info(f'step: {self.step}\tloss: {loss}\tlr: {self.optimizer.lr}')
+      lgr.info(f"step: {self.step}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.5e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
 
       wandb.log({
           f'train/itr': self.step,
@@ -193,4 +193,9 @@ CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/
 
 10/29/21
 
+
+
+10/31/21
+1:54pm.
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/debug --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 200 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm
 """

@@ -45,6 +45,8 @@ def parse_args_with_fwm():
     sys.path.append(os.path.join(str(pathlib.Path(__file__).parent), 'sandbox'))
     from sandbox.slot_attention_learners import FactorizedWorldModel
     configs['defaults']['fwm'] = FactorizedWorldModel.get_default_args().to_dict()
+
+  # configs['default']['expname'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
