@@ -26,6 +26,17 @@ import ruamel.yaml as yaml
 
 import common
 
+def create_expname(args):
+    import sandbox.logging_utils as lu
+    abbrvs = {
+        'task': '',
+        'precision': 'p',
+        'fwm.optim.learning_rate': 'flr'
+    }
+    watcher = lu.watch(args.watch, abbrvs)
+    expname = 'tm'
+    expname += f'_{watcher(args)}'
+    return expname
 
 def parse_args():
   """ original """
@@ -58,6 +69,7 @@ def parse_args_with_fwm():
 def main():
   # config = parse_args()
   config = parse_args_with_fwm()
+  config = config.update({'logdir': pathlib.Path(config.logdir) / create_expname(config)})
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)

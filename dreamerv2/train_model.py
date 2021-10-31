@@ -1,4 +1,5 @@
 import collections
+import datetime
 import functools
 import logging
 from loguru import logger as lgr
@@ -26,6 +27,18 @@ import ruamel.yaml as yaml
 
 import common
 
+def create_expname(args):
+    import sandbox.logging_utils as lu
+    abbrvs = {
+        'task': '',
+        'precision': 'p',
+        'fwm.optim.learning_rate': 'flr'
+    }
+    watcher = lu.watch(args.watch, abbrvs)
+    expname = 'tm'
+    expname += f'_{watcher(args)}'
+    return expname
+
 def parse_args():
   configs = yaml.safe_load((
       pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
@@ -46,8 +59,6 @@ def parse_args_with_fwm():
     from sandbox.slot_attention_learners import FactorizedWorldModel
     configs['defaults']['fwm'] = FactorizedWorldModel.get_default_args().to_dict()
 
-  # configs['default']['expname'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
-  
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
     if name != 'fwm':
@@ -57,6 +68,7 @@ def parse_args_with_fwm():
 
 def main():
   config = parse_args_with_fwm()
+  config = config.update({'logdir': pathlib.Path(config.logdir) / create_expname(config)})
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
@@ -319,6 +331,9 @@ CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/
 
 Question: is the slot temperature the main thing that is preventing dreamer version from learning as efficiently? 
 
+
+
+
 geb:
 
 CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b32_t3_ph1_st6e-1 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.model.temp 0.6 &
@@ -332,5 +347,17 @@ CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/
 CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b32_t3_ph1_st9e-1 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.model.temp 0.9 &
 
 CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b32_t3_ph1_st1 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.model.temp 1.0 &
+
+gauss1 again (because previously had the wrong code)
+
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b64_t3_ph1_st5e-1 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 64 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.model.temp 0.5 &
+
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b64_t3_ph1_st1 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.model.temp 1.0 &
+
+CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b32_t3_ph1_st1 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.model.temp 1.0 &
+
+geb again
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b64_t3_ph1_st5e-1_lr2e-4 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 64 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.optim.learning_rate 2e-4 &
+
 
 """
