@@ -34,7 +34,7 @@ def create_expname(args):
         'fwm.optim.learning_rate': 'flr'
     }
     watcher = lu.watch(args.watch, abbrvs)
-    expname = 'tm'
+    expname = 't'
     expname += f'_{watcher(args)}'
     return expname
 
