@@ -73,36 +73,6 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       from train_slot_attention, I learned that it is better to have a constant learning rate in the beginning and the decay it later: t3_ph7_b32_lr1e-4_dr5e-1_st5e-1_imagpost_ds25e3_wuconstant_geb seems to be the best
   """
 
-
-  @staticmethod
-  def get_default_args():
-      default_args = ml_collections.ConfigDict(dict(
-        optim=ml_collections.ConfigDict(dict(
-          batch_size=32,
-          decay_rate=0.5,
-          decay_steps=50000,  # or maybe 50000
-          learning_rate=1e-4,
-          num_train_steps=500000,
-          warmup_steps=0,  # should probably be 10000
-          )),  
-          # maybe we should warmup, and then decay every 25000? we want to get to the initial dip, but once we hit that we'd want to decay it more aggressively.
-        eval=ml_collections.ConfigDict(dict(
-          pred_horizon=7)),
-        model=ml_collections.ConfigDict(dict(
-          resolution=(64, 64),
-          temp=0.5)),
-        sess=ml_collections.ConfigDict(dict(
-          num_frames=3,
-          num_slots=5,
-          seed=0)),
-        monitoring=ml_collections.ConfigDict(dict(
-          log_every=100,
-          save_every=1000,
-          vis_every=1000))
-        ))
-      return default_args
-
-
   def __init__(self, config, obs_space, tfstep):
     self.config = config
     self.defaults = ml_collections.ConfigDict(self.config.fwm)

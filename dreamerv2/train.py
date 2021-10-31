@@ -44,8 +44,9 @@ def parse_args_with_fwm():
   parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
 
   if 'fwm' in parsed.configs:
-    from sandbox.dreamer_wrapper import FactorizedWorldModelWrapperForDreamer
-    configs['defaults']['fwm'] = FactorizedWorldModelWrapperForDreamer.get_default_args().to_dict()
+    sys.path.append(os.path.join(str(pathlib.Path(__file__).parent), 'sandbox'))
+    from sandbox.slot_attention_learners import FactorizedWorldModel
+    configs['defaults']['fwm'] = FactorizedWorldModel.get_default_args().to_dict()
   
   config = common.Config(configs['defaults'])
   for name in parsed.configs:

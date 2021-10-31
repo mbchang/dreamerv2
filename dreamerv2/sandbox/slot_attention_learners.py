@@ -164,13 +164,19 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
             warmup_steps=0,
             )),
           model=ml_collections.ConfigDict(dict(
-            slot_temp=0.5,
+            resolution=(64, 64),
+            temp=0.5,
             )),
           sess=ml_collections.ConfigDict(dict(
             num_slots=5,
             num_frames=3,
             pred_horizon=7,
-            ))
+            )),
+        # for now
+        monitoring=ml_collections.ConfigDict(dict(
+          log_every=100,
+          save_every=1000,
+          vis_every=1000))
           ))
       return default_args
 

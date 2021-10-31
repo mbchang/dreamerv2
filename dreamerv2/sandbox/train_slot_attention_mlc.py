@@ -157,7 +157,7 @@ def main(argv):
 
   optimizer = tf.keras.optimizers.Adam(lnr_args.optim.learning_rate, epsilon=1e-08)
 
-  model = model_utils.build_model(resolution, lnr_args.optim.batch_size, lnr_args.sess.num_slots, lnr_args.model.slot_temp, model_type=args.model_type)
+  model = model_utils.build_model(resolution, lnr_args.optim.batch_size, lnr_args.sess.num_slots, lnr_args.model.temp, model_type=args.model_type)
 
   # Prepare checkpoint manager.
   global_step = tf.Variable(
