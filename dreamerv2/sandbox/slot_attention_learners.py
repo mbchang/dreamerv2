@@ -158,10 +158,10 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
           optim=ml_collections.ConfigDict(dict(
             batch_size=32,
             decay_rate=0.5,
-            decay_steps=50000,
+            decay_steps=25000,
             learning_rate=1e-4,
             num_train_steps=500000,
-            warmup_steps=0,
+            warmup_steps=10000,
             )),
           model=ml_collections.ConfigDict(dict(
             resolution=(64, 64),
