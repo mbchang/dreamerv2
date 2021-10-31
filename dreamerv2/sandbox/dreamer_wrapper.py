@@ -12,7 +12,7 @@ import common
 
 from sandbox import causal_agent
 from sandbox import slot_attention_learners
-
+from sandbox import slot_attention_utils as utils
 
 
 
@@ -100,13 +100,12 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     # learning_rate = learning_rate * (self.defaults.optim.decay_rate ** (float(self.step) / self.defaults.optim.decay_steps))
 
 
-    learning_rate = self.defaults.optim.learning_rate
-    self.optimizer.lr = learning_rate
+    # learning_rate = self.defaults.optim.learning_rate
 
-    # if self.step < self.defaults.optim.warmup_steps:
-    #   learning_rate = self.defaults.optim.learning_rate
-    # else:
-    #   learning_rate = self.defaults.optim.learning_rate * (self.defaults.optim.decay_rate ** (float(self.step-self.defaults.optim.warmup_steps) / self.defaults.optim.decay_steps))
+    if self.step < self.defaults.optim.warmup_steps:
+      learning_rate = self.defaults.optim.learning_rate
+    else:
+      learning_rate = self.defaults.optim.learning_rate * (self.defaults.optim.decay_rate ** (float(self.step-self.defaults.optim.warmup_steps) / self.defaults.optim.decay_steps))
 
     return learning_rate
 
@@ -129,7 +128,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     data['action'] = data['action'][:, 1:]
 
     # adjust learning rate
-    lr = self.adjust_lr(self.step)
+    self.optimizer.lr = self.adjust_lr(self.step)
 
     # train step
     loss, outputs, mets = self.model.train_step(data, self.optimizer)
@@ -137,12 +136,12 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     self.step += 1
 
     if self.step % self.defaults.monitoring.log_every == 0:
-      lgr.info(f'step: {self.step}\tloss: {loss}\tlr: {lr}')
+      lgr.info(f'step: {self.step}\tloss: {loss}\tlr: {self.optimizer.lr}')
 
       wandb.log({
           f'train/itr': self.step,
           f'train/loss': loss,
-          f'train/learning_rate': lr,
+          f'train/learning_rate': self.optimizer.lr,
           }, step=self.step)
 
 
@@ -164,7 +163,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     }
     return state, outputs, metrics
 
-  @tf.function
+  # @tf.function --> if I turn this on I can't do video.numpy()
   def report(self, data):
     report = {}
     data = self.preprocess(data)
@@ -174,7 +173,11 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     name = 'image'
     seed_steps = self.config.video_pred.seed_steps
     pred_horizon = self.config.dataset.length - self.config.video_pred.seed_steps
-    report[f'openl_{name}'] = self.model.visualize(data, seed_steps=seed_steps, pred_horizon=pred_horizon)  # for now
+    video = self.model.visualize(data, seed_steps=seed_steps, pred_horizon=pred_horizon)  # for now
+    report[f'openl_{name}'] = video
+    save_path = os.path.join(self.config.logdir, f'{self.step}')
+    print(f'save gif to {save_path}')
+    utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
     return report
 
 
