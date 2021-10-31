@@ -38,14 +38,6 @@ def parse_args():
   return config
 
 def main():
-
-  # configs = yaml.safe_load((
-  #     pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
-  # parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
-  # config = common.Config(configs['defaults'])
-  # for name in parsed.configs:
-  #   config = config.update(configs[name])
-  # config = common.Flags(config).parse(remaining)
   config = parse_args()
 
   logdir = pathlib.Path(config.logdir).expanduser()
