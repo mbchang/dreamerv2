@@ -36,10 +36,8 @@ import os
 import sys
 import wandb
 
-# import slot_attention.data as data_utils
 import slot_attention_learners as model_utils
 import slot_attention_utils as utils
-# import balls_dataloader
 
 launch_config = ml_collections.ConfigDict(dict(
   dataroot='ball_data/U-Dk4s5n5t10_ab',
@@ -65,17 +63,8 @@ launch_config = ml_collections.ConfigDict(dict(
 
 FLAGS = flags.FLAGS
 
-learners = dict(
-
-  )
-
-
-# then we'd have another config that decide which learner to use
-
 config_flags.DEFINE_config_dict('lnch', launch_config)
-
 config_flags.DEFINE_config_dict('lnr', model_utils.FactorizedWorldModel.get_default_args())
-
 # what I want: give the model_type, and then it will load up the config dict for that model type and parse the args according to that 
 
 
@@ -108,13 +97,7 @@ class WhiteBallDataLoader():
 
 
 def main(argv):
-  # print(argv)
-
   args = ml_collections.ConfigDict(FLAGS.lnch.to_dict())
-
-
-  # config_flags.DEFINE_config_dict('lnr', model_utils.FactorizedWorldModel.get_default_args())
-
   lnr_args = ml_collections.ConfigDict(FLAGS.lnr.to_dict())
 
   tf.random.set_seed(args.seed)
@@ -177,22 +160,13 @@ def main(argv):
     # batch = next(data_iterator)
     batch = data_iterator.get_batch(lnr_args.optim.batch_size, lnr_args.sess.num_frames)
 
-    # Learning rate warm-up.
-    # if global_step < lnr_args.warmup_steps:
+    if global_step < lnr_args.optim.warmup_steps:
     #   learning_rate = lnr_args.learning_rate * tf.cast(
     #       global_step, tf.float32) / tf.cast(lnr_args.warmup_steps, tf.float32)
-    # else:
-    #   learning_rate = lnr_args.learning_rate
-    # learning_rate = learning_rate * (lnr_args.decay_rate ** (
-    #     tf.cast(global_step, tf.float32) / tf.cast(lnr_args.decay_steps, tf.float32)))
-
-    if global_step < lnr_args.optim.warmup_steps:
       learning_rate = tf.cast(lnr_args.optim.learning_rate, tf.float32)
     else:
       learning_rate = lnr_args.optim.learning_rate * (lnr_args.optim.decay_rate ** (
           tf.cast(global_step-lnr_args.optim.warmup_steps, tf.float32) / tf.cast(lnr_args.optim.decay_steps, tf.float32)))
-
-    # learning_rate = tf.cast(lnr_args.learning_rate, tf.float32)
 
     optimizer.lr = learning_rate.numpy()
 
@@ -233,11 +207,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
-  # import sys
-  # print(sys.argv)
-
-  # maybe I can decide which configs to invoke here? 
-
   app.run(main)
 
 """
