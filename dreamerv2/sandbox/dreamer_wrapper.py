@@ -136,7 +136,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     self.step += 1
 
     if self.step % self.defaults.monitoring.log_every == 0:
-      lgr.info(f"step: {self.step}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.5e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
+      lgr.info(f"step: {self.step}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.3e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
 
       wandb.log({
           f'train/itr': self.step,
