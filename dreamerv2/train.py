@@ -1,4 +1,5 @@
 import collections
+import datetime
 import functools
 import logging
 from loguru import logger as lgr
@@ -34,8 +35,7 @@ def create_expname(args):
         'fwm.optim.learning_rate': 'flr'
     }
     watcher = lu.watch(args.watch, abbrvs)
-    expname = 't'
-    expname += f'_{watcher(args)}'
+    expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'
     return expname
 
 def parse_args():
