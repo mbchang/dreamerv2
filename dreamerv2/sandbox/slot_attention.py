@@ -180,21 +180,19 @@ class SlimSlotAttentionEncoder(layers.Layer):
     self.outdim = outdim
 
     self.encoder_cnn = tf.keras.Sequential([
-        layers.Conv2D(32, kernel_size=5, strides=2, activation="relu"),
-        layers.Conv2D(32, kernel_size=3, activation="relu"),
-        layers.Conv2D(32, kernel_size=3, activation="relu"),
-        layers.Conv2D(32, kernel_size=3, activation="relu")
+        layers.Conv2D(8, kernel_size=4, strides=2, activation="relu"),
+        layers.Conv2D(16, kernel_size=4, padding="SAME", activation="relu"),
+        layers.Conv2D(32, kernel_size=4, padding="SAME", activation="relu"),
     ], name="encoder_cnn")
-    self.encoder_pos = SoftPositionEmbed(32, self.resolution)
+    self.encoder_pos = SoftPositionEmbed(32, (31, 31))
     self.layer_norm = layers.LayerNormalization()
     self.mlp = tf.keras.Sequential([
-        layers.Dense(32, activation="relu"),
+        layers.Dense(64, activation="relu"),
         layers.Dense(self.outdim)
     ], name="feedforward")
 
   def call(self, image):
     # `image` has shape: [batch_size, width, height, num_channels].
-
     # Convolutional encoder with position embedding.
     x = self.encoder_cnn(image)  # CNN Backbone.
     x = self.encoder_pos(x)  # Position embedding.
@@ -298,6 +296,36 @@ class SlotAttentionDecoder(layers.Layer):
     # `x` has shape: [batch_size*num_slots, width, height, num_channels+1].
     return x
 
+class SlimSlotAttentionDecoder(layers.Layer):
+  def __init__(self, in_dim, resolution):
+    super().__init__()
+    self.decoder_initial_size = (8, 8)
+    self.in_dim = in_dim
+    self.resolution = resolution
+    assert self.resolution == (64, 64)
+
+    self.decoder_pos = SoftPositionEmbed(self.in_dim, self.decoder_initial_size)
+    self.decoder_cnn = tf.keras.Sequential([
+        layers.Conv2DTranspose(
+            64, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            32, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            16, 5, strides=(2, 2), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            8, 5, strides=(1, 1), padding="SAME", activation="relu"),
+        layers.Conv2DTranspose(
+            4, 3, strides=(1, 1), padding="SAME", activation=None)
+    ], name="decoder_cnn")
+
+  def call(self, slots):
+    # Spatial broadcast decoder.
+    x = spatial_broadcast(slots, self.decoder_initial_size)
+    # `x` has shape: [batch_size*num_slots, width_init, height_init, slot_size].
+    x = self.decoder_pos(x)
+    x = self.decoder_cnn(x)
+    # `x` has shape: [batch_size*num_slots, width, height, num_channels+1].
+    return x
 
 def build_grid(resolution):
   ranges = [np.linspace(0., 1., num=res) for res in resolution]

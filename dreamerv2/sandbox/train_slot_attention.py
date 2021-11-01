@@ -140,7 +140,8 @@ def main(argv):
 
   optimizer = tf.keras.optimizers.Adam(lnr_args.optim.learning_rate, epsilon=1e-08)
 
-  model = model_utils.build_model(resolution, lnr_args.optim.batch_size, lnr_args.sess.num_slots, lnr_args.model.temp, model_type=args.model_type)
+  # model = model_utils.build_model(resolution, lnr_args.optim.batch_size, lnr_args.sess.num_slots, lnr_args.model.temp, model_type=args.model_type)
+  model = model_utils.get_learner(args.model_type)(num_slots=lnr_args.sess.num_slots, **lnr_args.model)
 
   # Prepare checkpoint manager.
   global_step = tf.Variable(
@@ -239,7 +240,21 @@ if __name__ == "__main__":
     python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1 --pred_horizon 1
 
 10/30/21
-python train_slot_attention_mlc.py --lnr.optim.batch_size 2 --lnch.subroot runs/sanity --lnch.system.cpu --lnch.system.headless=False --lnch.monitoring.log_every 1 --lnr.optim.num_train_steps 5 --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnch.monitoring.vis_every 1 --lnr.sess.pred_horizon 1
+python train_slot_attention.py --lnr.optim.batch_size 2 --lnch.subroot runs/sanity --lnch.system.cpu --lnch.system.headless=False --lnch.monitoring.log_every 1 --lnr.optim.num_train_steps 5 --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnch.monitoring.vis_every 1 --lnr.sess.pred_horizon 1
+
+10/31/21
+3pm or so
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --model_type factorized_world_model --num_frames 3 --batch_size 32 --pred_horizon 7 --learning_rate 0.0002 --decay_steps 25000 --slot_temp 0.5 --expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_imagpost_ds25e3_wuconstant_normalized_geb_again &
+
+slim encoder and decoder
+
+6:22pm
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim &
+
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.decoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etdefault_dtslim &
+
+
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtdefault &
 
 
 """

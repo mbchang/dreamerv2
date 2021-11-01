@@ -137,7 +137,7 @@ monitoring_config = ml_collections.ConfigDict(dict(
     plt.close()
 
 
-class FactorizedWorldModel(SlotAttentionAutoEncoder):
+class FactorizedWorldModel(layers.Layer):
   # model specific args
   # video_pred: {seed_steps: 3, prediction_horizon: 7, num_ex: 5}
 
@@ -166,6 +166,8 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
           model=ml_collections.ConfigDict(dict(
             resolution=(64, 64),
             temp=0.5,
+            encoder_type='default',
+            decoder_type='default'
             )),
           sess=ml_collections.ConfigDict(dict(
             num_slots=5,
@@ -180,8 +182,37 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
           ))
       return default_args
 
-  def __init__(self, resolution, num_slots, temp):
-    super().__init__(resolution, num_slots, temp)
+
+  def __init__(self, resolution, num_slots, temp, 
+    encoder_type='default', decoder_type='default'  # later you will just pass the config in
+    ):
+    """Builds the Slot Attention-based auto-encoder.
+
+    Args:
+      resolution: Tuple of integers specifying width and height of input image.
+      num_slots: Number of slots in Slot Attention.
+    """
+    super().__init__()
+    self.resolution = resolution
+    self.num_slots = num_slots
+
+    if encoder_type == 'default':
+      self.encoder = sa.SlotAttentionEncoder(self.resolution, 64)
+    elif encoder_type == 'slim':
+      self.encoder = sa.SlimSlotAttentionEncoder(self.resolution, 64)
+    else:
+      raise NotImplementedError
+
+    self.slot_attention = sa.SlotAttention(slot_size=64, temp=temp)
+    self.slot_attention.register_num_slots(self.num_slots)
+
+    if decoder_type == 'default':
+      self.decoder = sa.SlotAttentionDecoder(64, resolution)
+    elif decoder_type == 'slim':
+      self.decoder = sa.SlimSlotAttentionDecoder(64, resolution)
+    else:
+      raise NotImplementedError
+
     self.action_encoder = tf.keras.Sequential([
       layers.Dense(64, activation='relu'),
       layers.Dense(64)
@@ -224,6 +255,22 @@ class FactorizedWorldModel(SlotAttentionAutoEncoder):
         latent = posteriors,
         pred=dict(comb=post_comb, comp=post_comp, masks=post_masks)))
     return output
+
+  def decode(self, slots):
+    # Spatial broadcast decoder.
+    x = self.decoder(slots)
+    # `x` has shape: [batch_size*num_slots, width, height, num_channels+1].
+
+    # Undo combination of slot and batch dimension; split alpha masks.
+    comp, masks = sa.unstack_and_split(x, batch_size=slots.shape[0])
+    # `comp` has shape: [batch_size, num_slots, width, height, num_channels].
+    # `masks` has shape: [batch_size, num_slots, width, height, 1].
+
+    # Normalize alpha masks over slots.
+    masks = tf.nn.softmax(masks, axis=1)
+    recon_combined = tf.reduce_sum(comp * masks, axis=1)  # Recombine image.
+    # `recon_combined` has shape: [batch_size, width, height, num_channels].
+    return recon_combined, comp, masks
 
   def filter(self, slots, embeds, actions):
     """
