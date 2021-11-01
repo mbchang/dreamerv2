@@ -166,8 +166,8 @@ class FactorizedWorldModel(layers.Layer):
           model=ml_collections.ConfigDict(dict(
             resolution=(64, 64),
             temp=0.5,
-            encoder_type='default',
-            decoder_type='default',
+            encoder_type='slim',
+            decoder_type='slim',
             posterior_loss=False,
             overshooting_loss=True,
             )),
@@ -187,9 +187,9 @@ class FactorizedWorldModel(layers.Layer):
 
   def __init__(self, resolution, num_slots, temp, 
     # later you will just pass the config in
-    encoder_type='default', 
-    decoder_type='default',
-    posterior_loss=True,
+    encoder_type='slim', 
+    decoder_type='slim',
+    posterior_loss=False,
     overshooting_loss=True,
     ):
     """Builds the Slot Attention-based auto-encoder.
