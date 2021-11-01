@@ -33,6 +33,7 @@ matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import numpy as np
 import os
+import pathlib
 import sys
 import wandb
 
@@ -40,7 +41,7 @@ import slot_attention_learners as model_utils
 import slot_attention_utils as utils
 
 launch_config = ml_collections.ConfigDict(dict(
-  dataroot='ball_data/U-Dk4s5n5t10_ab',
+  dataroot='ball_data/U-Dk4s5n5t10_ab', # or 
   model_type='factorized_world_model',
 
   jobtype='train',
@@ -97,11 +98,65 @@ class WhiteBallDataLoader():
 
 
 class DMCDatLoader():
-  def __init__(self, datadir):
-    self.datadir = datadir
+  def __init__(self, dataroot):
+    self.episodes = DMCDatLoader.load_episodes(pathlib.Path(dataroot) / 'train_episodes')
+
+  # taken from dreamer/replay
+  @staticmethod
+  def load_episodes(directory, capacity=None, minlen=1):
+    # The returned directory from filenames to episodes is guaranteed to be in
+    # temporally sorted order.
+    filenames = sorted(directory.glob('*.npz'))
+    if capacity:
+      num_steps = 0
+      num_episodes = 0
+      for filename in reversed(filenames):
+        length = int(str(filename).split('-')[-1][:-4])
+        num_steps += length
+        num_episodes += 1
+        if num_steps >= capacity:
+          break
+      filenames = filenames[-num_episodes:]
+    episodes = {}
+    for filename in filenames:
+      try:
+        with filename.open('rb') as f:
+          episode = np.load(f)
+          episode = {k: episode[k] for k in episode.keys()}
+      except Exception as e:
+        print(f'Could not load episode {str(filename)}: {e}')
+        continue
+      episodes[str(filename)] = episode
+    return episodes
 
   def get_batch(self, batch_size, num_frames):
-    pass
+    obs_batch = []
+    act_batch = []
+
+    episodes = list(self.episodes.values())
+    for i in range(batch_size):
+      # sample random episode
+      episode = episodes[np.random.randint(len(episodes))]
+      total_length = len(episode['action'])
+      assert total_length > num_frames
+
+      # sample random chunk
+      start = np.random.randint(total_length-num_frames+1)
+      end = start + num_frames
+
+      # append
+      obs_batch.append(episode['image'][start:end])
+      act_batch.append(episode['action'][start+1:end])  # drop first action
+
+    # stack
+    obs_batch = np.stack(obs_batch)
+    act_batch = np.stack(act_batch)
+
+    # normalize
+    obs_batch = utils.normalize(obs_batch.astype(np.float32) / 255.0)
+    batch =  {'image': obs_batch, 'action': act_batch}
+
+    return batch
 
 
 def main(argv):
@@ -144,7 +199,15 @@ def main(argv):
   # data_iterator = data_utils.build_clevr_iterator(
   #     batch_size, split="train", resolution=resolution, shuffle=True,
   #     max_n_objects=6, get_properties=False, apply_crop=True)
-  data_iterator = WhiteBallDataLoader(h5=h5py.File(f'{args.dataroot}.h5', 'r'))
+
+  # if pathlib.Path(args.dataroot).parent.name == 'ball_data':
+  if 'ball_data' in args.dataroot:
+    data_iterator = WhiteBallDataLoader(h5=h5py.File(f'{args.dataroot}.h5', 'r'))
+  # elif pathlib.Path(args.dataroot).parent.name == 'dmc_data':
+  elif 'dmc_data' in args.dataroot:
+    data_iterator = DMCDatLoader(dataroot=args.dataroot)
+  else:
+    raise NotImplementedError
 
   optimizer = tf.keras.optimizers.Adam(lnr_args.optim.learning_rate, epsilon=1e-08)
 
@@ -290,7 +353,15 @@ CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot
 [gauss1] posterior=True, overshooting=True, lr4e-4
 CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 8 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 5 --lnr.optim.decay_steps 25000 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=True --lnr.model.overshooting_loss=True --lnr.optim.learning_rate 0.0004 --lnch.expname 11_1_21_t8_ph5_b32_lr4e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plTrue_osTrue &
 
+11:13am
+[geb] finger
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot dmc_data/dw_fwm/dw_finger_easy_fwm_b32_t3_ph1_st5e-2 --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.decay_steps 25000 --lnch.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
 
+[gauss1] finger: temp 0.1
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot dmc_data/debug/t_dmc_finger_turn_easy --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.1 --lnch.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st1e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
+
+[gauss1] finger: temp 0.05
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot dmc_data/debug/t_dmc_finger_turn_easy --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.05 --lnch.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st5e-2_ds25e3_etslim_dtslim_plFalse_osTrue &
 
 """
 
