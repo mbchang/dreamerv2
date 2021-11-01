@@ -374,6 +374,11 @@ class Decoder(common.Module):
       (16, 10, 112)
       (16, 10, 128)
       (160, 1, 1, 128)
+
+      0 (B, 5, 5, 16)
+      1 (B, 13, 13, 8)
+      2 (B, 30, 30, 4)
+      3 (B, 64, 64, 3)
     """
     channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
     ConvT = tfkl.Conv2DTranspose
