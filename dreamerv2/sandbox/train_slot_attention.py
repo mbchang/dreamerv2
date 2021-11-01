@@ -96,6 +96,14 @@ class WhiteBallDataLoader():
       return {'image': obs_batch}
 
 
+class DMCDatLoader():
+  def __init__(self, datadir):
+    self.datadir = datadir
+
+  def get_batch(self, batch_size, num_frames):
+    pass
+
+
 def main(argv):
   args = ml_collections.ConfigDict(FLAGS.lnch.to_dict())
   lnr_args = ml_collections.ConfigDict(FLAGS.lnr.to_dict())
@@ -259,8 +267,29 @@ CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot
 CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtdefault &
 
 7:07pm
-[geb]
+[geb] no posterior loss
 CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse &
+
+[geb] everything loss, including overshooting (t=10)
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 10 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=True --lnr.model.overshooting_loss=True --lnch.expname t10_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plTrue_osTrue &
+
+[gauss1] overshooting, no posterior
+CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 8 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 5 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnr.model.overshooting_loss=True --lnch.expname t8_ph5_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
+
+[gauss1] slim, temp 1
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 1.0 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st1_ds25e3_etslim_dtslim &
+
+
+11/1/21
+[geb] lr1e-4, st5e-1, slim, posterior=False
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.decay_steps 25000 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnr.model.overshooting_loss=False --lnch.expname 11_1_21_t3_ph7_b32_lr1e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osFalse &
+
+[gauss1] posterior=False, overshooting=True, lr4e-4
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 8 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 5 --lnr.optim.decay_steps 25000 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnr.model.overshooting_loss=True --lnr.optim.learning_rate 0.0004 --lnch.expname 11_1_21_t8_ph5_b32_lr4e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
+
+[gauss1] posterior=True, overshooting=True, lr4e-4
+CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 8 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 5 --lnr.optim.decay_steps 25000 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=True --lnr.model.overshooting_loss=True --lnr.optim.learning_rate 0.0004 --lnch.expname 11_1_21_t8_ph5_b32_lr4e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plTrue_osTrue &
+
 
 
 """
