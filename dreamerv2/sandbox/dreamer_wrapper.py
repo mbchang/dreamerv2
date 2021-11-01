@@ -198,4 +198,10 @@ CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/
 10/31/21
 1:54pm.
 CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/debug --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 200 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm
+
+
+11/1/21
+dw_fwm/dw_fwm_b64_t3_ph1_st5e-1 seems good, just need to incorporate posterior=False, and overshooting
+
+
 """
