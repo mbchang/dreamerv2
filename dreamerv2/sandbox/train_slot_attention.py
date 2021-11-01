@@ -249,12 +249,18 @@ CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --dataroot ball
 slim encoder and decoder
 
 6:22pm
+[gauss1]
+
 CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim &
 
 CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.decoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etdefault_dtslim &
 
 
 CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtdefault &
+
+7:07pm
+[geb]
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse &
 
 
 """

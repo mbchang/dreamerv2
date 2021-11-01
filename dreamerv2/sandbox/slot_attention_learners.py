@@ -167,7 +167,8 @@ class FactorizedWorldModel(layers.Layer):
             resolution=(64, 64),
             temp=0.5,
             encoder_type='default',
-            decoder_type='default'
+            decoder_type='default',
+            posterior_loss=True,
             )),
           sess=ml_collections.ConfigDict(dict(
             num_slots=5,
@@ -184,7 +185,10 @@ class FactorizedWorldModel(layers.Layer):
 
 
   def __init__(self, resolution, num_slots, temp, 
-    encoder_type='default', decoder_type='default'  # later you will just pass the config in
+    # later you will just pass the config in
+    encoder_type='default', 
+    decoder_type='default',
+    posterior_loss=True,
     ):
     """Builds the Slot Attention-based auto-encoder.
 
@@ -195,6 +199,9 @@ class FactorizedWorldModel(layers.Layer):
     super().__init__()
     self.resolution = resolution
     self.num_slots = num_slots
+
+    # replace this with config at some point
+    self.posterior_loss = posterior_loss
 
     if encoder_type == 'default':
       self.encoder = sa.SlotAttentionEncoder(self.resolution, 64)
@@ -323,11 +330,21 @@ class FactorizedWorldModel(layers.Layer):
   def train_step(self, batch, optimizer):
     with tf.GradientTape() as tape:
       output = self(batch, training=True)
+
       prior_loss = utils.l2_loss(batch['image'][:, 1:], output['prior']['pred']['comb'])
-      posterior_loss = utils.l2_loss(batch['image'], output['posterior']['pred']['comb'])
+
+      if self.posterior_loss:
+        posterior_loss = utils.l2_loss(batch['image'], output['posterior']['pred']['comb'])
+      else:
+        posterior_loss = tf.cast(tf.convert_to_tensor(0), prior_loss.dtype)
+
+      # add overshooting loss here? 
+
+
+
+      # latent loss
       subsequent_latent_loss = utils.l2_loss(
         output['posterior']['latent'][:, 1:], output['prior']['latent'])
-      # add overshooting loss here? 
       initial_latent_loss = tf.cast(tf.convert_to_tensor(0), subsequent_latent_loss.dtype)  # do we want this?
 
       metrics = {
