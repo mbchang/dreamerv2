@@ -168,7 +168,7 @@ class FactorizedWorldModel(layers.Layer):
             temp=0.5,
             encoder_type='default',
             decoder_type='default',
-            posterior_loss=True,
+            posterior_loss=False,
             overshooting_loss=True,
             )),
           sess=ml_collections.ConfigDict(dict(
