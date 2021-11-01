@@ -169,6 +169,7 @@ class FactorizedWorldModel(layers.Layer):
             encoder_type='default',
             decoder_type='default',
             posterior_loss=True,
+            overshooting_loss=True,
             )),
           sess=ml_collections.ConfigDict(dict(
             num_slots=5,
@@ -189,6 +190,7 @@ class FactorizedWorldModel(layers.Layer):
     encoder_type='default', 
     decoder_type='default',
     posterior_loss=True,
+    overshooting_loss=True,
     ):
     """Builds the Slot Attention-based auto-encoder.
 
@@ -202,6 +204,7 @@ class FactorizedWorldModel(layers.Layer):
 
     # replace this with config at some point
     self.posterior_loss = posterior_loss
+    self.overshooting_loss = overshooting_loss
 
     if encoder_type == 'default':
       self.encoder = sa.SlotAttentionEncoder(self.resolution, 64)
@@ -331,35 +334,36 @@ class FactorizedWorldModel(layers.Layer):
     with tf.GradientTape() as tape:
       output = self(batch, training=True)
 
-      prior_loss = utils.l2_loss(batch['image'][:, 1:], output['prior']['pred']['comb'])
+      metrics = {}
+      metrics['prior'] = utils.l2_loss(batch['image'][:, 1:], output['prior']['pred']['comb'])
+
+      dtype = metrics['prior'].dtype
 
       if self.posterior_loss:
-        posterior_loss = utils.l2_loss(batch['image'], output['posterior']['pred']['comb'])
+        metrics['posterior'] = utils.l2_loss(batch['image'], output['posterior']['pred']['comb'])
       else:
-        posterior_loss = tf.cast(tf.convert_to_tensor(0), prior_loss.dtype)
+        metrics['posterior'] = tf.cast(tf.convert_to_tensor(0), dtype)
 
       # add overshooting loss here? 
-
-
+      # self.overshooting_loss = True
+      if self.overshooting_loss:
+        metrics['overshoot'] = tf.cast(tf.convert_to_tensor(0), dtype)
+        for i in range(1, batch['action'].shape[1]):
+          # print(f"overshoot i={i} gt:{batch['image'][:, i+1:].shape} actions: {batch['action'][:, i:].shape} latent: {output['posterior']['latent'][:, i].shape}")
+          metrics['overshoot'] += utils.l2_loss(
+            batch['image'][:, i+1:], 
+            self.imagine(
+              slots=output['posterior']['latent'][:, i],
+              actions=batch['action'][:, i:])['pred']['comb'])
+      else:
+        metrics['overshoot'] = tf.cast(tf.convert_to_tensor(0), dtype)
 
       # latent loss
-      subsequent_latent_loss = utils.l2_loss(
+      metrics['subsequent_latent'] = utils.l2_loss(
         output['posterior']['latent'][:, 1:], output['prior']['latent'])
-      initial_latent_loss = tf.cast(tf.convert_to_tensor(0), subsequent_latent_loss.dtype)  # do we want this?
+      metrics['initial_latent'] = tf.cast(tf.convert_to_tensor(0), dtype)  # do we want this?
 
-      metrics = {
-        'prior': prior_loss,
-        'posterior': posterior_loss,
-        'initial_latent': initial_latent_loss,
-        'subsequent_latent': subsequent_latent_loss
-      }
-
-      loss_value = tf.reduce_sum([
-        prior_loss,
-        posterior_loss,
-        initial_latent_loss,
-        subsequent_latent_loss
-        ])
+      loss_value = tf.reduce_sum(list(metrics.values()))
 
     # Get and apply gradients.
     gradients = tape.gradient(loss_value, self.trainable_weights)
