@@ -83,14 +83,25 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
 
     self.step = 0
 
+    # wandb.init(
+    #     config=self.defaults.to_dict(),  # will need to change this
+    #     project='slot attention',
+    #     dir=self.config.logdir,
+    #     group=f'dreamer_wrapper_{Path(self.config.logdir).parent.name}',
+    #     job_type='train',
+    #     id=f'dw_{Path(self.config.logdir).name}_{datetime.datetime.now():%Y%m%d%H%M%S}'
+    #     )
+
+    logdir = Path(self.config.logdir)
     wandb.init(
         config=self.defaults.to_dict(),  # will need to change this
         project='slot attention',
-        dir=self.config.logdir,
-        group=f'dreamer_wrapper_{Path(self.config.logdir).parent.name}',
+        dir=logdir,
+        group=f'{logdir.parent.parent.name}_{logdir.parent.name}',
         job_type='train',
-        id=f'dw_{Path(self.config.logdir).name}_{datetime.datetime.now():%Y%m%d%H%M%S}'
+        id=f'dw_{logdir.parent.name}_{logdir.name}'
         )
+
 
   def adjust_lr(self, step):
     # if self.step < self.defaults.optim.warmup_steps:
