@@ -30,7 +30,7 @@ defaults:
   jit: True
   cpu: False
   headless: True
-  watch: []
+  watch: [dataset.batch dataset.length]
 
   video_pred: {batch_size: 6, seed_steps: 5}
 
