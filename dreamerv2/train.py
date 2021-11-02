@@ -27,17 +27,6 @@ import ruamel.yaml as yaml
 
 import common
 
-def create_expname(args):
-    import sandbox.logging_utils as lu
-    abbrvs = {
-        'task': '',
-        'precision': 'p',
-        'fwm.optim.learning_rate': 'flr'
-    }
-    watcher = lu.watch(args.watch, abbrvs)
-    expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'
-    return expname
-
 def parse_args():
   """ original """
   configs = yaml.safe_load((
@@ -69,7 +58,9 @@ def parse_args_with_fwm():
 def main():
   # config = parse_args()
   config = parse_args_with_fwm()
-  config = config.update({'logdir': pathlib.Path(config.logdir) / create_expname(config)})
+
+  import sandbox.logging_utils as lu
+  config = config.update({'logdir': pathlib.Path(config.logdir) / lu.create_expname(config)})
 
   logdir = pathlib.Path(config.logdir).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
@@ -261,3 +252,7 @@ def main():
 
 if __name__ == '__main__':
   main()
+
+"""
+python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_place_cradle --agent causal
+"""

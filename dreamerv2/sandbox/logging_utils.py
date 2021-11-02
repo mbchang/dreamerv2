@@ -1,3 +1,6 @@
+import datetime
+import pathlib
+
 def watch(args_to_watch, abbrvs):
     def _fn(args):
         exp_name = []
@@ -7,6 +10,20 @@ def watch(args_to_watch, abbrvs):
         exp_name = '_'.join(exp_name)
         return exp_name
     return _fn
+
+def create_expname(args):
+    abbrvs = {
+        'task': '',
+        'precision': 'p',
+        'fwm.optim.learning_rate': 'flr',
+        'wm_only': 'wmo',
+        'dataset.batch': 'B',
+        'dataset.length': 'T',
+        'fwm.model.temp': 'tp',
+    }
+    watcher = watch(args.watch, abbrvs)
+    expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'
+    return expname
 
 # def create_expname(args):
 #     abbrvs = {
