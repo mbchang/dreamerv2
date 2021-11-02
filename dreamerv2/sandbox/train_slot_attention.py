@@ -39,16 +39,19 @@ import wandb
 
 import slot_attention_learners as model_utils
 import slot_attention_utils as utils
+import logging_utils as lu
 
 launch_config = ml_collections.ConfigDict(dict(
   dataroot='ball_data/U-Dk4s5n5t10_ab', # or 
   model_type='factorized_world_model',
+  lnr=model_utils.FactorizedWorldModel.get_default_args(),
 
   jobtype='train',
   seed=0,
 
   subroot='runs',
   expname='',
+  watch=(),
 
   monitoring=ml_collections.ConfigDict(dict(
       log_every=100,
@@ -64,8 +67,8 @@ launch_config = ml_collections.ConfigDict(dict(
 
 FLAGS = flags.FLAGS
 
-config_flags.DEFINE_config_dict('lnch', launch_config)
-config_flags.DEFINE_config_dict('lnr', model_utils.FactorizedWorldModel.get_default_args())
+config_flags.DEFINE_config_dict('cfg', launch_config)
+# config_flags.DEFINE_config_dict('lnr', model_utils.FactorizedWorldModel.get_default_args())
 # what I want: give the model_type, and then it will load up the config dict for that model type and parse the args according to that 
 
 
@@ -159,16 +162,35 @@ class DMCDatLoader():
     return batch
 
 
+def create_expname(args):
+    abbrvs = {
+        'lnr.sess.num_frames': 'T',
+        'lnr.sess.pred_horizon': 'H',
+        'lnr.optim.batch_size': 'B',
+        'lnr.optim.learning_rate': 'lr',
+        'lnr.optim.decay_steps': 'ds',
+        'lnr.model.encoder_type': 'et',
+        'lnr.model.decoder_type': 'dt',
+        'lnr.model.posterior_loss': 'pl',
+        'lnr.model.overshooting_loss': 'ol',
+        'lnr.model.temp': 'tp',
+    }
+    watcher = lu.watch(args.watch, abbrvs)
+    expname = os.path.join(
+      pathlib.Path(args.dataroot).parent.name,
+      f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}')
+    return expname
+
 def main(argv):
-  args = ml_collections.ConfigDict(FLAGS.lnch.to_dict())
-  lnr_args = ml_collections.ConfigDict(FLAGS.lnr.to_dict())
+  args = ml_collections.ConfigDict(FLAGS.cfg.to_dict())
+  # lnr_args = ml_collections.ConfigDict(FLAGS.cfg.lnr.to_dict())
 
   tf.random.set_seed(args.seed)
   np.random.seed(args.seed)
   resolution = (64, 64)
 
   if args.model_type == 'object_discovery':
-    assert lnr_args.num_frames == 1
+    assert args.lnr.num_frames == 1
 
   tf.config.run_functions_eagerly(True)
   if not args.system.cpu:
@@ -177,23 +199,22 @@ def main(argv):
   for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
-  expdir = os.path.join(args.subroot, args.expname)
+  expdir = pathlib.Path(args.subroot) / create_expname(args)
   os.makedirs(expdir, exist_ok=True)
 
   wandb.init(
-      config=lnr_args.to_dict(),
+      config=args.to_dict(),
       project='slot attention',
       dir=expdir,
-      group=os.path.basename(args.subroot),
+      group=f'{args.subroot}_{expdir.parent.name}',
       job_type=args.jobtype,
-      id=args.expname+'_{date:%Y%m%d%H%M%S}'.format(
-          date=datetime.datetime.now())
-      )
+      id=f'{expdir.parent.name}_{expdir.name}')
 
   lgr.remove()   # remove default handler
   lgr.add(os.path.join(expdir, 'debug.log'))
   if not args.system.headless:
     lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
+  lgr.info(f'Logdir: {expdir}')
 
   # Build dataset iterators, optimizers and model.
   # data_iterator = data_utils.build_clevr_iterator(
@@ -209,10 +230,10 @@ def main(argv):
   else:
     raise NotImplementedError
 
-  optimizer = tf.keras.optimizers.Adam(lnr_args.optim.learning_rate, epsilon=1e-08)
+  optimizer = tf.keras.optimizers.Adam(args.lnr.optim.learning_rate, epsilon=1e-08)
 
-  # model = model_utils.build_model(resolution, lnr_args.optim.batch_size, lnr_args.sess.num_slots, lnr_args.model.temp, model_type=args.model_type)
-  model = model_utils.get_learner(args.model_type)(num_slots=lnr_args.sess.num_slots, **lnr_args.model)
+  # model = model_utils.build_model(resolution, args.lnr.optim.batch_size, args.lnr.sess.num_slots, args.lnr.model.temp, model_type=args.model_type)
+  model = model_utils.get_learner(args.model_type)(num_slots=args.lnr.sess.num_slots, **args.lnr.model)
 
   # Prepare checkpoint manager.
   global_step = tf.Variable(
@@ -228,21 +249,21 @@ def main(argv):
     lgr.info("Initializing from scratch.")
 
   start = time.time()
-  for itr in range(lnr_args.optim.num_train_steps):
+  for itr in range(args.lnr.optim.num_train_steps):
     # batch = next(data_iterator)
-    batch = data_iterator.get_batch(lnr_args.optim.batch_size, lnr_args.sess.num_frames)
+    batch = data_iterator.get_batch(args.lnr.optim.batch_size, args.lnr.sess.num_frames)
 
-    if global_step < lnr_args.optim.warmup_steps:
-    #   learning_rate = lnr_args.learning_rate * tf.cast(
-    #       global_step, tf.float32) / tf.cast(lnr_args.warmup_steps, tf.float32)
-      learning_rate = tf.cast(lnr_args.optim.learning_rate, tf.float32)
+    if global_step < args.lnr.optim.warmup_steps:
+    #   learning_rate = args.lnr.learning_rate * tf.cast(
+    #       global_step, tf.float32) / tf.cast(args.lnr.warmup_steps, tf.float32)
+      learning_rate = tf.cast(args.lnr.optim.learning_rate, tf.float32)
     else:
-      learning_rate = lnr_args.optim.learning_rate * (lnr_args.optim.decay_rate ** (
-          tf.cast(global_step-lnr_args.optim.warmup_steps, tf.float32) / tf.cast(lnr_args.optim.decay_steps, tf.float32)))
+      learning_rate = args.lnr.optim.learning_rate * (args.lnr.optim.decay_rate ** (
+          tf.cast(global_step-args.lnr.optim.warmup_steps, tf.float32) / tf.cast(args.lnr.optim.decay_steps, tf.float32)))
 
     optimizer.lr = learning_rate.numpy()
 
-    loss_value, _, _ = model.train_step(batch=batch, optimizer=optimizer)
+    loss_value, output, metrics = model.train_step(batch=batch, optimizer=optimizer)
 
     # Update the global step. We update it before logging the loss and saving
     # the model so that the last checkpoint is saved at the last iteration.
@@ -256,6 +277,7 @@ def main(argv):
           f'{args.jobtype}/itr': global_step.numpy(),
           f'{args.jobtype}/loss': loss_value,
           f'{args.jobtype}/learning_rate': learning_rate.numpy(),
+          **{f'{args.jobtype}/{k}': v for k, v in metrics.items()}
           }, step=global_step.numpy())
 
     # We save the checkpoints every 1000 iterations.
@@ -265,14 +287,14 @@ def main(argv):
       lgr.info(f"Saved checkpoint: {saved_ckpt}")
 
     if not global_step % args.monitoring.vis_every:
-      if lnr_args.sess.num_frames > 1:
-        # sequence_length = lnr_args.num_frames
+      if args.lnr.sess.num_frames > 1:
+        # sequence_length = args.lnr.num_frames
         sequence_length = 10
-        assert lnr_args.sess.pred_horizon < sequence_length
-        seed_steps = sequence_length-lnr_args.sess.pred_horizon
+        assert args.lnr.sess.pred_horizon < sequence_length
+        seed_steps = sequence_length-args.lnr.sess.pred_horizon
 
-        batch = data_iterator.get_batch(lnr_args.optim.batch_size, sequence_length)
-        video = model.visualize(batch, seed_steps=seed_steps, pred_horizon=lnr_args.sess.pred_horizon)  # for now
+        batch = data_iterator.get_batch(args.lnr.optim.batch_size, sequence_length)
+        video = model.visualize(batch, seed_steps=seed_steps, pred_horizon=args.lnr.sess.pred_horizon)  # for now
         utils.save_gif(utils.add_border(video.numpy(), seed_steps), os.path.join(expdir, f'{global_step.numpy()}'))
       else:
         model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch)
@@ -290,14 +312,14 @@ if __name__ == "__main__":
   CUDA_VISIBLE_DEVICES=2 python train_slot_attention.py --dataroot ball_data/Dk4s0n2000t10_ab --expname t1_b16
 
 
-  python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 10
+  python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --args.lnr.num_train_steps 10
 
 
   10/25/21
   CUDA_VISIBLE_DEVICES=0 python train_slot_attention.py --dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --expname t3_b32 --model_type factorized_world_model --num_frames 3 --batch_size 32
 
   debug:
-  python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1
+  python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --args.lnr.num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1
 
   2:54pm
   CUDA_VISIBLE_DEVICES=1 python train_slot_attention.py --dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --expname t3_ph1_b32_geb --model_type factorized_world_model --num_frames 3 --batch_size 32 --pred_horizon 1 &
@@ -307,11 +329,11 @@ if __name__ == "__main__":
 
   10/17/21
   debug:
-    python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 10
-    python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --lnr_args.num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1 --pred_horizon 1
+    python train_slot_attention.py --batch_size 3 --subroot runs/sanity --cpu --headless=False --log_every 1 --args.lnr.num_train_steps 10
+    python train_slot_attention.py --batch_size 2 --subroot runs/sanity --cpu --headless=False --log_every 1 --args.lnr.num_train_steps 5 --model_type factorized_world_model --num_frames 3 --vis_every 1 --pred_horizon 1
 
 10/30/21
-python train_slot_attention.py --lnr.optim.batch_size 2 --lnch.subroot runs/sanity --lnch.system.cpu --lnch.system.headless=False --lnch.monitoring.log_every 1 --lnr.optim.num_train_steps 5 --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnch.monitoring.vis_every 1 --lnr.sess.pred_horizon 1
+python train_slot_attention.py --cfg.lnr.optim.batch_size 2 --cfg.subroot runs/sanity --cfg.system.cpu --cfg.system.headless=False --cfg.monitoring.log_every 1 --cfg.lnr.optim.num_train_steps 5 --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.monitoring.vis_every 1 --cfg.lnr.sess.pred_horizon 1
 
 10/31/21
 3pm or so
@@ -322,46 +344,46 @@ slim encoder and decoder
 6:22pm
 [gauss1]
 
-CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim &
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.learning_rate 0.0002 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.5 --cfg.lnr.model.encoder_type slim --cfg.lnr.model.decoder_type slim --cfg.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim &
 
-CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.decoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etdefault_dtslim &
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.learning_rate 0.0002 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.5 --cfg.lnr.model.decoder_type slim --cfg.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etdefault_dtslim &
 
 
-CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtdefault &
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.learning_rate 0.0002 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.5 --cfg.lnr.model.encoder_type slim --cfg.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtdefault &
 
 7:07pm
 [geb] no posterior loss
-CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse &
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.learning_rate 0.0002 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.5 --cfg.lnr.model.encoder_type slim --cfg.lnr.model.decoder_type slim --cfg.lnr.model.posterior_loss=False --cfg.expname t3_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse &
 
 [geb] everything loss, including overshooting (t=10)
-CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 10 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=True --lnr.model.overshooting_loss=True --lnch.expname t10_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plTrue_osTrue &
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 10 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.learning_rate 0.0002 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.5 --cfg.lnr.model.encoder_type slim --cfg.lnr.model.decoder_type slim --cfg.lnr.model.posterior_loss=True --cfg.lnr.model.overshooting_loss=True --cfg.expname t10_ph7_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plTrue_osTrue &
 
 [gauss1] overshooting, no posterior
-CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 8 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 5 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.5 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnr.model.overshooting_loss=True --lnch.expname t8_ph5_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
+CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 8 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 5 --cfg.lnr.optim.learning_rate 0.0002 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.5 --cfg.lnr.model.encoder_type slim --cfg.lnr.model.decoder_type slim --cfg.lnr.model.posterior_loss=False --cfg.lnr.model.overshooting_loss=True --cfg.expname t8_ph5_b32_lr2e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
 
 [gauss1] slim, temp 1
-CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.learning_rate 0.0002 --lnr.optim.decay_steps 25000 --lnr.model.temp 1.0 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnch.expname t3_ph7_b32_lr2e-4_dr5e-1_st1_ds25e3_etslim_dtslim &
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.learning_rate 0.0002 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 1.0 --cfg.lnr.model.encoder_type slim --cfg.lnr.model.decoder_type slim --cfg.expname t3_ph7_b32_lr2e-4_dr5e-1_st1_ds25e3_etslim_dtslim &
 
 
 11/1/21
 [geb] lr1e-4, st5e-1, slim, posterior=False
-CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.decay_steps 25000 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnr.model.overshooting_loss=False --lnch.expname 11_1_21_t3_ph7_b32_lr1e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osFalse &
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.encoder_type slim --cfg.lnr.model.decoder_type slim --cfg.lnr.model.posterior_loss=False --cfg.lnr.model.overshooting_loss=False --cfg.expname 11_1_21_t3_ph7_b32_lr1e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osFalse &
 
 [gauss1] posterior=False, overshooting=True, lr4e-4
-CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 8 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 5 --lnr.optim.decay_steps 25000 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=False --lnr.model.overshooting_loss=True --lnr.optim.learning_rate 0.0004 --lnch.expname 11_1_21_t8_ph5_b32_lr4e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
+CUDA_VISIBLE_DEVICES=2 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 8 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 5 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.encoder_type slim --cfg.lnr.model.decoder_type slim --cfg.lnr.model.posterior_loss=False --cfg.lnr.model.overshooting_loss=True --cfg.lnr.optim.learning_rate 0.0004 --cfg.expname 11_1_21_t8_ph5_b32_lr4e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
 
 [gauss1] posterior=True, overshooting=True, lr4e-4
-CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --lnch.model_type factorized_world_model --lnr.sess.num_frames 8 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 5 --lnr.optim.decay_steps 25000 --lnr.model.encoder_type slim --lnr.model.decoder_type slim --lnr.model.posterior_loss=True --lnr.model.overshooting_loss=True --lnr.optim.learning_rate 0.0004 --lnch.expname 11_1_21_t8_ph5_b32_lr4e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plTrue_osTrue &
+CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot ball_data/whiteballpush/U-Dk4s0n2000t10_ab --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 8 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 5 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.encoder_type slim --cfg.lnr.model.decoder_type slim --cfg.lnr.model.posterior_loss=True --cfg.lnr.model.overshooting_loss=True --cfg.lnr.optim.learning_rate 0.0004 --cfg.expname 11_1_21_t8_ph5_b32_lr4e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plTrue_osTrue &
 
 11:13am
 [geb] finger
-CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot dmc_data/dw_fwm/dw_finger_easy_fwm_b32_t3_ph1_st5e-2 --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.decay_steps 25000 --lnch.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
+CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot dmc_data/dw_fwm/dw_finger_easy_fwm_b32_t3_ph1_st5e-2 --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.decay_steps 25000 --cfg.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st5e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
 
-[gauss1] finger: temp 0.1
-CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot dmc_data/debug/t_dmc_finger_turn_easy --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.1 --lnch.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st1e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
+[gauss1] finger: temp 0.1 --> kill this one because seems like temp 0.05 also doesn't work
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot dmc_data/debug/t_dmc_finger_turn_easy --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.1 --cfg.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st1e-1_ds25e3_etslim_dtslim_plFalse_osTrue &
 
 [gauss1] finger: temp 0.05
-CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --lnch.dataroot dmc_data/debug/t_dmc_finger_turn_easy --lnch.model_type factorized_world_model --lnr.sess.num_frames 3 --lnr.optim.batch_size 32 --lnr.sess.pred_horizon 7 --lnr.optim.decay_steps 25000 --lnr.model.temp 0.05 --lnch.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st5e-2_ds25e3_etslim_dtslim_plFalse_osTrue &
+CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot dmc_data/debug/t_dmc_finger_turn_easy --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.05 --cfg.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st5e-2_ds25e3_etslim_dtslim_plFalse_osTrue &
 
 """
 

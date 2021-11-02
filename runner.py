@@ -40,8 +40,9 @@ class Runner():
     def append_flags_to_command(self, command, flag_dict):
         for flag_name, flag_value in flag_dict.items():
             if type(flag_value) == bool:
-                if flag_value == True:
-                    command += f' --{flag_name}'
+                # if flag_value == True:
+                #     command += f' --{flag_name}'
+                command += f' --{flag_name}={flag_value}'
             elif type(flag_value) == list:
                 command += f" --{flag_name} {' '.join(element for element in flag_value)}"
             else:
@@ -464,6 +465,73 @@ def train_model_balls_fwm_10_27_21():
     r.add_flag('logdir', ['runs/model/balls_sa_ns5_t3_fwm'])
     r.generate_commands(args.for_real)
 
+def comparison_for_train_on_dreamer_data_11_1_21():
+    """
+    CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b32_t3_ph1_st1 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 32 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.model.temp 1.0 &
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['balls_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('wm_only', [True])
+    r.add_flag('precision', [32])
+    r.add_flag('dataset.batch', [32])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('video_pred.seed_steps', [2])
+    r.add_flag('wm', ['fwm'])
+    r.add_flag('logdir', ['runs/train_on_dreamer_data'])
+    r.generate_commands(args.for_real)
+
+def batch_size_lr_11_1_21():
+    """
+    does increasing the batch size help it train faster and segregate?
+    does increasing the learning rate help it train faster and segregate?
+
+    for balls, it makes a difference
+    for manipulation it doesn't
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['balls_whiteball_push', 'dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('wm_only', [True])
+    r.add_flag('precision', [32])
+    r.add_flag('dataset.batch', [64])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('video_pred.seed_steps', [2])
+    r.add_flag('fwm.optim.learning_rate', [1e-4, 4e-4])
+    r.add_flag('fwm.sess.pred_horizon', [1])  # should be redundant
+    r.add_flag('wm', ['fwm'])
+    r.add_flag('logdir', ['runs/make_dreamer_train_faster'])
+    r.add_flag('watch', ['dataset.batch fwm.optim.learning_rate'])
+    r.generate_commands(args.for_real)
+
+
+def segregrate_manipulation_11_1_21():
+    """
+    could a difference with the pytorch results also have to do with the normalization? 
+
+    B32_flr0.0004_tp0.05_20211101215458 this worked.
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('wm_only', [True])
+    r.add_flag('precision', [32])
+    r.add_flag('dataset.batch', [32])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('video_pred.seed_steps', [2])
+    r.add_flag('fwm.optim.learning_rate', [1e-4, 4e-4])
+    r.add_flag('fwm.model.temp', [5e-2, 5e-3])
+    r.add_flag('fwm.sess.pred_horizon', [1])  # should be redundant
+    r.add_flag('wm', ['fwm'])
+    r.add_flag('logdir', ['runs/make_dreamer_train_faster'])
+    r.add_flag('watch', ['dataset.batch fwm.optim.learning_rate fwm.model.temp'])
+    r.generate_commands(args.for_real)
 
 
 if __name__ == '__main__':
@@ -472,4 +540,12 @@ if __name__ == '__main__':
     # train_model_single_step_sanity_10_22_21()
     # train_model_two_step_sanity_10_22_21()
     # train_model_balls_sanity_10_23_21()
-    train_model_balls_fwm_10_27_21()
+    # train_model_balls_fwm_10_27_21()
+    # comparison_for_train_on_dreamer_data_11_1_21()
+    # batch_size_lr_11_1_21()
+    segregrate_manipulation_11_1_21()
+
+
+
+
+
