@@ -71,6 +71,17 @@ def main():
   if not config.headless:
     lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
 
+  # initialize wandb
+  import wandb
+  wandb.init(
+      config=config,  # will need to change this
+      project='slot attention',
+      dir=logdir,
+      group=f'dv2_train_{logdir.parent.parent.name}_{logdir.parent.name}',
+      job_type='train',
+      id=f'dv2_train_{logdir.parent.name}_{logdir.name}'
+      )
+
   config.save(logdir / 'config.yaml')
   lgr.info(f'{config}\n')
   lgr.info(f'Logdir: {logdir}')
@@ -150,19 +161,26 @@ def main():
     lgr.info(f'{mode.title()} episode has {length} steps and return {score:.1f}.')
     logger.scalar(f'{mode}_return', score)
     logger.scalar(f'{mode}_length', length)
+    wandb.log({
+      f'{mode}_return': score,
+      f'{mode}_length': length}, step=step.value)
     for key, value in ep.items():
       if re.match(config.log_keys_sum, key):
         logger.scalar(f'sum_{mode}_{key}', ep[key].sum())
+        wandb.log({f'sum_{mode}_{key}': ep[key].sum()}, step=step.value)
       if re.match(config.log_keys_mean, key):
         logger.scalar(f'mean_{mode}_{key}', ep[key].mean())
+        wandb.log({f'mean_{mode}_{key}': ep[key].mean()}, step=step.value)
       if re.match(config.log_keys_max, key):
         logger.scalar(f'max_{mode}_{key}', ep[key].max(0).mean())
+        wandb.log({f'max_{mode}_{key}': ep[key].max(0).mean()}, step=step.value)
     should = {'train': should_video_train, 'eval': should_video_eval}[mode]
     if should(step):
       for key in config.log_keys_video:
         logger.video(f'{mode}_policy_{key}', ep[key])
     replay = dict(train=train_replay, eval=eval_replay)[mode]
     logger.add(replay.stats, prefix=mode)
+    wandb.log({f'{mode}_{key}': value for key, value in replay.stats.items()}, step=step.value)
     logger.write()
 
   lgr.info('Create envs.')
@@ -230,9 +248,13 @@ def main():
     if should_log(step):
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
+        #############################################################
+        wandb.log({name: np.array(values, np.float64).mean()}, step=step.value)
+        #############################################################
         metrics[name].clear()
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
+      wandb.log({'fps': logger._compute_fps()}, step=step.value)
   train_driver.on_step(train_step)
 
   while step < config.steps:
