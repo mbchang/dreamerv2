@@ -97,7 +97,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
         config=self.defaults.to_dict(),  # will need to change this
         project='slot attention',
         dir=logdir,
-        group=f'{logdir.parent.parent.name}_{logdir.parent.name}',
+        group=f'dv2_train_fwm_{logdir.parent.parent.name}_{logdir.parent.name}',
         job_type='train',
         id=f'dw_{logdir.parent.name}_{logdir.name}'
         )
@@ -171,6 +171,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       'model_kl': mets['initial_latent'] + mets['subsequent_latent'],  # are we averaging over time for subsequent latent?
       'prior_ent': 0,
       'post_ent': 0,
+      'learning_rate': self.optimizer.lr
     }
     return state, outputs, metrics
 
