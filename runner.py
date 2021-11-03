@@ -534,6 +534,120 @@ def segregrate_manipulation_11_1_21():
     r.generate_commands(args.for_real)
 
 
+def push_learning_rate_batch_size_11_2_21():
+    """
+        b16,lr1e-4,tp0.1: does not segregate
+        b16,lr1e-4,tp0.05: does not segregate
+        b16,1r1e-4,tp0.005: does not segregate
+        b16,lr1e-4,tp0.5: does not segregate
+
+        b16,lr4e-4,tp0.1: does not segregate
+        b16,lr4e-4,tp0.05: does not segregate
+        b16,lr4e-4,tp0.005: does not segregate
+        b16,lr4e-4,tp0.5: does not segregate
+
+        b16,lr8e-4,tp0.1: does not segregate
+        b16,lr8e-4,tp0.05: does not segregate
+        b16,lr8e-4,tp0.005: segregates, but pretty late in the game
+        b16,lr8e-4,tp0.5: does not segregate
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('wm_only', [True])
+    r.add_flag('precision', [32])
+    r.add_flag('dataset.batch', [16])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('video_pred.seed_steps', [2])
+    r.add_flag('fwm.optim.learning_rate', [1e-4, 4e-4, 8e-4])
+    r.add_flag('fwm.model.temp', [5e-2, 5e-3])
+    r.add_flag('fwm.sess.pred_horizon', [1])  # should be redundant
+    r.add_flag('wm', ['fwm'])
+    r.add_flag('logdir', ['runs/make_dreamer_train_faster'])
+    r.add_flag('watch', ['dataset.batch fwm.optim.learning_rate fwm.model.temp'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0,1])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('wm_only', [True])
+    r.add_flag('precision', [32])
+    r.add_flag('dataset.batch', [16])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('video_pred.seed_steps', [2])
+    r.add_flag('fwm.optim.learning_rate', [1e-4, 4e-4, 8e-4])
+    r.add_flag('fwm.model.temp', [5e-1, 1e-1])
+    r.add_flag('fwm.sess.pred_horizon', [1])  # should be redundant
+    r.add_flag('wm', ['fwm'])
+    r.add_flag('logdir', ['runs/make_dreamer_train_faster'])
+    r.add_flag('watch', ['dataset.batch fwm.optim.learning_rate fwm.model.temp'])
+    r.generate_commands(args.for_real)
+
+
+def does_prediction_horizon_affect_return_11_2_21():
+    """
+    
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 1, 0])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('dataset.length', [50, 25, 10, 5])
+    r.add_flag('logdir', ['runs/does_prediction_horizon_affect_return'])
+    r.add_flag('watch', ['dataset.length'])
+    r.generate_commands(args.for_real)
+
+
+def push_learning_rate_batch_size_geb_11_3_21():
+    """ dreamer/train_model
+
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0,1])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('wm_only', [True])
+    r.add_flag('precision', [32])
+    r.add_flag('dataset.batch', [16])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('video_pred.seed_steps', [2])
+    r.add_flag('fwm.optim.learning_rate', [16e-4, 32e-4])
+    r.add_flag('fwm.model.temp', [5e-1, 5e-2, 5e-3])
+    r.add_flag('fwm.sess.pred_horizon', [1])  # should be redundant
+    r.add_flag('wm', ['fwm'])
+    r.add_flag('logdir', ['runs/make_dreamer_train_faster'])
+    r.add_flag('watch', ['dataset.batch fwm.optim.learning_rate fwm.model.temp'])
+    r.generate_commands(args.for_real)
+
+def push_learning_rate_batch_size_gauss1_11_3_21():
+    """ dreamer/train_model
+
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0,1,2])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('wm_only', [True])
+    r.add_flag('precision', [32])
+    r.add_flag('dataset.batch', [32])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('video_pred.seed_steps', [2])
+    r.add_flag('fwm.optim.learning_rate', [16e-4, 32e-4])
+    r.add_flag('fwm.model.temp', [5e-1, 5e-2, 5e-3])
+    r.add_flag('fwm.sess.pred_horizon', [1])  # should be redundant
+    r.add_flag('wm', ['fwm'])
+    r.add_flag('logdir', ['runs/make_dreamer_train_faster'])
+    r.add_flag('watch', ['dataset.batch fwm.optim.learning_rate fwm.model.temp'])
+    r.generate_commands(args.for_real)
+
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -543,7 +657,11 @@ if __name__ == '__main__':
     # train_model_balls_fwm_10_27_21()
     # comparison_for_train_on_dreamer_data_11_1_21()
     # batch_size_lr_11_1_21()
-    segregrate_manipulation_11_1_21()
+    # segregrate_manipulation_11_1_21()
+    # push_learning_rate_batch_size_11_2_21()
+    # does_prediction_horizon_affect_return_11_2_21()
+    # push_learning_rate_batch_size_geb_11_3_21()
+    push_learning_rate_batch_size_gauss1_11_3_21()
 
 
 
