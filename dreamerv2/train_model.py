@@ -61,8 +61,8 @@ def parse_args_with_fwm():
 
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
-    if name != 'fwm':
-      config = config.update(configs[name])
+    # if name != 'fwm':
+    config = config.update(configs[name])
   config = common.Flags(config).parse(remaining)
   return config
 
@@ -218,7 +218,10 @@ def main():
 
   lgr.info('Create agent.')
   train_dataset = iter(train_replay.dataset(**config.dataset))
-  report_dataset = iter(train_replay.dataset(**config.dataset))
+  # report_dataset = iter(train_replay.dataset(**config.dataset))
+  report_dataset = iter(train_replay.dataset(
+    batch=config.eval_dataset.batch,
+    length=config.eval_dataset.length))
   eval_dataset = iter(eval_replay.dataset(**config.dataset))
   #############################################################
   # maybe use the mirrored strategy here? 
@@ -275,12 +278,12 @@ def main():
     if should_log(step):
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
-        wandb.log({name: np.array(values, np.float64).mean()}, step=step.value)
+        # wandb.log({name: np.array(values, np.float64).mean()}, step=step.value)
         metrics[name].clear()
       lgr.info(f'Generating train report (step {step.value})...')
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
-      wandb.log({'fps': logger._compute_fps()}, step=step.value)
+      # wandb.log({'fps': logger._compute_fps()}, step=step.value)
 
     step.increment()
 

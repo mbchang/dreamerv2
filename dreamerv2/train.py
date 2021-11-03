@@ -50,8 +50,8 @@ def parse_args_with_fwm():
   
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
-    if name != 'fwm':
-      config = config.update(configs[name])
+    # if name != 'fwm':
+    config = config.update(configs[name])
   config = common.Flags(config).parse(remaining)
   return config
 
@@ -216,7 +216,10 @@ def main():
 
   lgr.info('Create agent.')
   train_dataset = iter(train_replay.dataset(**config.dataset))
-  report_dataset = iter(train_replay.dataset(**config.dataset))
+  # report_dataset = iter(train_replay.dataset(**config.dataset))
+  report_dataset = iter(train_replay.dataset(
+    batch=config.eval_dataset.batch,
+    length=config.eval_dataset.length))
   eval_dataset = iter(eval_replay.dataset(**config.dataset))
   #############################################################
   # maybe use the mirrored strategy here? 

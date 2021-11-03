@@ -33,7 +33,7 @@ defaults:
   watch: [dataset.batch, dataset.length]
   debug: False
 
-  video_pred: {batch_size: 6, seed_steps: 5}
+  eval_dataset: {batch: 6, seed_steps: 5, length: 50}
 
   agent: 'dv2'
 
@@ -189,6 +189,8 @@ debug:
   headless: False
   debug: True
 
+  eval_dataset: {batch: 6, seed_steps: 5, length: 30}
+
   rssm: {hidden: 10, deter: 8, stoch: 4, discrete: 4, embed_dim: 8}
   encoder: {cnn_depth: 4, mlp_layers: [8, 8], mlp_keys: '$^', cnn_keys: 'image'}
   decoder: {cnn_depth: 4, mlp_layers: [8, 8], mlp_keys: '$^', cnn_keys: 'image'}
@@ -201,3 +203,8 @@ debug:
   expl_head: {layers: 2, units: 8, act: elu, norm: none, dist: mse}
 
   # Slot Attention
+
+fwm:
+    wm_only: True
+    wm: fwm
+    precision: 32
