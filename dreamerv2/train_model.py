@@ -81,6 +81,17 @@ def main():
   if not config.headless:
     lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
 
+  import wandb
+  suffix = '_db' if config.debug else '' 
+  wandb.init(
+      config=config,  # will need to change this
+      project='slot attention',
+      dir=logdir,
+      group=f'dv2_trainmodel{suffix}',
+      job_type='train',
+      id=f'dv2_trainmodel_{logdir.parent.name}_{logdir.name}'
+      )
+
   config.save(logdir / 'config.yaml')
   lgr.info(f'{config}\n')
   lgr.info(f'Logdir: {logdir}')
@@ -264,10 +275,12 @@ def main():
     if should_log(step):
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
+        wandb.log({name: np.array(values, np.float64).mean()}, step=step.value)
         metrics[name].clear()
       lgr.info(f'Generating train report (step {step.value})...')
       logger.add(agnt.report(next(report_dataset)), prefix='train')
       logger.write(fps=True)
+      wandb.log({'fps': logger._compute_fps()}, step=step.value)
 
     step.increment()
 
@@ -357,5 +370,7 @@ CUDA_VISIBLE_DEVICES=3 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/
 geb again
 CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/dw_fwm/dw_fwm_b64_t3_ph1_st5e-1_lr2e-4 --configs dmc_vision fwm --task balls_whiteball_push --agent causal --prefill 20000 --wm_only=True --precision 32 --dataset.batch 64 --dataset.length 3 --video_pred.seed_steps 2 --wm fwm --fwm.optim.learning_rate 2e-4 &
 
+debug:
+python dreamerv2/train_model.py --logdir runs/debug_train_model --configs debug fwm --task balls_whiteball_push --agent causal --wm_only=True --precision 32
 
 """

@@ -92,15 +92,15 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     #     id=f'dw_{Path(self.config.logdir).name}_{datetime.datetime.now():%Y%m%d%H%M%S}'
     #     )
 
-    logdir = Path(self.config.logdir)
-    wandb.init(
-        config=self.defaults.to_dict(),  # will need to change this
-        project='slot attention',
-        dir=logdir,
-        group=f'dv2_train_fwm_{logdir.parent.parent.name}_{logdir.parent.name}',
-        job_type='train',
-        id=f'dw_{logdir.parent.name}_{logdir.name}'
-        )
+    # logdir = Path(self.config.logdir)
+    # wandb.init(
+    #     config=self.defaults.to_dict(),  # will need to change this
+    #     project='slot attention',
+    #     dir=logdir,
+    #     group=f'dv2_train_fwm_{logdir.parent.parent.name}_{logdir.parent.name}',
+    #     job_type='train',
+    #     id=f'dw_{logdir.parent.name}_{logdir.name}'
+    #     )
 
 
   def adjust_lr(self, step):
@@ -150,9 +150,9 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       lgr.info(f"step: {self.step}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.3e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
 
       wandb.log({
-          f'train/itr': self.step,
-          f'train/loss': loss,
-          f'train/learning_rate': self.optimizer.lr,
+          f'dw/train/itr': self.step,
+          f'dw/train/loss': loss,
+          f'dw/train/learning_rate': self.optimizer.lr,
           }, step=self.step)
 
 
@@ -171,7 +171,9 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       'model_kl': mets['initial_latent'] + mets['subsequent_latent'],  # are we averaging over time for subsequent latent?
       'prior_ent': 0,
       'post_ent': 0,
-      'learning_rate': self.optimizer.lr
+      'loss': loss,
+      'learning_rate': self.optimizer.lr,
+      'dw_step': self.step
     }
     return state, outputs, metrics
 

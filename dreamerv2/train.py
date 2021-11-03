@@ -73,11 +73,12 @@ def main():
 
   # initialize wandb
   import wandb
+  suffix = '_db' if config.debug else '' 
   wandb.init(
       config=config,  # will need to change this
       project='slot attention',
       dir=logdir,
-      group=f'dv2_train_{logdir.parent.parent.name}_{logdir.parent.name}',
+      group=f'dv2_train{suffix}',
       job_type='train',
       id=f'dv2_train_{logdir.parent.name}_{logdir.name}'
       )
