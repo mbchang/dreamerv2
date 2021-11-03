@@ -6,3 +6,17 @@ MUJOCO_LOG.TXT
 
 runs
 to_nfs.sh
+to_geb.sh
+to_gauss1.sh
+wandb
+dreamerv2/sandbox/ball_data
+dreamerv2/sandbox/mlc_practice/
+dreamerv2/sandbox/mount.sh
+dreamerv2/sandbox/multiagent
+dreamerv2/sandbox/pytorch/
+dreamerv2/sandbox/scratch/
+dreamerv2/sandbox/slot_attention_orig.py
+dreamerv2/sandbox/wandb/
+dreamerv2/.DS_Store
+dreamerv2/sandbox/.DS_Store
+nfs_runs/
