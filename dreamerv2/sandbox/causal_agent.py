@@ -36,43 +36,47 @@ class CausalAgent(common.Module):
 
   @tf.function
   def policy(self, obs, state=None, mode='train'):
-    obs = tf.nest.map_structure(tf.tensor, obs)
-    tf.py_function(lambda: self.tfstep.assign(
-        int(self.step), read_value=False), [], [])
-    if state is None:
-      latent = self.wm.rssm.initial(len(obs['reward']))
-      action = tf.zeros((len(obs['reward']),) + self.act_space.shape)
-      state = latent, action
-    latent, action = state
-    embed = self.wm.encoder(self.wm.preprocess(obs))
-    ###########################################################
-    # encoder to latent?
-    ###########################################################
-    sample = (mode == 'train') or not self.config.eval_state_mean
-    latent, _ = self.wm.rssm.obs_step(
-        latent, action, embed, obs['is_first'], sample)
-    feat = self.wm.rssm.get_feat(latent)
-    ###########################################################
-    # latent to decoder?
-    if self.config.rssm.num_slots > 1:
-      feat = rearrange(feat, '... k featdim -> ... (k featdim)')
-    ###########################################################
-    if mode == 'eval':
-      actor = self._task_behavior.actor(feat)
-      action = actor.mode()
-      noise = self.config.eval_noise
-    elif mode == 'explore':
-      actor = self._expl_behavior.actor(feat)
-      action = actor.sample()
-      noise = self.config.expl_noise
-    elif mode == 'train':
-      actor = self._task_behavior.actor(feat)
-      action = actor.sample()
-      noise = self.config.expl_noise
-    action = common.action_noise(action, noise, self.act_space)
-    outputs = {'action': action}
-    state = (latent, action)
-    return outputs, state
+    if self.config.wm == 'fwm' and self.config.wm_only:
+      random_policy = common.RandomAgent({'action': self.act_space})
+      return random_policy(obs, state)
+    else:
+      obs = tf.nest.map_structure(tf.tensor, obs)
+      tf.py_function(lambda: self.tfstep.assign(
+          int(self.step), read_value=False), [], [])
+      if state is None:
+        latent = self.wm.rssm.initial(len(obs['reward']))
+        action = tf.zeros((len(obs['reward']),) + self.act_space.shape)
+        state = latent, action
+      latent, action = state
+      embed = self.wm.encoder(self.wm.preprocess(obs))
+      ###########################################################
+      # encoder to latent?
+      ###########################################################
+      sample = (mode == 'train') or not self.config.eval_state_mean
+      latent, _ = self.wm.rssm.obs_step(
+          latent, action, embed, obs['is_first'], sample)
+      feat = self.wm.rssm.get_feat(latent)
+      ###########################################################
+      # latent to decoder?
+      if self.config.rssm.num_slots > 1:
+        feat = rearrange(feat, '... k featdim -> ... (k featdim)')
+      ###########################################################
+      if mode == 'eval':
+        actor = self._task_behavior.actor(feat)
+        action = actor.mode()
+        noise = self.config.eval_noise
+      elif mode == 'explore':
+        actor = self._expl_behavior.actor(feat)
+        action = actor.sample()
+        noise = self.config.expl_noise
+      elif mode == 'train':
+        actor = self._task_behavior.actor(feat)
+        action = actor.sample()
+        noise = self.config.expl_noise
+      action = common.action_noise(action, noise, self.act_space)
+      outputs = {'action': action}
+      state = (latent, action)
+      return outputs, state
 
   @tf.function
   def train(self, data, state=None):

@@ -149,11 +149,11 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     if self.step % self.defaults.monitoring.log_every == 0:
       lgr.info(f"step: {self.step}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.3e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
 
-      wandb.log({
-          f'dw/train/itr': self.step,
-          f'dw/train/loss': loss,
-          f'dw/train/learning_rate': self.optimizer.lr,
-          }, step=self.step)
+      # wandb.log({
+      #     f'dw/train/itr': self.step,
+      #     f'dw/train/loss': loss,
+      #     f'dw/train/learning_rate': self.optimizer.lr,
+      #     }, step=self.step)
 
 
     # state is dummy
@@ -177,6 +177,32 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     }
     return state, outputs, metrics
 
+  # # @tf.function --> if I turn this on I can't do video.numpy()
+  # def report(self, data):
+  #   report = {}
+  #   data = self.preprocess(data)
+  #   # delete the first action
+  #   data['action'] = data['action'][:, 1:]
+
+  #   name = 'image'
+  #   seed_steps = self.config.eval_dataset.seed_steps
+
+  #   rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
+
+  #   wandb.log({
+  #       f'dw/train/itr': self.step,
+  #       f'dw/rollout/reconstruct': rollout_metrics['reconstruct'].numpy(),
+  #       f'dw/rollout/imagine': rollout_metrics['imagine'].numpy(),
+  #       }, step=self.step)
+
+  #   video = self.model.visualize(rollout_output)
+  #   report[f'openl_{name}'] = video
+  #   save_path = os.path.join(self.config.logdir, f'{self.step}')
+  #   print(f'save gif to {save_path}')
+  #   utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
+  #   return report
+
+
   # @tf.function --> if I turn this on I can't do video.numpy()
   def report(self, data):
     report = {}
@@ -188,15 +214,12 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     seed_steps = self.config.eval_dataset.seed_steps
 
     rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
-
-    wandb.log({
-        f'dw/train/itr': self.step,
-        f'dw/rollout/reconstruct': rollout_metrics['reconstruct'].numpy(),
-        f'dw/rollout/imagine': rollout_metrics['imagine'].numpy(),
-        }, step=self.step)
-
     video = self.model.visualize(rollout_output)
+
     report[f'openl_{name}'] = video
+    report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
+    report[f'imag_loss_{name}'] = rollout_metrics['imagine']
+
     save_path = os.path.join(self.config.logdir, f'{self.step}')
     print(f'save gif to {save_path}')
     utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
