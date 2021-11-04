@@ -83,36 +83,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
 
     self.step = 0
 
-    # wandb.init(
-    #     config=self.defaults.to_dict(),  # will need to change this
-    #     project='slot attention',
-    #     dir=self.config.logdir,
-    #     group=f'dreamer_wrapper_{Path(self.config.logdir).parent.name}',
-    #     job_type='train',
-    #     id=f'dw_{Path(self.config.logdir).name}_{datetime.datetime.now():%Y%m%d%H%M%S}'
-    #     )
-
-    # logdir = Path(self.config.logdir)
-    # wandb.init(
-    #     config=self.defaults.to_dict(),  # will need to change this
-    #     project='slot attention',
-    #     dir=logdir,
-    #     group=f'dv2_train_fwm_{logdir.parent.parent.name}_{logdir.parent.name}',
-    #     job_type='train',
-    #     id=f'dw_{logdir.parent.name}_{logdir.name}'
-    #     )
-
-
   def adjust_lr(self, step):
-    # if self.step < self.defaults.optim.warmup_steps:
-    #   learning_rate = self.defaults.optim.learning_rate * float(self.step) / self.defaults.optim.warmup_steps
-    # else:
-    #   learning_rate = self.defaults.optim.learning_rate
-    # learning_rate = learning_rate * (self.defaults.optim.decay_rate ** (float(self.step) / self.defaults.optim.decay_steps))
-
-
-    # learning_rate = self.defaults.optim.learning_rate
-
     if self.step < self.defaults.optim.warmup_steps:
       learning_rate = self.defaults.optim.learning_rate
     else:
@@ -155,7 +126,6 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       #     f'dw/train/learning_rate': self.optimizer.lr,
       #     }, step=self.step)
 
-
     # state is dummy
     state = None
 
@@ -176,32 +146,6 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       'dw_step': self.step
     }
     return state, outputs, metrics
-
-  # # @tf.function --> if I turn this on I can't do video.numpy()
-  # def report(self, data):
-  #   report = {}
-  #   data = self.preprocess(data)
-  #   # delete the first action
-  #   data['action'] = data['action'][:, 1:]
-
-  #   name = 'image'
-  #   seed_steps = self.config.eval_dataset.seed_steps
-
-  #   rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
-
-  #   wandb.log({
-  #       f'dw/train/itr': self.step,
-  #       f'dw/rollout/reconstruct': rollout_metrics['reconstruct'].numpy(),
-  #       f'dw/rollout/imagine': rollout_metrics['imagine'].numpy(),
-  #       }, step=self.step)
-
-  #   video = self.model.visualize(rollout_output)
-  #   report[f'openl_{name}'] = video
-  #   save_path = os.path.join(self.config.logdir, f'{self.step}')
-  #   print(f'save gif to {save_path}')
-  #   utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
-  #   return report
-
 
   # @tf.function --> if I turn this on I can't do video.numpy()
   def report(self, data):
