@@ -188,6 +188,13 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     seed_steps = self.config.eval_dataset.seed_steps
 
     rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
+
+    wandb.log({
+        f'dw/train/itr': self.step,
+        f'dw/rollout/reconstruct': rollout_metrics['reconstruct'].numpy(),
+        f'dw/rollout/imagine': rollout_metrics['imagine'].numpy(),
+        }, step=self.step)
+
     video = self.model.visualize(rollout_output)
     report[f'openl_{name}'] = video
     save_path = os.path.join(self.config.logdir, f'{self.step}')
