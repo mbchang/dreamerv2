@@ -32,36 +32,29 @@ def parse_args():
   configs = yaml.safe_load((
       pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
   parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
+  configs = add_programmatically_generated_configs(parsed, configs)
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
     config = config.update(configs[name])
   config = common.Flags(config).parse(remaining)
   return config
 
-def parse_args_with_fwm():
-  configs = yaml.safe_load((
-      pathlib.Path(sys.argv[0]).parent / 'configs.yaml').read_text())
-  parsed, remaining = common.Flags(configs=['defaults']).parse(known_only=True)
-
+def add_programmatically_generated_configs(parsed, configs):
   if 'fwm' in parsed.configs:
     sys.path.append(os.path.join(str(pathlib.Path(__file__).parent), 'sandbox'))
     from sandbox.slot_attention_learners import FactorizedWorldModel
     configs['defaults']['fwm'] = FactorizedWorldModel.get_default_args().to_dict()
   
-  config = common.Config(configs['defaults'])
-  for name in parsed.configs:
-    config = config.update(configs[name])
-  config = common.Flags(config).parse(remaining)
-  return config
+  configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
+  return configs
 
 def main():
-  # config = parse_args()
-  config = parse_args_with_fwm()
+  config = parse_args()
 
   import sandbox.logging_utils as lu
-  config = config.update({'logdir': pathlib.Path(config.logdir) / lu.create_expname(config)})
+  config = config.update({'expdir': lu.create_expname(config)})
 
-  logdir = pathlib.Path(config.logdir).expanduser()
+  logdir = (pathlib.Path(config.logdir) / pathlib.Path(config.expdir)).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
 
   # initialize lgr
@@ -77,9 +70,9 @@ def main():
       config=config,  # will need to change this
       project='slot attention',
       dir=logdir,
-      group=f'dv2_train{suffix}',
+      group=pathlib.Path(config.logdir).name,
       job_type='train',
-      id=f'dv2_train_{logdir.parent.name}_{logdir.name}'
+      id=f'dv2_train_{config.task}_{pathlib.Path(config.expdir).name}'
       )
 
   config.save(logdir / 'config.yaml')
