@@ -647,6 +647,21 @@ def push_learning_rate_batch_size_gauss1_11_3_21():
     r.generate_commands(args.for_real)
 
 
+def does_sequence_length_affect_rollout_quality_11_2_21():
+    """
+    
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0, 1, 1, 0])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [50, 25, 10, 5])
+    r.add_flag('logdir', ['runs/does_sequence_length_affect_rollout_quality'])
+    r.add_flag('watch', ['dataset.length eval_dataset.length eval_dataset.seed_steps'])
+    r.generate_commands(args.for_real)
+
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -661,7 +676,8 @@ if __name__ == '__main__':
     # push_learning_rate_batch_size_11_2_21()
     # does_prediction_horizon_affect_return_11_2_21()
     # push_learning_rate_batch_size_geb_11_3_21()
-    push_learning_rate_batch_size_gauss1_11_3_21()
+    # push_learning_rate_batch_size_gauss1_11_3_21()
+    does_sequence_length_affect_rollout_quality_11_2_21()
 
 
 
