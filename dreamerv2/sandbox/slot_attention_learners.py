@@ -385,18 +385,34 @@ class FactorizedWorldModel(layers.Layer):
       )
     return imag_output
 
-  def visualize(self, batch, seed_steps=3, pred_horizon=5, num_ex=5):
-    obs = batch['image'][:num_ex, :seed_steps + pred_horizon]
-    act = batch['action'][:num_ex, :seed_steps - 1 + pred_horizon]
-    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps-1]})
+  def rollout(self, batch, seed_steps, pred_horizon):
+    obs = batch['image'][:, :seed_steps + pred_horizon]
+    act = batch['action'][:, :seed_steps - 1 + pred_horizon]
+    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps-1]}, training=False)
     imag_output = self.imagine(recon_output['posterior']['latent'][:, -1], act[:, seed_steps-1:])
 
-    recon_comb = recon_output['posterior']['pred']['comb']
-    recon_comp = recon_output['posterior']['pred']['comp']
-    recon_masks = recon_output['posterior']['pred']['masks']
-    imag_comb = imag_output['pred']['comb']
-    imag_comp = imag_output['pred']['comp']
-    imag_masks = imag_output['pred']['masks']
+    rollout_output = dict(
+      obs=obs,
+      recon_output=recon_output,
+      imag_output=imag_output,
+      )
+    rollout_metrics = dict(
+      reconstruct=utils.l2_loss(
+        obs[:, :seed_steps], recon_output['posterior']['pred']['comb']),
+      imagine=utils.l2_loss(
+        obs[:, seed_steps:], imag_output['pred']['comb'])
+      )
+    return rollout_output, rollout_metrics
+
+  def visualize(self, rollout_output):#, num_ex=5):
+    obs = rollout_output['obs']
+    # note that if we do not supervise the posterior, this might not be good
+    recon_comb = rollout_output['recon_output']['posterior']['pred']['comb']
+    recon_comp = rollout_output['recon_output']['posterior']['pred']['comp']
+    recon_masks = rollout_output['recon_output']['posterior']['pred']['masks']
+    imag_comb = rollout_output['imag_output']['pred']['comb']
+    imag_comp = rollout_output['imag_output']['pred']['comp']
+    imag_masks = rollout_output['imag_output']['pred']['masks']
 
     truth = utils.renormalize(obs)  # (b, t, h, w, c)
     model = utils.renormalize(tf.concat([recon_comb, imag_comb], 1))  # (b, t, h, w, c)

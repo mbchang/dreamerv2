@@ -186,8 +186,9 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
 
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
-    pred_horizon = self.config.eval_dataset.length - seed_steps
-    video = self.model.visualize(data, seed_steps=seed_steps, pred_horizon=pred_horizon)  # for now
+
+    rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
+    video = self.model.visualize(rollout_output)
     report[f'openl_{name}'] = video
     save_path = os.path.join(self.config.logdir, f'{self.step}')
     print(f'save gif to {save_path}')

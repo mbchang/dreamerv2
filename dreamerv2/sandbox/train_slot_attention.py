@@ -288,13 +288,15 @@ def main(argv):
 
     if not global_step % args.monitoring.vis_every:
       if args.lnr.sess.num_frames > 1:
-        # sequence_length = args.lnr.num_frames
+        num_ex = 4
         sequence_length = 10
         assert args.lnr.sess.pred_horizon < sequence_length
         seed_steps = sequence_length-args.lnr.sess.pred_horizon
 
-        batch = data_iterator.get_batch(args.lnr.optim.batch_size, sequence_length)
-        video = model.visualize(batch, seed_steps=seed_steps, pred_horizon=args.lnr.sess.pred_horizon)  # for now
+        batch = data_iterator.get_batch(num_ex, sequence_length)
+        rollout_output, rollout_metrics = model.rollout(batch=batch, seed_steps=seed_steps, pred_horizon=args.lnr.sess.pred_horizon)
+        video = model.visualize(rollout_output)
+        # video = model.visualize(batch, seed_steps=seed_steps, pred_horizon=args.lnr.sess.pred_horizon)  # for now
         utils.save_gif(utils.add_border(video.numpy(), seed_steps), os.path.join(expdir, f'{global_step.numpy()}'))
       else:
         model.visualize(os.path.join(expdir, f'{global_step.numpy()}'), batch)
@@ -384,6 +386,11 @@ CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot 
 
 [gauss1] finger: temp 0.05
 CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot dmc_data/debug/t_dmc_finger_turn_easy --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 3 --cfg.lnr.optim.batch_size 32 --cfg.lnr.sess.pred_horizon 7 --cfg.lnr.optim.decay_steps 25000 --cfg.lnr.model.temp 0.05 --cfg.expname 11_1_21_finger_t3_ph7_b32_lr1e-4_dr5e-1_st5e-2_ds25e3_etslim_dtslim_plFalse_osTrue &
+
+
+
+python train_slot_attention.py --cfg.lnr.optim.batch_size 2 --cfg.subroot runs/sanity --cfg.system.cpu --cfg.system.headless=False --cfg.monitoring.log_every 1 --cfg.lnr.optim.num_train_steps 5 --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 5 --cfg.monitoring.vis_every 1 --cfg.lnr.sess.pred_horizon 1
+
 
 """
 
