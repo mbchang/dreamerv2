@@ -264,7 +264,8 @@ def main():
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
         metrics[name].clear()
-      logger.add(agnt.report(next(report_dataset)), prefix='train')
+      report = agnt.report(next(report_dataset))
+      logger.add(report, prefix='train')
       logger.write(fps=True)
   train_driver.on_step(train_step)
 
@@ -278,10 +279,13 @@ def main():
     if should_log(step):
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
-        # wandb.log({name: np.array(values, np.float64).mean()}, step=step.value)
+        wandb.log({name: np.array(values, np.float64).mean()}, step=step.value)
         metrics[name].clear()
       lgr.info(f'Generating train report (step {step.value})...')
-      logger.add(agnt.report(next(report_dataset)), prefix='train')
+      report = agnt.report(next(report_dataset))
+      wandb.log({key: report[key].numpy() for key in report if 'openl' not in key}, step=step.value)
+      logger.add({key: report[key] for key in report if 'openl' in key}, prefix='train')
+      # logger.add(report, prefix='train')
       logger.write(fps=True)
       # wandb.log({'fps': logger._compute_fps()}, step=step.value)
 
@@ -290,7 +294,10 @@ def main():
     if step.value % config.eval_every == 0:
       logger.write()
       lgr.info('Start evaluation.')
-      logger.add(agnt.report(next(eval_dataset)), prefix='eval')
+      report = agnt.report(next(eval_dataset))
+      wandb.log({key: report[key].numpy() for key in report if 'openl' not in key}, step=step.value)
+      logger.add({key: report[key] for key in report if 'openl' in key}, prefix='eval')
+      # logger.add(report, prefix='eval')
       eval_driver(random_agent, episodes=config.eval_eps)
       agnt.save(logdir / 'variables.pkl')
 

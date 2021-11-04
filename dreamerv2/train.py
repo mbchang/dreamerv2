@@ -50,7 +50,6 @@ def parse_args_with_fwm():
   
   config = common.Config(configs['defaults'])
   for name in parsed.configs:
-    # if name != 'fwm':
     config = config.update(configs[name])
   config = common.Flags(config).parse(remaining)
   return config
@@ -256,7 +255,10 @@ def main():
         wandb.log({name: np.array(values, np.float64).mean()}, step=step.value)
         #############################################################
         metrics[name].clear()
-      logger.add(agnt.report(next(report_dataset)), prefix='train')
+      report = agnt.report(next(report_dataset))
+      wandb.log({key: report[key].numpy() for key in report if 'openl' not in key}, step=step.value)
+      logger.add({key: report[key] for key in report if 'openl' in key}, prefix='train')
+      # logger.add(report, prefix='train')
       logger.write(fps=True)
       wandb.log({'fps': logger._compute_fps()}, step=step.value)
   train_driver.on_step(train_step)
@@ -264,7 +266,10 @@ def main():
   while step < config.steps:
     logger.write()
     lgr.info('Start evaluation.')
-    logger.add(agnt.report(next(eval_dataset)), prefix='eval')
+    report = agnt.report(next(eval_dataset))
+    wandb.log({key: report[key].numpy() for key in report if 'openl' not in key}, step=step.value)
+    logger.add({key: report[key] for key in report if 'openl' in key}, prefix='eval')
+    # logger.add(report, prefix='eval')
     eval_driver(eval_policy, episodes=config.eval_eps)
     lgr.info('Start training.')
     train_driver(train_policy, steps=config.eval_every)

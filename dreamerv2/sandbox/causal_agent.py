@@ -313,12 +313,24 @@ class WorldModel(common.Module):
         prior_feat = rearrange(prior_feat, '... k featdim -> ... (k featdim)')
       openl = decoder(prior_feat)[key].mode()
       model = tf.concat([nmlz.uncenter(recon[:, :t]), nmlz.uncenter(openl)], 1)
+
+      recon_loss = -tf.cast(decoder(post_feat)[key].log_prob(data[key][:n, :t]), tf.float32).mean()
+      imag_loss = -tf.cast(decoder(prior_feat)[key].log_prob(data[key][:n, t:]), tf.float32).mean()
+
     else:
       model = nmlz.uncenter(recon[:, :t])
+
+      recon_loss = -tf.cast(decoder(post_feat)[key].log_prob(data[key][:n, :t]), tf.float32).mean()
+      imag_loss = tf.zeros(1, dtype=tf.float32)
+
+
     error = (model - truth + 1) / 2
     video = tf.concat([truth, model, error], 2)
     output = dict(
-      video=rearrange(video, 'b t h w c -> t h (b w) c'))
+      video=rearrange(video, 'b t h w c -> t h (b w) c'),
+      recon_loss=recon_loss,
+      imag_loss=imag_loss,
+      )
     return output
     # return rearrange(video, 'b t h w c -> t h (b w) c')
 
@@ -381,6 +393,8 @@ class WorldModel(common.Module):
         generate_video = self.video_pred
       output = generate_video(data, key)
       report[f'openl_{name}'] = output['video']
+      report[f'recon_loss_{name}'] = output['recon_loss']
+      report[f'imag_loss_{name}'] = output['imag_loss']
     return report
 
 
