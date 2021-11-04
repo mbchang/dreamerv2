@@ -656,9 +656,31 @@ def does_sequence_length_affect_rollout_quality_11_2_21():
     r.add_flag('task', ['dmc_cheetah_run'])
     r.add_flag('agent', ['causal'])
     r.add_flag('prefill', [20000])
-    r.add_flag('dataset.length', [50, 25, 10, 5])
+    r.add_flag('dataset.length', [50, 25, 10])
     r.add_flag('logdir', ['runs/does_sequence_length_affect_rollout_quality'])
     r.add_flag('watch', ['dataset.length eval_dataset.length eval_dataset.seed_steps'])
+    r.generate_commands(args.for_real)
+
+def how_necessary_are_discrete_latents_11_4_21():
+    """
+    
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.stoch', [1])
+    r.add_flag('rssm.discrete', [1])
+    r.add_flag('logdir', ['runs/how_necessary_are_discrete_latents'])
+    r.add_flag('watch', ['rssm.stoch rssm.discrete'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('logdir', ['runs/how_necessary_are_discrete_latents'])
+    r.add_flag('watch', ['rssm.stoch rssm.discrete'])
     r.generate_commands(args.for_real)
 
 
@@ -677,7 +699,8 @@ if __name__ == '__main__':
     # does_prediction_horizon_affect_return_11_2_21()
     # push_learning_rate_batch_size_geb_11_3_21()
     # push_learning_rate_batch_size_gauss1_11_3_21()
-    does_sequence_length_affect_rollout_quality_11_2_21()
+    # does_sequence_length_affect_rollout_quality_11_2_21()
+    how_necessary_are_discrete_latents_11_4_21()
 
 
 
