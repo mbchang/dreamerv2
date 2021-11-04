@@ -294,7 +294,7 @@ class WorldModel(common.Module):
 
   @tf.function
   def video_pred(self, data, key):
-    n = self.config.eval_dataset.batch_size
+    n = self.config.eval_dataset.batch
     t = self.config.eval_dataset.seed_steps
     decoder = self.heads['decoder']
     truth = nmlz.uncenter(data[key][:n])
@@ -317,11 +317,14 @@ class WorldModel(common.Module):
       model = nmlz.uncenter(recon[:, :t])
     error = (model - truth + 1) / 2
     video = tf.concat([truth, model, error], 2)
-    return rearrange(video, 'b t h w c -> t h (b w) c')
+    output = dict(
+      video=rearrange(video, 'b t h w c -> t h (b w) c'))
+    return output
+    # return rearrange(video, 'b t h w c -> t h (b w) c')
 
   @tf.function
   def slot_video_pred(self, data, key):
-    n = self.config.eval_dataset.batch_size
+    n = self.config.eval_dataset.batch
     t = self.config.eval_dataset.seed_steps
     decoder = self.heads['decoder']
     truth = nmlz.uncenter(data[key][:n])
@@ -362,7 +365,9 @@ class WorldModel(common.Module):
     else:
       error = (model - truth + 1) / 2
       video = tf.concat([truth, model, error], 2)
-    return rearrange(video, 'b t h w c -> t h (b w) c')
+    output = dict(
+      video=rearrange(video, 'b t h w c -> t h (b w) c'))
+    return output
 
   @tf.function
   def report(self, data):
@@ -371,9 +376,11 @@ class WorldModel(common.Module):
     for key in self.heads['decoder'].cnn_keys:
       name = key.replace('/', '_')
       if self.config.rssm.num_slots > 1:
-        report[f'openl_{name}'] = self.slot_video_pred(data, key)
+        generate_video = self.slot_video_pred
       else:
-        report[f'openl_{name}'] = self.video_pred(data, key)
+        generate_video = self.video_pred
+      output = generate_video(data, key)
+      report[f'openl_{name}'] = output['video']
     return report
 
 
