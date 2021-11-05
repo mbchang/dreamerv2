@@ -93,7 +93,7 @@ class CausalAgent(common.Module):
         metrics.update({'expl_' + key: value for key, value in mets.items()})
     return state, metrics
 
-  @tf.function
+  # @tf.function --> turn this back on when you 
   def report(self, data):
     return self.wm.report(data)
     # report = {}
@@ -147,6 +147,7 @@ class WorldModel(common.Module):
       assert name in self.heads, name
     self.model_opt = common.Optimizer('model', **config.model_opt)
 
+  @tf.function
   def train(self, data, state=None):
     """
       reward (B, T)
