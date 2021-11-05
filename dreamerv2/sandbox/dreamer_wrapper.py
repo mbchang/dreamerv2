@@ -141,13 +141,14 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       'model_kl': mets['initial_latent'] + mets['subsequent_latent'],  # are we averaging over time for subsequent latent?
       'prior_ent': 0,
       'post_ent': 0,
-      'loss': loss,
-      'learning_rate': self.optimizer.lr,
-      'dw_step': self.step
+      
+      'train/loss': loss,
+      'train/learning_rate': self.optimizer.lr,
+      'train/itr': self.step
     }
     return state, outputs, metrics
 
-  # @tf.function --> if I turn this on I can't do video.numpy()
+  # @tf.function# --> if I turn this on I can't do video.numpy()
   def report(self, data):
     report = {}
     data = self.preprocess(data)
