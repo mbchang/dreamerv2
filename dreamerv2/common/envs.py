@@ -81,7 +81,7 @@ class DMC:
       domain = 'ball_in_cup'
     if domain == 'manip':
       from dm_control import manipulation
-      self._env = manipulation.load(task + '_vision')
+      self._env = manipulation.load(task + '_vision', seed=seed)
     elif domain == 'locom':
       from dm_control.locomotion.examples import basic_rodent_2020
       self._env = getattr(basic_rodent_2020, task)()
