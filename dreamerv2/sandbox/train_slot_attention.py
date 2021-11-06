@@ -169,6 +169,7 @@ def create_expname(args):
         'lnr.optim.batch_size': 'B',
         'lnr.optim.learning_rate': 'lr',
         'lnr.optim.decay_steps': 'ds',
+        'lnr.optim.warmup_steps': 'ws',
         'lnr.model.encoder_type': 'et',
         'lnr.model.decoder_type': 'dt',
         'lnr.model.posterior_loss': 'pl',
@@ -295,6 +296,12 @@ def main(argv):
 
         batch = data_iterator.get_batch(num_ex, sequence_length)
         rollout_output, rollout_metrics = model.rollout(batch=batch, seed_steps=seed_steps, pred_horizon=args.lnr.sess.pred_horizon)
+
+        wandb.log({
+          f'{args.jobtype}/recon_loss': rollout_metrics['reconstruct'].numpy(),
+          f'{args.jobtype}/imag_loss': rollout_metrics['imagine'].numpy(),
+          }, step=global_step.numpy())
+
         video = model.visualize(rollout_output)
         # video = model.visualize(batch, seed_steps=seed_steps, pred_horizon=args.lnr.sess.pred_horizon)  # for now
         utils.save_gif(utils.add_border(video.numpy(), seed_steps), os.path.join(expdir, f'{global_step.numpy()}'))
