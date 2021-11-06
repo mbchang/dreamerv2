@@ -81,13 +81,14 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       **self.defaults.model)
     self.optimizer = tf.keras.optimizers.Adam(self.defaults.optim.learning_rate, epsilon=1e-08)
 
-    self.step = 0
+    self.step = tf.Variable(0, trainable=False, name="fwm_step", dtype=tf.int64)
 
   def adjust_lr(self, step):
     if self.step < self.defaults.optim.warmup_steps:
-      learning_rate = self.defaults.optim.learning_rate
+      learning_rate = tf.cast(self.defaults.optim.learning_rate, tf.float32)
     else:
-      learning_rate = self.defaults.optim.learning_rate * (self.defaults.optim.decay_rate ** (float(self.step-self.defaults.optim.warmup_steps) / self.defaults.optim.decay_steps))
+      learning_rate = self.defaults.optim.learning_rate * (self.defaults.optim.decay_rate ** (
+          tf.cast(self.step-self.defaults.optim.warmup_steps, tf.float32) / tf.cast(self.defaults.optim.decay_steps, tf.float32)))
 
     return learning_rate
 
@@ -115,16 +116,16 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     # train step
     loss, outputs, mets = self.model.train_step(data, self.optimizer)
 
-    self.step += 1
+    self.step.assign_add(1)
 
-    if self.step % self.defaults.monitoring.log_every == 0:
-      lgr.info(f"step: {self.step}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.3e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
+    if self.step % self.defaults.monitoring.log_every == 0 and not self.config.jit:
+      lgr.info(f"step: {self.step.numpy()}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.3e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
 
       # wandb.log({
       #     f'dw/train/itr': self.step,
       #     f'dw/train/loss': loss,
       #     f'dw/train/learning_rate': self.optimizer.lr,
-      #     }, step=self.step)
+      #     })#, step=self.step)
 
     # state is dummy
     state = None
@@ -142,13 +143,9 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       'prior_ent': 0,
       'post_ent': 0,
       
-      'train/loss': loss,
-      'train/learning_rate': self.optimizer.lr,
-      'train/itr': self.step,
-
-      'train_loss': loss,
-      'train_learning_rate': self.optimizer.lr,
-      'train_itr': self.step,
+      'fwm/loss': loss,
+      'fwm/learning_rate': self.optimizer.lr,
+      'fwm/itr': self.step,
     }
     return state, outputs, metrics
 
@@ -170,8 +167,9 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     report[f'imag_loss_{name}'] = rollout_metrics['imagine']
 
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
-    save_path = os.path.join(logdir, f'{self.step}')
-    print(f'save gif to {save_path}')
+    save_path = os.path.join(logdir, f'{self.step.numpy()}')
+    lgr.info(f'save gif to {save_path}')
+    lgr.info(f"step: {self.step.numpy()}\tlr: {self.optimizer.lr.numpy():.3e}")
     utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
     return report
 
