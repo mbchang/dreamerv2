@@ -168,7 +168,7 @@ class FactorizedWorldModel(layers.Layer):
             temp=0.5,
             encoder_type='slim',
             decoder_type='slim',
-            posterior_loss=False,
+            posterior_loss=False,  # True for slim
             overshooting_loss=True,
             )),
           sess=ml_collections.ConfigDict(dict(
@@ -182,6 +182,9 @@ class FactorizedWorldModel(layers.Layer):
           save_every=1000,
           vis_every=1000))
           ))
+
+      # you can do an if/else thing here to set the values of other hyperparameters based on whether the encoder/decoder is slim or not.
+
       return default_args
 
 
