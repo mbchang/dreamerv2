@@ -144,7 +144,11 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
       
       'train/loss': loss,
       'train/learning_rate': self.optimizer.lr,
-      'train/itr': self.step
+      'train/itr': self.step,
+
+      'train_loss': loss,
+      'train_learning_rate': self.optimizer.lr,
+      'train_itr': self.step,
     }
     return state, outputs, metrics
 
@@ -165,7 +169,8 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
     report[f'imag_loss_{name}'] = rollout_metrics['imagine']
 
-    save_path = os.path.join(self.config.logdir, f'{self.step}')
+    logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
+    save_path = os.path.join(logdir, f'{self.step}')
     print(f'save gif to {save_path}')
     utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
     return report
