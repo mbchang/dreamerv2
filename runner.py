@@ -832,6 +832,131 @@ def merge_train_and_train_model_cheetah_default_11_5_21():
     r.add_flag('watch', [' '.join(to_watch)])
     r.generate_commands(args.for_real)
 
+def find_good_hyperparameters_train_mballs_11_5_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [5e-4])
+    r.add_flag('fwm.model.temp', [0.05, 0.5])
+    r.add_flag('fwm.optim.warmup_steps', [0, 10000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_mballs_train'])
+    to_watch = [
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+def find_good_hyperparameters_train_cradle_11_5_21():
+    """
+        conclusion: 5e-4 might be too low of a learning rate
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [5e-4])
+    r.add_flag('fwm.model.temp', [0.05, 0.5])
+    r.add_flag('fwm.optim.warmup_steps', [5000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_cradle_train'])
+    to_watch = [
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def find_good_hyperparameters_train_cradle2_11_5_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [5e-3])
+    r.add_flag('fwm.model.temp', [0.05, 0.5])
+    r.add_flag('fwm.optim.warmup_steps', [5000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_cradle_train'])
+    to_watch = [
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def find_good_hyperparameters_train_mballs2_11_5_21():
+    """
+    Conclustion:
+        This was best:
+        T3_eT10_ss3_flr0.0005_fws5000_plTrue_tp0.5_20211105221011
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [1e-4, 5e-4, 1e-3])
+    r.add_flag('fwm.model.temp', [0.5])
+    r.add_flag('fwm.optim.warmup_steps', [5000, 15000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_mballs_train'])
+    to_watch = [
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
 
 
 if __name__ == '__main__':
@@ -853,7 +978,11 @@ if __name__ == '__main__':
     # merge_train_and_train_model_11_4_21()
     # find_good_hyperparms_for_slim_train_model_11_4_21()
     # merge_train_and_train_model_manipulation_11_4_21()
-    merge_train_and_train_model_cheetah_default_11_5_21()
+    # merge_train_and_train_model_cheetah_default_11_5_21()
+    # find_good_hyperparameters_train_mballs_11_5_21()
+    # find_good_hyperparameters_train_cradle_11_5_21()
+    # find_good_hyperparameters_train_cradle2_11_5_21()
+    find_good_hyperparameters_train_mballs2_11_5_21()
 
 
 
