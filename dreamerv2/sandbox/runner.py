@@ -550,6 +550,35 @@ def find_better_hyperparms_for_slim3_11_4_21():
     r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
     r.generate_commands(args.for_real)
 
+def find_good_hyperparms_for_dmc_cradle_11_5_21():
+    """
+    first take the best hyperparams you found for balls, and then search around there for manip_place_cradle
+    """
+    r = RunnerWithIDs(command='python train_slot_attention.py', gpus=[0, 1])
+    r.add_flag('cfg.dataroot', ['dmc_data/data/dmc_manip_place_cradle/wmoFalse_20211101152629'])
+    r.add_flag('cfg.subroot', ['runs/good_hyperparms_for_dmc_cradle'])
+    r.add_flag('cfg.lnr.sess.num_frames', [3])
+    r.add_flag('cfg.lnr.sess.pred_horizon', [7])
+    r.add_flag('cfg.lnr.optim.batch_size', [32])
+    r.add_flag('cfg.lnr.optim.learning_rate', [5e-4])
+    r.add_flag('cfg.lnr.optim.decay_steps', [5000, 10000])
+    r.add_flag('cfg.lnr.model.posterior_loss', [True, False])
+    r.add_flag('cfg.lnr.model.temp', [5e-1])
+    to_watch = [
+        'lnr.sess.num_frames', 
+        'lnr.sess.pred_horizon',
+        'lnr.model.temp',
+        'lnr.optim.batch_size',
+        'lnr.model.encoder_type',
+        'lnr.model.decoder_type',
+        'lnr.optim.learning_rate',
+        'lnr.model.posterior_loss',
+        'lnr.optim.warmup_steps',
+        'lnr.optim.decay_steps',
+        ]
+    r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
+    r.generate_commands(args.for_real)
+
 
 
 
@@ -565,6 +594,7 @@ if __name__ == '__main__':
     # find_good_hyperparms_for_slim_11_4_21()
     # find_better_hyperparms_for_slim_11_4_21()
     # find_better_hyperparms_for_slim2_11_4_21()
-    find_better_hyperparms_for_slim3_11_4_21()
+    # find_better_hyperparms_for_slim3_11_4_21()
+    find_good_hyperparms_for_dmc_cradle_11_5_21()
 
 

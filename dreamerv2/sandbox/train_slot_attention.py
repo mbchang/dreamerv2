@@ -200,7 +200,7 @@ def main(argv):
   for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
-  expdir = pathlib.Path(args.subroot) / create_expname(args)
+  expdir = pathlib.Path(args.subroot) / f'tsa_{create_expname(args)}'
   os.makedirs(expdir, exist_ok=True)
 
   wandb.init(
