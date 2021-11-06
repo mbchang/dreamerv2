@@ -1,6 +1,7 @@
 import datetime
 from loguru import logger as lgr
 import ml_collections
+import numpy as np
 import os
 from pathlib import Path
 import sys
@@ -118,8 +119,8 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
 
     self.step.assign_add(1)
 
-    if self.step % self.defaults.monitoring.log_every == 0 and not self.config.jit:
-      lgr.info(f"step: {self.step.numpy()}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.3e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
+    # if self.step % self.defaults.monitoring.log_every == 0 and not self.config.jit:
+    #   lgr.info(f"step: {self.step.numpy()}\tloss: {loss}\tlr: {self.optimizer.lr.numpy():.3e} batch: {data['image'].shape[0]} frames: {data['image'].shape[1]}")
 
       # wandb.log({
       #     f'dw/train/itr': self.step,
@@ -169,7 +170,6 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
     save_path = os.path.join(logdir, f'{self.step.numpy()}')
     lgr.info(f'save gif to {save_path}')
-    lgr.info(f"step: {self.step.numpy()}\tlr: {self.optimizer.lr.numpy():.3e}")
     utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
     return report
 
