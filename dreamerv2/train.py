@@ -143,6 +143,15 @@ def main():
         seed=config.seed, 
         headless=config.headless)
       env = common.NormalizeAction(env)
+    elif suite == 'mballs':
+      from sandbox import debugging_envs
+      env = debugging_envs.MutedBalls(
+        name=task, 
+        action_repeat=config.action_repeat, 
+        size=config.render_size, 
+        seed=config.seed, 
+        headless=config.headless)
+      env = common.NormalizeAction(env)
     else:
       raise NotImplementedError(suite)
     env = common.TimeLimit(env, config.time_limit)
@@ -212,7 +221,10 @@ def main():
   report_dataset = iter(train_replay.dataset(
     batch=config.eval_dataset.batch,
     length=config.eval_dataset.length))
-  eval_dataset = iter(eval_replay.dataset(**config.dataset))
+  # eval_dataset = iter(eval_replay.dataset(**config.dataset))
+  eval_dataset = iter(train_replay.dataset(
+    batch=config.eval_dataset.batch,
+    length=config.eval_dataset.length))
   #############################################################
   # maybe use the mirrored strategy here? 
   if config.agent == 'dv2':

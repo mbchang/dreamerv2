@@ -143,6 +143,15 @@ def main():
         seed=config.seed, 
         headless=config.headless)
       env = common.NormalizeAction(env)
+    elif suite == 'mballs':
+      from sandbox import debugging_envs
+      env = debugging_envs.MutedBalls(
+        name=task, 
+        action_repeat=config.action_repeat, 
+        size=config.render_size, 
+        seed=config.seed, 
+        headless=config.headless)
+      env = common.NormalizeAction(env)
     else:
       raise NotImplementedError(suite)
     env = common.TimeLimit(env, config.time_limit)
