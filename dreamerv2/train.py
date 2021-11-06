@@ -52,7 +52,7 @@ def main():
   config = parse_args()
 
   import sandbox.logging_utils as lu
-  config = config.update({'expdir': lu.create_expname(config)})
+  config = config.update({'expdir': f't_{lu.create_expname(config)}'})
 
   logdir = (pathlib.Path(config.logdir) / pathlib.Path(config.expdir)).expanduser()
   logdir.mkdir(parents=True, exist_ok=True)
@@ -249,7 +249,7 @@ def main():
         #############################################################
         metrics[name].clear()
       report = agnt.report(next(report_dataset))
-      wandb.log({key: report[key].numpy() for key in report if 'openl' not in key}, step=step.value)
+      wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
       logger.add({key: report[key] for key in report if 'openl' in key}, prefix='train')
       # logger.add(report, prefix='train')
       logger.write(fps=True)
@@ -260,7 +260,7 @@ def main():
     logger.write()
     lgr.info('Start evaluation.')
     report = agnt.report(next(eval_dataset))
-    wandb.log({key: report[key].numpy() for key in report if 'openl' not in key}, step=step.value)
+    wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
     logger.add({key: report[key] for key in report if 'openl' in key}, prefix='eval')
     # logger.add(report, prefix='eval')
     eval_driver(eval_policy, episodes=config.eval_eps)
