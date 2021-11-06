@@ -121,3 +121,17 @@ class Balls:
             return [frame]
         else:
             raise NotImplementedError
+
+
+class MutedBalls(Balls):
+    scenarios = {
+        'whiteball_push': 'intervenable_bouncing_white_action'
+    }
+
+    @property
+    def act_space(self):
+        # HACKY
+        minimum = np.ones(self.action_dim_p) * -1
+        maximum = np.ones(self.action_dim_p)
+        action = gym.spaces.Box(minimum, maximum, dtype=np.float32)
+        return {'action': action}
