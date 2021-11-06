@@ -158,8 +158,8 @@ class FactorizedWorldModel(layers.Layer):
           optim=ml_collections.ConfigDict(dict(
             batch_size=32,
             decay_rate=0.5,
-            decay_steps=25000,
-            learning_rate=1e-4,
+            decay_steps=25000,  # or 5000 for slim
+            learning_rate=1e-4,  # or 5e-4 for slim
             num_train_steps=500000,
             warmup_steps=10000,
             )),
