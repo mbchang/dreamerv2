@@ -959,6 +959,68 @@ def find_good_hyperparameters_train_mballs2_11_5_21():
     r.generate_commands(args.for_real)
 
 
+def find_good_hyperparams_for_mballs_train_jit_compatible_11_6_21():
+    """
+    """
+    # r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    # r.add_flag('configs', ['dmc_vision fwm'])
+    # r.add_flag('task', ['mballs_whiteball_push'])
+    # r.add_flag('agent', ['causal'])
+    # r.add_flag('prefill', [20000])
+    # r.add_flag('dataset.batch', [16, 32])
+    # r.add_flag('dataset.length', [3])
+    # r.add_flag('eval_dataset.length', [10])
+    # r.add_flag('eval_dataset.seed_steps', [3])
+
+    # r.add_flag('fwm.optim.learning_rate', [5e-4, 1e-3])
+    # r.add_flag('fwm.model.temp', [0.5])
+    # r.add_flag('fwm.optim.warmup_steps', [5000])
+    # r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    # r.add_flag('logdir', ['runs/find_good_hyperparams_for_mballs_train_jit_compatible'])
+    # to_watch = [
+    #     'dataset.batch',
+    #     'dataset.length',
+    #     'eval_dataset.length',
+    #     'eval_dataset.seed_steps',
+    #     'fwm.optim.learning_rate',
+    #     'fwm.optim.warmup_steps',
+    #     'fwm.model.posterior_loss',
+    #     'fwm.model.temp',
+    # ]
+    # r.add_flag('watch', [' '.join(to_watch)])
+    # r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [1e-4])
+    r.add_flag('fwm.model.temp', [0.5])
+    r.add_flag('fwm.optim.warmup_steps', [5000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_mballs_train_jit_compatible'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -982,7 +1044,8 @@ if __name__ == '__main__':
     # find_good_hyperparameters_train_mballs_11_5_21()
     # find_good_hyperparameters_train_cradle_11_5_21()
     # find_good_hyperparameters_train_cradle2_11_5_21()
-    find_good_hyperparameters_train_mballs2_11_5_21()
+    # find_good_hyperparameters_train_mballs2_11_5_21()
+    find_good_hyperparams_for_mballs_train_jit_compatible_11_6_21()
 
 
 
