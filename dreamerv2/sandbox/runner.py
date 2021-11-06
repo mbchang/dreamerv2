@@ -349,6 +349,210 @@ def train_on_dreamer_data_11_1_21():
     r.generate_commands(args.for_real)
 
 
+def find_good_hyperparms_for_slim_11_4_21():
+    # first just check that if we do not have slim then the original hyperparameters work
+    """
+
+    This was the best:
+        T3_H7_tp0.5_B32_etslim_dtslim_lr0.0005_plTrue_20211104121941
+
+    If the learning rate was too high (aka 5e-3), it ended up just not learning at all --> that could potentially be alleviated by warm-up. 
+    But lr5e-4 is sufficient. 
+
+    """
+    r = RunnerWithIDs(command='python train_slot_attention.py', gpus=[0])
+    r.add_flag('cfg.dataroot', ['ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('cfg.subroot', ['runs/good_hyperparms_for_slim'])
+    r.add_flag('cfg.lnr.sess.num_frames', [3])
+    r.add_flag('cfg.lnr.sess.pred_horizon', [7])
+    r.add_flag('cfg.lnr.optim.batch_size', [32])
+    r.add_flag('cfg.lnr.model.temp', [5e-1])
+    r.add_flag('cfg.lnr.model.encoder_type', ['default'])
+    r.add_flag('cfg.lnr.model.decoder_type', ['default'])
+    to_watch = [
+        'lnr.sess.num_frames', 
+        'lnr.sess.pred_horizon',
+        'lnr.model.temp',
+        'lnr.optim.batch_size',
+        'lnr.model.encoder_type',
+        'lnr.model.decoder_type'
+        ]
+    r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python train_slot_attention.py', gpus=[1, 2, 3])
+    r.add_flag('cfg.dataroot', ['ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('cfg.subroot', ['runs/good_hyperparms_for_slim'])
+    r.add_flag('cfg.lnr.sess.num_frames', [3])
+    r.add_flag('cfg.lnr.sess.pred_horizon', [7])
+    r.add_flag('cfg.lnr.optim.batch_size', [32])
+    r.add_flag('cfg.lnr.optim.learning_rate', [5e-4, 1e-3, 5e-3])
+    r.add_flag('cfg.lnr.model.posterior_loss', [True, False])
+    r.add_flag('cfg.lnr.model.temp', [5e-1])
+    to_watch = [
+        'lnr.sess.num_frames', 
+        'lnr.sess.pred_horizon',
+        'lnr.model.temp',
+        'lnr.optim.batch_size',
+        'lnr.model.encoder_type',
+        'lnr.model.decoder_type',
+        'lnr.optim.learning_rate',
+        'lnr.model.posterior_loss',
+        ]
+    r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
+    r.generate_commands(args.for_real)
+
+    # running this after seeing that the default one with the posterior loss does not segregate
+    r = RunnerWithIDs(command='python train_slot_attention.py', gpus=[0])
+    r.add_flag('cfg.dataroot', ['ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('cfg.subroot', ['runs/good_hyperparms_for_slim'])
+    r.add_flag('cfg.lnr.sess.num_frames', [3])
+    r.add_flag('cfg.lnr.sess.pred_horizon', [7])
+    r.add_flag('cfg.lnr.optim.batch_size', [32])
+    r.add_flag('cfg.lnr.model.temp', [5e-1])
+    r.add_flag('cfg.lnr.model.encoder_type', ['default'])
+    r.add_flag('cfg.lnr.model.decoder_type', ['default'])
+    r.add_flag('cfg.lnr.model.posterior_loss', [True])
+    to_watch = [
+        'lnr.sess.num_frames', 
+        'lnr.sess.pred_horizon',
+        'lnr.model.temp',
+        'lnr.optim.batch_size',
+        'lnr.model.encoder_type',
+        'lnr.model.decoder_type',
+        'lnr.optim.learning_rate',
+        'lnr.model.posterior_loss',
+        ]
+    r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
+    r.generate_commands(args.for_real)
+
+
+def find_better_hyperparms_for_slim_11_4_21():
+    """
+    Given that this was the best from the last iteration,
+        T3_H7_tp0.5_B32_etslim_dtslim_lr0.0005_plTrue_20211104121941
+
+    let's find better hyperparameters.
+
+    It seems like having the posterior loss helps break the symmetry better
+
+    Conclusion:
+        lr0.0005 still is the best
+    """
+    r = RunnerWithIDs(command='python train_slot_attention.py', gpus=[1])
+    r.add_flag('cfg.dataroot', ['ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('cfg.subroot', ['runs/good_hyperparms_for_slim'])
+    r.add_flag('cfg.lnr.sess.num_frames', [3])
+    r.add_flag('cfg.lnr.sess.pred_horizon', [7])
+    r.add_flag('cfg.lnr.optim.batch_size', [32])
+    r.add_flag('cfg.lnr.optim.learning_rate', [5e-4])
+    r.add_flag('cfg.lnr.optim.warmup_steps', [0])
+    r.add_flag('cfg.lnr.model.posterior_loss', [True, False])
+    r.add_flag('cfg.lnr.model.temp', [5e-1])
+    to_watch = [
+        'lnr.sess.num_frames', 
+        'lnr.sess.pred_horizon',
+        'lnr.model.temp',
+        'lnr.optim.batch_size',
+        'lnr.model.encoder_type',
+        'lnr.model.decoder_type',
+        'lnr.optim.learning_rate',
+        'lnr.model.posterior_loss',
+        'lnr.optim.warmup_steps',
+        ]
+    r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python train_slot_attention.py', gpus=[2, 3])
+    r.add_flag('cfg.dataroot', ['ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('cfg.subroot', ['runs/good_hyperparms_for_slim'])
+    r.add_flag('cfg.lnr.sess.num_frames', [3])
+    r.add_flag('cfg.lnr.sess.pred_horizon', [7])
+    r.add_flag('cfg.lnr.optim.batch_size', [32])
+    r.add_flag('cfg.lnr.optim.learning_rate', [1e-4])
+    r.add_flag('cfg.lnr.optim.warmup_steps', [0, 10000])
+    r.add_flag('cfg.lnr.model.posterior_loss', [True, False])
+    r.add_flag('cfg.lnr.model.temp', [5e-1])
+    to_watch = [
+        'lnr.sess.num_frames', 
+        'lnr.sess.pred_horizon',
+        'lnr.model.temp',
+        'lnr.optim.batch_size',
+        'lnr.model.encoder_type',
+        'lnr.model.decoder_type',
+        'lnr.optim.learning_rate',
+        'lnr.model.posterior_loss',
+        'lnr.optim.warmup_steps',
+        ]
+    r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
+    r.generate_commands(args.for_real)
+
+def find_better_hyperparms_for_slim2_11_4_21():
+    """
+    Given that lr0.0005 still is the best, let's figure out what is the right decay rate. warmup_steps=0 seems fine here. 
+
+    on gauss1
+    """
+    r = RunnerWithIDs(command='python train_slot_attention.py', gpus=[1,2,3])
+    r.add_flag('cfg.dataroot', ['ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('cfg.subroot', ['runs/good_hyperparms_for_slim'])
+    r.add_flag('cfg.lnr.sess.num_frames', [3])
+    r.add_flag('cfg.lnr.sess.pred_horizon', [7])
+    r.add_flag('cfg.lnr.optim.batch_size', [32])
+    r.add_flag('cfg.lnr.optim.learning_rate', [5e-4])
+    r.add_flag('cfg.lnr.optim.warmup_steps', [0])
+    r.add_flag('cfg.lnr.optim.decay_steps', [5000, 10000, 15000])
+    r.add_flag('cfg.lnr.model.posterior_loss', [True, False])
+    r.add_flag('cfg.lnr.model.temp', [5e-1])
+    to_watch = [
+        'lnr.sess.num_frames', 
+        'lnr.sess.pred_horizon',
+        'lnr.model.temp',
+        'lnr.optim.batch_size',
+        'lnr.model.encoder_type',
+        'lnr.model.decoder_type',
+        'lnr.optim.learning_rate',
+        'lnr.model.posterior_loss',
+        'lnr.optim.warmup_steps',
+        'lnr.optim.decay_steps',
+        ]
+    r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
+    r.generate_commands(args.for_real)
+
+def find_better_hyperparms_for_slim3_11_4_21():
+    """
+    Given that lr0.0005 still is the best, let's figure out what is the right decay rate. warmup_steps=0 seems fine here. 
+
+    on gauss1
+    """
+    r = RunnerWithIDs(command='python train_slot_attention.py', gpus=[1,2,3])
+    r.add_flag('cfg.dataroot', ['ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('cfg.subroot', ['runs/good_hyperparms_for_slim'])
+    r.add_flag('cfg.lnr.sess.num_frames', [3])
+    r.add_flag('cfg.lnr.sess.pred_horizon', [7])
+    r.add_flag('cfg.lnr.optim.batch_size', [32])
+    r.add_flag('cfg.lnr.optim.learning_rate', [5e-4])
+    r.add_flag('cfg.lnr.optim.decay_steps', [5000, 10000, 15000])
+    r.add_flag('cfg.lnr.model.posterior_loss', [True, False])
+    r.add_flag('cfg.lnr.model.temp', [5e-1])
+    to_watch = [
+        'lnr.sess.num_frames', 
+        'lnr.sess.pred_horizon',
+        'lnr.model.temp',
+        'lnr.optim.batch_size',
+        'lnr.model.encoder_type',
+        'lnr.model.decoder_type',
+        'lnr.optim.learning_rate',
+        'lnr.model.posterior_loss',
+        'lnr.optim.warmup_steps',
+        'lnr.optim.decay_steps',
+        ]
+    r.add_flag('cfg.watch', [f'\"{str(tuple(to_watch))}\"'])
+    r.generate_commands(args.for_real)
+
+
+
+
 if __name__ == '__main__':
     # get_it_to_segregate_10_26_21()
     # get_it_to_segregate2_10_26_21()
@@ -357,6 +561,10 @@ if __name__ == '__main__':
     # get_it_to_segregate5_10_27_21()
     # longer_pred_horizon_10_27_21()
     # more_frequent_decay_10_27_21()
-    train_on_dreamer_data_11_1_21()
+    # train_on_dreamer_data_11_1_21()
+    # find_good_hyperparms_for_slim_11_4_21()
+    # find_better_hyperparms_for_slim_11_4_21()
+    # find_better_hyperparms_for_slim2_11_4_21()
+    find_better_hyperparms_for_slim3_11_4_21()
 
 

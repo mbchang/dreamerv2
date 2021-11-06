@@ -16,6 +16,8 @@ def create_expname(args):
         'task': '',
         'precision': 'p',
         'fwm.optim.learning_rate': 'flr',
+        'fwm.optim.warmup_steps': 'fws',
+        'fwm.model.posterior_loss': 'pl',
         'wm_only': 'wmo',
         'dataset.batch': 'B',
         'dataset.length': 'T',
@@ -24,6 +26,7 @@ def create_expname(args):
         'eval_dataset.seed_steps': 'ss',
         'rssm.stoch': 'S',
         'rssm.discrete': 'V',
+        'seed': 's',
     }
     watcher = watch(args.watch, abbrvs)
     expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'

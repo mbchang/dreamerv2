@@ -683,6 +683,155 @@ def how_necessary_are_discrete_latents_11_4_21():
     r.add_flag('watch', ['rssm.stoch rssm.discrete'])
     r.generate_commands(args.for_real)
 
+def merge_train_and_train_model_11_4_21():
+    """
+    I just want to make sure that if I run with the same hyperparameters as 
+
+    mbchang@gauss1:/home/mbchang/shared/counterfactual_dyna_umbrella/baselines/dreamerv2/runs/make_dreamer_train_faster/balls_whiteball_push/B64_flr0.0004_2021110118412, 
+
+    I get the same leaning curve
+
+    failed on gauss, will try again on geb
+    """
+    r = Runner(command='python dreamerv2/train.py', gpus=[0, 1])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['balls_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [64])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [3])
+    r.add_flag('eval_dataset.seed_steps', [2])
+    r.add_flag('fwm.optim.learning_rate', [4e-4])
+    r.add_flag('seed', [1, 2])
+    r.add_flag('logdir', ['runs/merge_train_and_train_model'])
+    r.add_flag('watch', ['dataset.batch fwm.optim.learning_rate dataset.length eval_dataset.length eval_dataset.seed_steps seed'])
+    r.generate_commands(args.for_real)
+
+def find_good_hyperparms_for_slim_train_model_11_4_21():
+    """
+        ok, these died. I encountered this error:
+
+
+        Traceback (most recent call last):
+  File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/dreamerv2/dreamerv2/train_model.py", line 295, in <module>
+    main()
+  File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/dreamerv2/dreamerv2/train_model.py", line 280, in main
+    report = agnt.report(next(eval_dataset))
+  File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/dreamerv2/dreamerv2/sandbox/dreamer_wrapper.py", line 161, in report
+    rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
+  File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/dreamerv2/dreamerv2/sandbox/slot_attention_learners.py", line 392, in rollout
+    imag_output = self.imagine(recon_output['posterior']['latent'][:, -1], act[:, seed_steps-1:])
+  File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/dreamerv2/dreamerv2/sandbox/slot_attention_learners.py", line 380, in imagine
+    imag_latent = self.generate(slots, actions)
+  File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/dreamerv2/dreamerv2/sandbox/slot_attention_learners.py", line 329, in generate
+    latents = rearrange(latents, 't b ... -> b t ...')
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/einops/einops.py", line 450, in rearrange
+    raise TypeError("Rearrange can't be applied to an empty list")
+TypeError: Rearrange can't be applied to an empty list
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train_model.py', gpus=[0, 1])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['balls_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [5e-4])
+    r.add_flag('fwm.model.temp', [0.05, 0.5])
+    r.add_flag('fwm.optim.warmup_steps', [0, 10000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparms_for_slim_balls_train_model'])
+    to_watch = [
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def merge_train_and_train_model_manipulation_11_4_21():
+    """
+    """
+    r = Runner(command='python dreamerv2/train.py', gpus=[0, 1])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_place_cradle'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [32])
+
+
+    # r.add_flag('dataset.length', [3])
+    # r.add_flag('eval_dataset.length', [3])
+    # r.add_flag('eval_dataset.seed_steps', [2])
+    # r.add_flag('fwm.optim.learning_rate', [4e-4])
+    # r.add_flag('seed', [1, 2])
+
+
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [5e-4])
+    r.add_flag('fwm.optim.warmup_steps', [10000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/merge_train_and_train_model_manipulation'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.model.posterior_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+def merge_train_and_train_model_cheetah_default_11_5_21():
+    """
+    """
+    # r = Runner(command='python dreamerv2/train.py', gpus=[0])
+    # r.add_flag('configs', ['dmc_vision'])
+    # r.add_flag('task', ['dmc_cheetah_run'])
+    # r.add_flag('agent', ['causal'])
+    # r.add_flag('prefill', [20000])
+    # r.add_flag('wm_only', [True])
+    # r.add_flag('logdir', ['runs/merge_train_and_train_model_cheetah_default'])
+    # to_watch = [
+    #     'dataset.batch',
+    #     'dataset.length',
+    #     'eval_dataset.length',
+    #     'eval_dataset.seed_steps',
+    #     'wm_only',
+    # ]
+    # r.add_flag('watch', [' '.join(to_watch)])
+    # r.generate_commands(args.for_real)
+
+    r = Runner(command='python dreamerv2/train_model.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('logdir', ['runs/merge_train_and_train_model_cheetah_default'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 
 if __name__ == '__main__':
@@ -700,7 +849,11 @@ if __name__ == '__main__':
     # push_learning_rate_batch_size_geb_11_3_21()
     # push_learning_rate_batch_size_gauss1_11_3_21()
     # does_sequence_length_affect_rollout_quality_11_2_21()
-    how_necessary_are_discrete_latents_11_4_21()
+    # how_necessary_are_discrete_latents_11_4_21()
+    # merge_train_and_train_model_11_4_21()
+    # find_good_hyperparms_for_slim_train_model_11_4_21()
+    # merge_train_and_train_model_manipulation_11_4_21()
+    merge_train_and_train_model_cheetah_default_11_5_21()
 
 
 
