@@ -147,7 +147,6 @@ class WorldModel(common.Module):
       assert name in self.heads, name
     self.model_opt = common.Optimizer('model', **config.model_opt)
 
-  @tf.function
   def train(self, data, state=None):
     """
       reward (B, T)
