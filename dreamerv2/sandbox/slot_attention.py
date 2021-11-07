@@ -42,7 +42,7 @@ class SlotAttention(layers.Layer, Factorized):
         ))
     return default_args
 
-  def __init__(self, cfg):#slot_size, temp=1, learn_initial_dist=True):
+  def __init__(self, cfg):
     """Builds the Slot Attention module.
 
     Args:
