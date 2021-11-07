@@ -233,7 +233,7 @@ def main(argv):
 
   min_lr = tf.Variable(args.lnr.optim.min_lr, trainable=False)
 
-  model = model_utils.get_learner(args.model_type)(**args.lnr.model)
+  model = model_utils.get_learner(args.model_type)(args.lnr.model)
   model.register_num_slots(args.lnr.sess.num_slots)
 
   # Prepare checkpoint manager.

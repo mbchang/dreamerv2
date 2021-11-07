@@ -77,11 +77,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
   def __init__(self, config, obs_space, tfstep):
     self.config = config
     self.defaults = ml_collections.ConfigDict(self.config.fwm)
-    # self.model = slot_attention_learners.FactorizedWorldModel(
-    #   num_slots=self.defaults.sess.num_slots,  # should be removed at some point
-    #   **self.defaults.model)
-    self.model = slot_attention_learners.FactorizedWorldModel(
-      **self.defaults.model)
+    self.model = slot_attention_learners.FactorizedWorldModel(self.defaults.model)
     self.model.register_num_slots(self.defaults.sess.num_slots)
 
     self.optimizer = tf.keras.optimizers.Adam(self.defaults.optim.learning_rate, epsilon=1e-08)

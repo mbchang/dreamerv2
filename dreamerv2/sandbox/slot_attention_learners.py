@@ -229,14 +229,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
       return default_args
 
 
-  def __init__(self, resolution, 
-    temp, 
-    # later you will just pass the config in
-    encoder_type='slim', 
-    decoder_type='slim',
-    posterior_loss=False,
-    overshooting_loss=True,
-    ):
+  def __init__(self, cfg):
     """Builds the Slot Attention-based auto-encoder.
 
     Args:
@@ -244,25 +237,22 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
       num_slots: Number of slots in Slot Attention.
     """
     super().__init__()
-    self.resolution = resolution
+    self.posterior_loss = cfg.posterior_loss
+    self.overshooting_loss = cfg.overshooting_loss
 
-    # replace this with config at some point
-    self.posterior_loss = posterior_loss
-    self.overshooting_loss = overshooting_loss
-
-    if encoder_type == 'default':
-      self.encoder = sa.SlotAttentionEncoder(self.resolution, 64)
-    elif encoder_type == 'slim':
-      self.encoder = sa.SlimSlotAttentionEncoder(self.resolution, 64)
+    if cfg.encoder_type == 'default':
+      self.encoder = sa.SlotAttentionEncoder(cfg.resolution, 64)
+    elif cfg.encoder_type == 'slim':
+      self.encoder = sa.SlimSlotAttentionEncoder(cfg.resolution, 64)
     else:
       raise NotImplementedError
 
-    self.slot_attention = sa.SlotAttention(slot_size=64, temp=temp)
+    self.slot_attention = sa.SlotAttention(slot_size=64, temp=cfg.temp)
 
-    if decoder_type == 'default':
-      self.decoder = sa.SlotAttentionDecoder(64, resolution)
-    elif decoder_type == 'slim':
-      self.decoder = sa.SlimSlotAttentionDecoder(64, resolution)
+    if cfg.decoder_type == 'default':
+      self.decoder = sa.SlotAttentionDecoder(64, cfg.resolution)
+    elif cfg.decoder_type == 'slim':
+      self.decoder = sa.SlimSlotAttentionDecoder(64, cfg.resolution)
     else:
       raise NotImplementedError
 
