@@ -230,7 +230,6 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
 
 
   def __init__(self, resolution, 
-    # num_slots, 
     temp, 
     # later you will just pass the config in
     encoder_type='slim', 
@@ -246,7 +245,6 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     """
     super().__init__()
     self.resolution = resolution
-    # self.num_slots = num_slots
 
     # replace this with config at some point
     self.posterior_loss = posterior_loss
@@ -260,7 +258,6 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
       raise NotImplementedError
 
     self.slot_attention = sa.SlotAttention(slot_size=64, temp=temp)
-    # self.slot_attention.register_num_slots(self.num_slots)
 
     if decoder_type == 'default':
       self.decoder = sa.SlotAttentionDecoder(64, resolution)
@@ -274,9 +271,6 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
       layers.Dense(64)
       ])
     self.dynamics = attention.CrossAttentionBlock(dim=64, num_heads=1)
-
-  # def register_num_slots(self, num_slots):
-  #   self.num_slots = num_slots
 
   def call(self, data):
     """

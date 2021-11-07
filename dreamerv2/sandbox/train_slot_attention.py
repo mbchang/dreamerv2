@@ -222,10 +222,8 @@ def main(argv):
   #     batch_size, split="train", resolution=resolution, shuffle=True,
   #     max_n_objects=6, get_properties=False, apply_crop=True)
 
-  # if pathlib.Path(args.dataroot).parent.name == 'ball_data':
   if 'ball_data' in args.dataroot:
     data_iterator = WhiteBallDataLoader(h5=h5py.File(f'{args.dataroot}.h5', 'r'))
-  # elif pathlib.Path(args.dataroot).parent.name == 'dmc_data':
   elif 'dmc_data' in args.dataroot:
     data_iterator = DMCDatLoader(dataroot=args.dataroot)
   else:

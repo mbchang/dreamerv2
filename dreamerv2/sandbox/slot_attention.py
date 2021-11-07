@@ -95,9 +95,6 @@ class SlotAttention(layers.Layer, Factorized):
         layers.Dense(self.slot_size)
     ], name="mlp")
 
-  # def register_num_slots(self, num_slots):
-  #   self.num_slots = num_slots
-
   def reset(self, batch_size):
     # Initialize the slots. Shape: [batch_size, num_slots, slot_size].
     # slots_mu = tf.cast(self.slots_mu, tf.float32)
