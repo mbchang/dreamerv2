@@ -233,6 +233,8 @@ def main(argv):
 
   optimizer = tf.keras.optimizers.Adam(args.lnr.optim.learning_rate, epsilon=1e-08)
 
+  min_lr = tf.Variable(args.lnr.optim.min_lr, trainable=False)
+
   # model = model_utils.build_model(resolution, args.lnr.optim.batch_size, args.lnr.sess.num_slots, args.lnr.model.temp, model_type=args.model_type)
   model = model_utils.get_learner(args.model_type)(num_slots=args.lnr.sess.num_slots, **args.lnr.model)
 
@@ -261,6 +263,7 @@ def main(argv):
     else:
       learning_rate = args.lnr.optim.learning_rate * (args.lnr.optim.decay_rate ** (
           tf.cast(global_step-args.lnr.optim.warmup_steps, tf.float32) / tf.cast(args.lnr.optim.decay_steps, tf.float32)))
+    learning_rate = tf.math.maximum(learning_rate, min_lr)
 
     optimizer.lr = learning_rate.numpy()
 

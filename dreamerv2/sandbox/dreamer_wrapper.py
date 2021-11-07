@@ -83,6 +83,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     self.optimizer = tf.keras.optimizers.Adam(self.defaults.optim.learning_rate, epsilon=1e-08)
 
     self.step = tf.Variable(0, trainable=False, name="fwm_step", dtype=tf.int64)
+    self.min_lr = tf.Variable(self.defaults.optim.min_lr, trainable=False)
 
   def adjust_lr(self, step):
     if self.step < self.defaults.optim.warmup_steps:
@@ -90,7 +91,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     else:
       learning_rate = self.defaults.optim.learning_rate * (self.defaults.optim.decay_rate ** (
           tf.cast(self.step-self.defaults.optim.warmup_steps, tf.float32) / tf.cast(self.defaults.optim.decay_steps, tf.float32)))
-
+    learning_rate = tf.math.maximum(learning_rate, self.min_lr)
     return learning_rate
 
 

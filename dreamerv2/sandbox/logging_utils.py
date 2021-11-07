@@ -17,6 +17,8 @@ def create_expname(args):
         'precision': 'p',
         'fwm.optim.learning_rate': 'flr',
         'fwm.optim.warmup_steps': 'fws',
+        'fwm.optim.decay_steps': 'fds',
+        'fwm.optim.min_lr': 'fmlr',
         'fwm.model.posterior_loss': 'pl',
         'wm_only': 'wmo',
         'dataset.batch': 'B',
