@@ -137,7 +137,7 @@ monitoring_config = ml_collections.ConfigDict(dict(
     plt.close()
 
 
-class FactorizedWorldModel(layers.Layer):
+class FactorizedWorldModel(layers.Layer, sa.Factorized):
   # model specific args
   # video_pred: {seed_steps: 3, prediction_horizon: 7, num_ex: 5}
 
@@ -229,7 +229,9 @@ class FactorizedWorldModel(layers.Layer):
       return default_args
 
 
-  def __init__(self, resolution, num_slots, temp, 
+  def __init__(self, resolution, 
+    # num_slots, 
+    temp, 
     # later you will just pass the config in
     encoder_type='slim', 
     decoder_type='slim',
@@ -244,7 +246,7 @@ class FactorizedWorldModel(layers.Layer):
     """
     super().__init__()
     self.resolution = resolution
-    self.num_slots = num_slots
+    # self.num_slots = num_slots
 
     # replace this with config at some point
     self.posterior_loss = posterior_loss
@@ -258,7 +260,7 @@ class FactorizedWorldModel(layers.Layer):
       raise NotImplementedError
 
     self.slot_attention = sa.SlotAttention(slot_size=64, temp=temp)
-    self.slot_attention.register_num_slots(self.num_slots)
+    # self.slot_attention.register_num_slots(self.num_slots)
 
     if decoder_type == 'default':
       self.decoder = sa.SlotAttentionDecoder(64, resolution)
@@ -272,6 +274,9 @@ class FactorizedWorldModel(layers.Layer):
       layers.Dense(64)
       ])
     self.dynamics = attention.CrossAttentionBlock(dim=64, num_heads=1)
+
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
 
   def call(self, data):
     """
@@ -372,6 +377,15 @@ class FactorizedWorldModel(layers.Layer):
 
     latents = rearrange(latents, 't b ... -> b t ...')
     return latents
+
+  # def obs_step(self, prev_state, prev_action, embed, is_first, sample):
+  #   prior = self.img_step(prev_state, prev_action, sample)
+  #   # post = self.slot_attention(prior, embeds)
+  #   return post, prior
+
+  # def img_step(self, prev_state, prev_action, sample):
+
+  #   return prior
 
   @tf.function
   def train_step(self, batch, optimizer):

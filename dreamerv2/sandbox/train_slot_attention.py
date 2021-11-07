@@ -235,8 +235,8 @@ def main(argv):
 
   min_lr = tf.Variable(args.lnr.optim.min_lr, trainable=False)
 
-  # model = model_utils.build_model(resolution, args.lnr.optim.batch_size, args.lnr.sess.num_slots, args.lnr.model.temp, model_type=args.model_type)
-  model = model_utils.get_learner(args.model_type)(num_slots=args.lnr.sess.num_slots, **args.lnr.model)
+  model = model_utils.get_learner(args.model_type)(**args.lnr.model)
+  model.register_num_slots(args.lnr.sess.num_slots)
 
   # Prepare checkpoint manager.
   global_step = tf.Variable(
@@ -400,6 +400,11 @@ CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python train_slot_attention.py --cfg.dataroot 
 
 
 python train_slot_attention.py --cfg.lnr.optim.batch_size 2 --cfg.subroot runs/sanity --cfg.system.cpu --cfg.system.headless=False --cfg.monitoring.log_every 1 --cfg.lnr.optim.num_train_steps 5 --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 5 --cfg.monitoring.vis_every 1 --cfg.lnr.sess.pred_horizon 1
+
+
+debugging:
+
+python train_slot_attention.py --cfg.lnr.optim.batch_size 2 --cfg.subroot runs/sanity --cfg.system.cpu --cfg.system.headless=False --cfg.monitoring.log_every 1 --cfg.lnr.optim.num_train_steps 5 --cfg.model_type factorized_world_model --cfg.lnr.sess.num_frames 5 --cfg.monitoring.vis_every 1 --cfg.lnr.sess.pred_horizon 1 --cfg.lnr.optim.decay_steps 1 --cfg.lnr.optim.warmup_steps 0
 
 
 """

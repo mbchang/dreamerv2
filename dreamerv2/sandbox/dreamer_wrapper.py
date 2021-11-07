@@ -77,9 +77,13 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
   def __init__(self, config, obs_space, tfstep):
     self.config = config
     self.defaults = ml_collections.ConfigDict(self.config.fwm)
+    # self.model = slot_attention_learners.FactorizedWorldModel(
+    #   num_slots=self.defaults.sess.num_slots,  # should be removed at some point
+    #   **self.defaults.model)
     self.model = slot_attention_learners.FactorizedWorldModel(
-      num_slots=self.defaults.sess.num_slots,  # should be removed at some point
       **self.defaults.model)
+    self.model.register_num_slots(self.defaults.sess.num_slots)
+
     self.optimizer = tf.keras.optimizers.Adam(self.defaults.optim.learning_rate, epsilon=1e-08)
 
     self.step = tf.Variable(0, trainable=False, name="fwm_step", dtype=tf.int64)
@@ -197,5 +201,7 @@ CUDA_VISIBLE_DEVICES=0 DISPLAY=:0 python dreamerv2/train_model.py --logdir runs/
 11/1/21
 dw_fwm/dw_fwm_b64_t3_ph1_st5e-1 seems good, just need to incorporate posterior=False, and overshooting
 
+
+python dreamerv2/train.py --configs debug fwm --task dmc_cheetah_run --agent causal --dataset.length 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit True --fwm.monitoring.log_every 1 --fwm.optim.warmup_steps 0 --fwm.optim.decay_steps 1 --fwm.optim.min_lr 8e-5
 
 """

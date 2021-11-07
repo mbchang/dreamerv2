@@ -15,15 +15,30 @@
 
 """Slot Attention model for object discovery and set prediction."""
 from einops import rearrange, repeat
+import ml_collections
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.layers as layers
 
+class Factorized(tf.Module):
+  def register_num_slots(self, num_slots):
+    self.num_slots = num_slots
+    for sm in self.submodules:
+      if isinstance(sm, Factorized):
+        sm.register_num_slots(num_slots)
 
-class SlotAttention(layers.Layer):
+class SlotAttention(layers.Layer, Factorized):
   """Slot Attention module."""
   epsilon = 1e-8
   num_iterations = 3
+
+  @staticmethod
+  def get_default_args():
+    default_args = ml_collections.ConfigDict(
+      dict(
+
+        ))
+    return default_args
 
   def __init__(self, slot_size, temp=1, learn_initial_dist=True):
     """Builds the Slot Attention module.
@@ -80,8 +95,8 @@ class SlotAttention(layers.Layer):
         layers.Dense(self.slot_size)
     ], name="mlp")
 
-  def register_num_slots(self, num_slots):
-    self.num_slots = num_slots
+  # def register_num_slots(self, num_slots):
+  #   self.num_slots = num_slots
 
   def reset(self, batch_size):
     # Initialize the slots. Shape: [batch_size, num_slots, slot_size].
