@@ -962,48 +962,20 @@ def find_good_hyperparameters_train_mballs2_11_5_21():
 def find_good_hyperparams_for_mballs_train_jit_compatible_11_6_21():
     """
     """
-    # r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
-    # r.add_flag('configs', ['dmc_vision fwm'])
-    # r.add_flag('task', ['mballs_whiteball_push'])
-    # r.add_flag('agent', ['causal'])
-    # r.add_flag('prefill', [20000])
-    # r.add_flag('dataset.batch', [16, 32])
-    # r.add_flag('dataset.length', [3])
-    # r.add_flag('eval_dataset.length', [10])
-    # r.add_flag('eval_dataset.seed_steps', [3])
-
-    # r.add_flag('fwm.optim.learning_rate', [5e-4, 1e-3])
-    # r.add_flag('fwm.model.temp', [0.5])
-    # r.add_flag('fwm.optim.warmup_steps', [5000])
-    # r.add_flag('fwm.model.posterior_loss', [True, False])
-
-    # r.add_flag('logdir', ['runs/find_good_hyperparams_for_mballs_train_jit_compatible'])
-    # to_watch = [
-    #     'dataset.batch',
-    #     'dataset.length',
-    #     'eval_dataset.length',
-    #     'eval_dataset.seed_steps',
-    #     'fwm.optim.learning_rate',
-    #     'fwm.optim.warmup_steps',
-    #     'fwm.model.posterior_loss',
-    #     'fwm.model.temp',
-    # ]
-    # r.add_flag('watch', [' '.join(to_watch)])
-    # r.generate_commands(args.for_real)
-
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
     r.add_flag('configs', ['dmc_vision fwm'])
     r.add_flag('task', ['mballs_whiteball_push'])
     r.add_flag('agent', ['causal'])
     r.add_flag('prefill', [20000])
-    r.add_flag('dataset.batch', [16])
+    r.add_flag('dataset.batch', [16, 32])
     r.add_flag('dataset.length', [3])
     r.add_flag('eval_dataset.length', [10])
     r.add_flag('eval_dataset.seed_steps', [3])
 
-    r.add_flag('fwm.optim.learning_rate', [1e-4])
+    r.add_flag('fwm.optim.learning_rate', [1e-4, 5e-4])
     r.add_flag('fwm.model.temp', [0.5])
-    r.add_flag('fwm.optim.warmup_steps', [5000])
+    r.add_flag('fwm.optim.warmup_steps', [10000])
+    r.add_flag('fwm.optim.decay_steps', [5000])
     r.add_flag('fwm.model.posterior_loss', [True, False])
 
     r.add_flag('logdir', ['runs/find_good_hyperparams_for_mballs_train_jit_compatible'])
@@ -1014,11 +986,122 @@ def find_good_hyperparams_for_mballs_train_jit_compatible_11_6_21():
         'eval_dataset.seed_steps',
         'fwm.optim.learning_rate',
         'fwm.optim.warmup_steps',
+        'fwm.optim.decay_steps',
         'fwm.model.posterior_loss',
         'fwm.model.temp',
     ]
     r.add_flag('watch', [' '.join(to_watch)])
     r.generate_commands(args.for_real)
+
+def find_good_hyperparams_for_mballs_train_jit_compatible2_11_6_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [5e-4])
+    r.add_flag('fwm.model.temp', [0.5])
+    r.add_flag('fwm.optim.warmup_steps', [10000])
+    r.add_flag('fwm.optim.decay_steps', [0, 10000, 15000, 20000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_mballs_train_jit_compatible'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def find_good_hyperparams_for_finger_train_11_6_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_finger_turn_easy'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.optim.learning_rate', [5e-4])
+    r.add_flag('fwm.model.temp', [0.5])
+    r.add_flag('fwm.optim.warmup_steps', [10000])
+    r.add_flag('fwm.optim.decay_steps', [5000, 10000])
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_finger_train'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def min_lr_balls_11_7_21():
+    """
+        at this point we have as default
+            batch_size=16
+            decay_steps=10000
+            warmup_steps=10000
+            decay_rate=0.5
+            posterior_loss=True
+
+        if minimum learning rate doesn't mess things up, then we will keep it, to allow the model to keep training when the actor and critic generate more data
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+    r.add_flag('fwm.optim.min_lr', [2e-4, 3e-4])
+
+    r.add_flag('logdir', ['runs/min_lr_balls'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.temp',
+        'fwm.optim.min_lr'
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 
 if __name__ == '__main__':
@@ -1045,7 +1128,10 @@ if __name__ == '__main__':
     # find_good_hyperparameters_train_cradle_11_5_21()
     # find_good_hyperparameters_train_cradle2_11_5_21()
     # find_good_hyperparameters_train_mballs2_11_5_21()
-    find_good_hyperparams_for_mballs_train_jit_compatible_11_6_21()
+    # find_good_hyperparams_for_mballs_train_jit_compatible_11_6_21()
+    # find_good_hyperparams_for_mballs_train_jit_compatible2_11_6_21()
+    # find_good_hyperparams_for_finger_train_11_6_21()
+    min_lr_balls_11_7_21()
 
 
 
