@@ -355,21 +355,22 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
 
     latents = []
     for i in range(actions.shape[1]):
-      context = tf.concat([slots, rearrange(actions[:, i], 'b a -> b 1 a')], 1)
-      slots = self.dynamics(slots, context)
+      slots = self.img_step(slots, actions[:, i])
       latents.append(slots)
 
     latents = rearrange(latents, 't b ... -> b t ...')
     return latents
 
-  # def obs_step(self, prev_state, prev_action, embed, is_first, sample):
-  #   prior = self.img_step(prev_state, prev_action, sample)
-  #   # post = self.slot_attention(prior, embeds)
-  #   return post, prior
+  def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
+    prior = self.img_step(prev_state, prev_action, sample)
+    # post = self.slot_attention(prior, embeds)
+    return post, prior
 
-  # def img_step(self, prev_state, prev_action, sample):
-
-  #   return prior
+  def img_step(self, prev_state, prev_action, sample=True):
+    # we can actually have many layers of the transformer here
+    context = tf.concat([prev_state, rearrange(prev_action, 'b a -> b 1 a')], 1)
+    prior = self.dynamics(prev_state, context)
+    return prior
 
   @tf.function
   def train_step(self, batch, optimizer):
