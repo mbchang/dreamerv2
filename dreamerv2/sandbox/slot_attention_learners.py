@@ -333,11 +333,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     posteriors.append(posterior)
     # subsequent steps
     for i in range(actions.shape[1]):
-      context = tf.concat([posterior, rearrange(actions[:, i], 'b a -> b 1 a')], 1)
-      # prior: t-1 to t'
-      prior = self.dynamics(posterior, context)
-      # posterior t' to t
-      posterior = self.slot_attention(prior, embeds[:, i+1])
+      posterior, prior = self.obs_step(posterior, actions[:, i], embeds[:, i+1], is_first=False)
       priors.append(prior)
       posteriors.append(posterior)
 
@@ -362,8 +358,10 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     return latents
 
   def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
-    prior = self.img_step(prev_state, prev_action, sample)
-    # post = self.slot_attention(prior, embeds)
+    # prior: t-1 to t'
+    prior = self.img_step(prev_state, prev_action)
+    # posterior t' to t
+    post = self.slot_attention(prior, embed)
     return post, prior
 
   def img_step(self, prev_state, prev_action, sample=True):
