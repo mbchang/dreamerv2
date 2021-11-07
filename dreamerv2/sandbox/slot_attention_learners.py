@@ -149,10 +149,51 @@ class FactorizedWorldModel(layers.Layer):
     - warmup_steps: 0 (although maybe having some warmup will help?)
     - decay_rate: 0.5 (although I have not really tried others --> I should probably decay this more aggressively, or reduce the number of decay steps)
     - slot_temp: 0.5 --> this seems to be important
+
+  11/7/21
+  dv2_train_mballs_whiteball_push_B16_T3_eT10_ss3_flr0.0005_fws10000_fds10000_plTrue_tp0.5_20211106204914 is the best I've found so far for slime
   """
 
   @staticmethod
   def get_default_args():
+    """ slim """
+    default_args = ml_collections.ConfigDict(
+      dict(
+        optim=ml_collections.ConfigDict(dict(
+          batch_size=16,
+          decay_rate=0.5,
+          decay_steps=10000,  # or 5000 for slim
+          learning_rate=5e-4,  # or 5e-4 for slim
+          num_train_steps=500000,
+          warmup_steps=10000,
+          min_lr=1e-4,
+          )),
+        model=ml_collections.ConfigDict(dict(
+          resolution=(64, 64),
+          temp=0.5,
+          encoder_type='slim',
+          decoder_type='slim',
+          posterior_loss=True,  # True for slim
+          overshooting_loss=True,
+          )),
+        sess=ml_collections.ConfigDict(dict(
+          num_slots=5,
+          num_frames=3,
+          pred_horizon=7,
+          )),
+      # for now
+      monitoring=ml_collections.ConfigDict(dict(
+        log_every=100,
+        save_every=1000,
+        vis_every=1000))
+        ))
+
+    # you can do an if/else thing here to set the values of other hyperparameters based on whether the encoder/decoder is slim or not.
+
+    return default_args
+
+  @staticmethod
+  def get_default_args_default():
       default_args = ml_collections.ConfigDict(
         dict(
           optim=ml_collections.ConfigDict(dict(
