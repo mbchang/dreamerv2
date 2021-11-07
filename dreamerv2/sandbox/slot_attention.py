@@ -36,11 +36,13 @@ class SlotAttention(layers.Layer, Factorized):
   def get_default_args():
     default_args = ml_collections.ConfigDict(
       dict(
-
+        slot_size=64,
+        temp=0.5,
+        learn_initial_dist=True
         ))
     return default_args
 
-  def __init__(self, slot_size, temp=1, learn_initial_dist=True):
+  def __init__(self, cfg):#slot_size, temp=1, learn_initial_dist=True):
     """Builds the Slot Attention module.
 
     Args:
@@ -51,16 +53,16 @@ class SlotAttention(layers.Layer, Factorized):
       epsilon: Offset for attention coefficients before normalization.
     """
     super().__init__()
-    self.slot_size = slot_size
-    self.mlp_hidden_size = 2 * slot_size
-    self.temp = temp
+    self.slot_size = cfg.slot_size
+    self.mlp_hidden_size = 2 * self.slot_size
+    self.temp = cfg.temp
 
     self.norm_inputs = layers.LayerNormalization()
     self.norm_slots = layers.LayerNormalization()
     self.norm_mlp = layers.LayerNormalization()
 
-    # # Parameters for Gaussian init (shared by all slots).
-    if learn_initial_dist:
+    # Parameters for Gaussian init (shared by all slots).
+    if cfg.learn_initial_dist:
       self.slots_mu = self.add_weight(
           initializer="glorot_uniform",
           shape=[1, 1, self.slot_size],

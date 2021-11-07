@@ -170,11 +170,11 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
           )),
         model=ml_collections.ConfigDict(dict(
           resolution=(64, 64),
-          temp=0.5,
           encoder_type='slim',
           decoder_type='slim',
           posterior_loss=True,  # True for slim
           overshooting_loss=True,
+          update_step=sa.SlotAttention.get_default_args(),
           )),
         sess=ml_collections.ConfigDict(dict(
           num_slots=5,
@@ -247,7 +247,8 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     else:
       raise NotImplementedError
 
-    self.slot_attention = sa.SlotAttention(slot_size=64, temp=cfg.temp)
+    # self.slot_attention = sa.SlotAttention(slot_size=64, temp=cfg.temp)
+    self.slot_attention = sa.SlotAttention(cfg.update_step)
 
     if cfg.decoder_type == 'default':
       self.decoder = sa.SlotAttentionDecoder(64, cfg.resolution)
