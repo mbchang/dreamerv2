@@ -137,6 +137,40 @@ class SlotAttention(layers.Layer, Factorized):
 
     return slots
 
+  # def 
+
+
+"""
+      logit = state['logit']
+      logit = tf.cast(logit, tf.float32)
+      dist = tfd.Independent(common.OneHotDist(logit), 1)
+      stoch = dist.sample() if sample else dist.mode()
+
+
+class OneHotDist(tfd.OneHotCategorical):
+
+  def __init__(self, logits=None, probs=None, dtype=None):
+    self._sample_dtype = dtype or tf.float32
+    super().__init__(logits=logits, probs=probs)
+
+  def mode(self):
+    return tf.cast(super().mode(), self._sample_dtype)
+
+  def sample(self, sample_shape=(), seed=None):
+    # Straight through biased gradient estimator.
+    sample = tf.cast(super().sample(sample_shape, seed), self._sample_dtype)
+    probs = self._pad(super().probs_parameter(), sample.shape)
+    sample += tf.cast(probs - tf.stop_gradient(probs), self._sample_dtype)
+    return sample
+
+  def _pad(self, tensor, shape):
+    tensor = super().probs_parameter()
+    while len(tensor.shape) < len(shape):
+      tensor = tensor[None]
+    return tensor
+
+"""
+
 
 def spatial_broadcast(slots, resolution):
   """Broadcast slot features to a 2D grid and collapse slot dimension."""

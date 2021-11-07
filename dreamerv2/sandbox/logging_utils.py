@@ -23,7 +23,7 @@ def create_expname(args):
         'wm_only': 'wmo',
         'dataset.batch': 'B',
         'dataset.length': 'T',
-        'fwm.model.temp': 'tp',
+        'fwm.model.update_step.temp': 'tp',
         'eval_dataset.length': 'eT',
         'eval_dataset.seed_steps': 'ss',
         'rssm.stoch': 'S',

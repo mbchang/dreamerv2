@@ -1103,6 +1103,84 @@ def min_lr_balls_11_7_21():
     r.generate_commands(args.for_real)
 
 
+def find_good_hyperparams_for_stacker_fish_11_7_21():
+    """
+        at this point we have as default
+            batch_size=16
+            decay_steps=10000
+            warmup_steps=10000
+            decay_rate=0.5
+            posterior_loss=True
+
+        if minimum learning rate doesn't mess things up, then we will keep it, to allow the model to keep training when the actor and critic generate more data
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    # r.add_flag('task', ['dmc_fish_swim', 'dmc_stacker_stack2'])
+    # r.add_flag('task', ['dmc_fish_swim', 'dmc_swimmer_swimmer6', 'dmc_stacker_stack_2'])
+    # r.add_flag('task', ['dmc_finger_turn_easy'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.model.posterior_loss', [True])
+    r.add_flag('fwm.optim.min_lr', [1e-4])
+    r.add_flag('fwm.model.update_step.temp', [0.5, 0.1, 0.05, 0.01])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_stacker_fish'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.update_step.temp',
+        'fwm.optim.min_lr'
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def find_good_hyperparams_for_dmc_11_7_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_reach_site'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16, 32])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.model.posterior_loss', [True])
+    r.add_flag('fwm.optim.learning_rate', [5e-4])
+    r.add_flag('fwm.optim.min_lr', [1e-4])
+    r.add_flag('fwm.model.update_step.temp', [0.5, 0.1, 0.05, 0.01])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_dmc'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.update_step.temp',
+        'fwm.optim.min_lr'
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -1131,7 +1209,9 @@ if __name__ == '__main__':
     # find_good_hyperparams_for_mballs_train_jit_compatible_11_6_21()
     # find_good_hyperparams_for_mballs_train_jit_compatible2_11_6_21()
     # find_good_hyperparams_for_finger_train_11_6_21()
-    min_lr_balls_11_7_21()
+    # min_lr_balls_11_7_21()
+    # find_good_hyperparams_for_stacker_fish_11_7_21()
+    find_good_hyperparams_for_dmc_11_7_21()
 
 
 
