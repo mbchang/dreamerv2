@@ -20,6 +20,7 @@ def create_expname(args):
         'fwm.optim.decay_steps': 'fds',
         'fwm.optim.min_lr': 'fmlr',
         'fwm.model.posterior_loss': 'pl',
+        'fwm.model.encoder_type': 'et',
         'wm_only': 'wmo',
         'dataset.batch': 'B',
         'dataset.length': 'T',
