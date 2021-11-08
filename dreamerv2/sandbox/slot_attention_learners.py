@@ -169,6 +169,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
           min_lr=1e-4,
           )),
         model=ml_collections.ConfigDict(dict(
+          dim=64,
           resolution=(64, 64),
           encoder_type='slim',
           decoder_type='slim',
@@ -205,6 +206,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
             warmup_steps=10000,
             )),
           model=ml_collections.ConfigDict(dict(
+            dim=64,
             resolution=(64, 64),
             temp=0.5,
             encoder_type='slim',
@@ -241,26 +243,27 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     self.overshooting_loss = cfg.overshooting_loss
 
     if cfg.encoder_type == 'default':
-      self.encoder = sa.SlotAttentionEncoder(cfg.resolution, 64)
+      self.encoder = sa.SlotAttentionEncoder(cfg.resolution, cfg.dim)
     elif cfg.encoder_type == 'slim':
-      self.encoder = sa.SlimSlotAttentionEncoder(cfg.resolution, 64)
+      self.encoder = sa.SlimSlotAttentionEncoder(cfg.resolution, cfg.dim)
     else:
       raise NotImplementedError
 
+    assert cfg.dim == cfg.update_step.slot_size
     self.slot_attention = sa.SlotAttention(cfg.update_step)
 
     if cfg.decoder_type == 'default':
-      self.decoder = sa.SlotAttentionDecoder(64, cfg.resolution)
+      self.decoder = sa.SlotAttentionDecoder(cfg.dim, cfg.resolution)
     elif cfg.decoder_type == 'slim':
-      self.decoder = sa.SlimSlotAttentionDecoder(64, cfg.resolution)
+      self.decoder = sa.SlimSlotAttentionDecoder(cfg.dim, cfg.resolution)
     else:
       raise NotImplementedError
 
     self.action_encoder = tf.keras.Sequential([
-      layers.Dense(64, activation='relu'),
-      layers.Dense(64)
+      layers.Dense(cfg.dim, activation='relu'),
+      layers.Dense(cfg.dim)
       ])
-    self.dynamics = attention.CrossAttentionBlock(dim=64, num_heads=1)
+    self.dynamics = attention.CrossAttentionBlock(dim=cfg.dim, num_heads=1)
 
   def call(self, data):
     """
