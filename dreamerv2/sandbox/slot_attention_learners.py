@@ -278,6 +278,36 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
       print(output['posterior']['pred']['comb'].shape)  # (2, 4, 64, 64, 3)
       print(output['posterior']['pred']['comp'].shape)  # (2, 4, 5, 64, 64, 3)
       print(output['posterior']['pred']['masks'].shape)  # (2, 4, 5, 64, 64, 1)
+
+
+
+
+      if we use dreamer's replay buffer, with b=3, t=50, the batch might look like this, with some is_first=True sprinkled inside
+
+      tf.Tensor(
+      [[ True False False False False False False False False False False False
+        False False False False False False False False False False False  True
+        False False False False False False False False False False False False
+        False False False False False False False False  True False False False
+        False False]
+       [False False False False False False False False False False False False
+        False False False False False False False False False  True False False
+        False False False False False False False False False False False False
+        False False False False False False False False False False  True False
+        False False]
+       [False False False False False False False False False False False False
+        False False False False False False False False False False False False
+         True False False False False False False False False False False False
+        False False False False False False False False False False False False
+        False False]], shape=(3, 50), dtype=bool)
+
+
+        # ok, you can do the masking thing
+
+        # so what you can do at the moment, to give yourself a target is to just do it serially, and then recombine at the end.
+        # do it serially, but still sample the initial states at the beginning, so the only thing you are unit-testing is the masking. 
+
+        Why is the first thing in the sequence not is_first=True?
     """ 
     # print(f"image | shape: {data['image'].shape} min: {tf.reduce_min(data['image'])} max: {tf.reduce_max(data['image'])}")
     # print(f"action | shape: {data['action'].shape} min: {tf.reduce_min(data['action'])} max: {tf.reduce_max(data['action'])}")
@@ -334,7 +364,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     posteriors.append(posterior)
     # subsequent steps
     for i in range(1, actions.shape[1]):  # ignore the first action
-      posterior, prior = self.obs_step(posterior, actions[:, i], embeds[:, i], is_first=False)
+      posterior, prior = self.obs_step(posterior, actions[:, i], embeds[:, i], is_first=is_first[:, i])
       priors.append(prior)
       posteriors.append(posterior)
 
@@ -359,6 +389,11 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     return latents
 
   def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
+    # handle first
+    resetted_states = self.slot_attention.reset(batch_size=prev_state.shape[0])
+    mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
+    prev_state = mask * resetted_states + (1 - mask) * prev_state
+
     # prior: t-1 to t'
     prior = self.img_step(prev_state, prev_action)
     # posterior t' to t
@@ -389,7 +424,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
       if self.overshooting_loss:
         metrics['overshoot'] = tf.cast(tf.convert_to_tensor(0), dtype)
         for i in range(2, batch['action'].shape[1]):
-          print(f"overshoot i={i} gt:{batch['image'][:, i:].shape} actions: {batch['action'][:, i:].shape} latent: {output['posterior']['latent'][:, i-1].shape}")
+          # print(f"overshoot i={i} gt:{batch['image'][:, i:].shape} actions: {batch['action'][:, i:].shape} latent: {output['posterior']['latent'][:, i-1].shape}")
           metrics['overshoot'] += utils.l2_loss(
             batch['image'][:, i:], 
             self.imagine(
@@ -429,7 +464,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     obs = batch['image'][:, :seed_steps + pred_horizon]
     act = batch['action'][:, :seed_steps + pred_horizon]
     is_first = batch['is_first'][:, :seed_steps + pred_horizon]
-    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:seed_steps]}, training=False)
+    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]}, training=False)
     imag_output = self.imagine(recon_output['posterior']['latent'][:, -1], act[:, seed_steps:])
 
     rollout_output = dict(
@@ -445,7 +480,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
       )
     return rollout_output, rollout_metrics
 
-  def visualize(self, rollout_output):#, num_ex=5):
+  def visualize(self, rollout_output):
     obs = rollout_output['obs']
     # note that if we do not supervise the posterior, this might not be good
     recon_comb = rollout_output['recon_output']['posterior']['pred']['comb']
