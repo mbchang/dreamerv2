@@ -109,6 +109,8 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     """
     data = self.preprocess(data)
 
+    # TODO: make is_first flag the first action
+
     # adjust learning rate
     self.optimizer.lr = self.adjust_lr(self.step)
 

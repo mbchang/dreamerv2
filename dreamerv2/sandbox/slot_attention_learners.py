@@ -287,7 +287,8 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     priors, posteriors = self.filter(
       slots=self.slot_attention.reset(batch_size=bsize),  # (b, k, ds)
       embeds=embed, 
-      actions=data['action'])
+      actions=data['action'],
+      is_first=data['is_first'])
     prior_comb, prior_comp, prior_masks = utils.bottle(self.decode)(priors)
     post_comb, post_comp, post_masks = utils.bottle(self.decode)(posteriors)
     output = dict(
@@ -315,7 +316,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     # `recon_combined` has shape: [batch_size, width, height, num_channels].
     return recon_combined, comp, masks
 
-  def filter(self, slots, embeds, actions):
+  def filter(self, slots, embeds, actions, is_first):
     """
       slots: (b, k, ds)
       embeds: (b, t, h*w, do)
@@ -427,7 +428,8 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
   def rollout(self, batch, seed_steps, pred_horizon):
     obs = batch['image'][:, :seed_steps + pred_horizon]
     act = batch['action'][:, :seed_steps + pred_horizon]
-    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps]}, training=False)
+    is_first = batch['is_first'][:, :seed_steps + pred_horizon]
+    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:seed_steps]}, training=False)
     imag_output = self.imagine(recon_output['posterior']['latent'][:, -1], act[:, seed_steps:])
 
     rollout_output = dict(

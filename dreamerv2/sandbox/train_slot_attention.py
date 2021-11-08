@@ -93,7 +93,18 @@ class WhiteBallDataLoader():
       act_batch = self.h5['actions'][sorted(batch_indices), :num_frames]
       act_batch = self.normalize_actions(act_batch)
       act_batch = tf.convert_to_tensor(act_batch)
-      return {'image': obs_batch, 'action': act_batch}
+
+      is_first_batch = np.zeros(act_batch.shape[:-1], np.bool)
+      is_first_batch[:, 0] = True
+
+      return {'image': obs_batch, 'action': act_batch, 'is_first': is_first_batch}
+
+      """
+      is_first: 
+
+      (B,T) dtype=bool
+      """
+
     else:
       obs_batch = einops.rearrange(obs_batch, 'b t ... -> (b t) ...')
       return {'image': obs_batch}
