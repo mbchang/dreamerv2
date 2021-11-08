@@ -319,7 +319,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     """
       slots: (b, k, ds)
       embeds: (b, t, h*w, do)
-      actions: (b, t-1, da)
+      actions: (b, t, da)
 
       this can be done using a transformer
       you can also try and see how the static scan thing works
@@ -332,8 +332,8 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     posterior = self.slot_attention(slots, embeds[:, 0])
     posteriors.append(posterior)
     # subsequent steps
-    for i in range(actions.shape[1]):
-      posterior, prior = self.obs_step(posterior, actions[:, i], embeds[:, i+1], is_first=False)
+    for i in range(1, actions.shape[1]):  # ignore the first action
+      posterior, prior = self.obs_step(posterior, actions[:, i], embeds[:, i], is_first=False)
       priors.append(prior)
       posteriors.append(posterior)
 
@@ -385,16 +385,14 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
       else:
         metrics['posterior'] = tf.cast(tf.convert_to_tensor(0), dtype)
 
-      # add overshooting loss here? 
-      # self.overshooting_loss = True
       if self.overshooting_loss:
         metrics['overshoot'] = tf.cast(tf.convert_to_tensor(0), dtype)
-        for i in range(1, batch['action'].shape[1]):
-          # print(f"overshoot i={i} gt:{batch['image'][:, i+1:].shape} actions: {batch['action'][:, i:].shape} latent: {output['posterior']['latent'][:, i].shape}")
+        for i in range(2, batch['action'].shape[1]):
+          print(f"overshoot i={i} gt:{batch['image'][:, i:].shape} actions: {batch['action'][:, i:].shape} latent: {output['posterior']['latent'][:, i-1].shape}")
           metrics['overshoot'] += utils.l2_loss(
-            batch['image'][:, i+1:], 
+            batch['image'][:, i:], 
             self.imagine(
-              slots=output['posterior']['latent'][:, i],
+              slots=output['posterior']['latent'][:, i-1],
               actions=batch['action'][:, i:])['pred']['comb'])
       else:
         metrics['overshoot'] = tf.cast(tf.convert_to_tensor(0), dtype)
@@ -428,9 +426,9 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
 
   def rollout(self, batch, seed_steps, pred_horizon):
     obs = batch['image'][:, :seed_steps + pred_horizon]
-    act = batch['action'][:, :seed_steps - 1 + pred_horizon]
-    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps-1]}, training=False)
-    imag_output = self.imagine(recon_output['posterior']['latent'][:, -1], act[:, seed_steps-1:])
+    act = batch['action'][:, :seed_steps + pred_horizon]
+    recon_output = self({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps]}, training=False)
+    imag_output = self.imagine(recon_output['posterior']['latent'][:, -1], act[:, seed_steps:])
 
     rollout_output = dict(
       obs=obs,

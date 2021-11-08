@@ -91,7 +91,6 @@ class WhiteBallDataLoader():
     obs_batch = tf.convert_to_tensor(obs_batch)
     if num_frames > 1:
       act_batch = self.h5['actions'][sorted(batch_indices), :num_frames]
-      act_batch = act_batch[:, 1:]  # (B, T-1, A)
       act_batch = self.normalize_actions(act_batch)
       act_batch = tf.convert_to_tensor(act_batch)
       return {'image': obs_batch, 'action': act_batch}

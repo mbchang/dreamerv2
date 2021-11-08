@@ -109,9 +109,6 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     """
     data = self.preprocess(data)
 
-    # delete the first action
-    data['action'] = data['action'][:, 1:]
-
     # adjust learning rate
     self.optimizer.lr = self.adjust_lr(self.step)
 
@@ -155,8 +152,6 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
   def report(self, data):
     report = {}
     data = self.preprocess(data)
-    # delete the first action
-    data['action'] = data['action'][:, 1:]
 
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
