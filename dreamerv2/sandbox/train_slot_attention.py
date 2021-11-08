@@ -98,13 +98,6 @@ class WhiteBallDataLoader():
       is_first_batch[:, 0] = True
 
       return {'image': obs_batch, 'action': act_batch, 'is_first': is_first_batch}
-
-      """
-      is_first: 
-
-      (B,T) dtype=bool
-      """
-
     else:
       obs_batch = einops.rearrange(obs_batch, 'b t ... -> (b t) ...')
       return {'image': obs_batch}
