@@ -1328,6 +1328,48 @@ def make_sure_reset_state_when_isfirstTrue_did_not_break_anything_balls_11_8_21(
     r.add_flag('watch', [' '.join(to_watch)])
     r.generate_commands(args.for_real)
 
+def make_sure_reset_state_when_isfirstTrue_did_not_break_anything_fixed_bug_11_8_21():
+    """
+        these are the defaults
+          batch_size=16,
+          decay_rate=0.5,
+          decay_steps=10000,
+          learning_rate=5e-4,
+          num_train_steps=500000,
+          warmup_steps=10000,
+          min_lr=1e-4,
+
+          the resetted_states replace the prior rather than the posterior
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+    r.add_flag('fwm.model.encoder_type', ['default', 'slim'])
+
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/make_sure_reset_state_when_isfirstTrue_did_not_break_anything_fixed_bug'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.update_step.temp',
+        'fwm.optim.min_lr',
+        'fwm.model.encoder_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -1362,7 +1404,8 @@ if __name__ == '__main__':
     # find_good_hyperparams_for_dmc2_11_7_21()
     # find_good_hyperparams_for_dmc3_11_7_21()
     # find_good_hyperparams_for_dmc4_11_7_21()
-    make_sure_reset_state_when_isfirstTrue_did_not_break_anything_balls_11_8_21()
+    # make_sure_reset_state_when_isfirstTrue_did_not_break_anything_balls_11_8_21()
+    make_sure_reset_state_when_isfirstTrue_did_not_break_anything_fixed_bug_11_8_21()
 
 
 
