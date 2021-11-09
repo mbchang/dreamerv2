@@ -392,22 +392,13 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     return latents
 
   def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
-    # handle first
-    resetted_states = self.slot_attention.reset(batch_size=prev_state.shape[0])
-    mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
-    prev_state = mask * resetted_states + (1 - mask) * prev_state
-
     # prior: t-1 to t'
     prior = self.img_step(prev_state, prev_action)
 
-
-    # what should this prior be, if the prev_state and prev_action are null?
-    # I suppose it could just be any generic prior? 
-    # what does dreamer do? --> well I suppose dreamer does not have the loss for both the prior and the posterior. 
-    # you could just make this prior the mean of your base distribution?
-
-    # In any case, I should fix this. 
-
+    # handle first
+    resetted_states = self.slot_attention.reset(batch_size=prev_state.shape[0])
+    mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
+    prior = mask * resetted_states + (1 - mask) * prior
 
     # posterior t' to t
     post = self.slot_attention(prior, embed)
