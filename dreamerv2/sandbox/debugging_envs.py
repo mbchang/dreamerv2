@@ -125,7 +125,9 @@ class Balls:
 
 class MutedBalls(Balls):
     scenarios = {
-        'whiteball_push': 'intervenable_bouncing_white_action'
+        'whiteball_push': 'intervenable_bouncing_white_action',
+        'simple_box4': 'simple_box4_coll_rcolor',
+        'simple_box': 'simple_box'
     }
 
     @property
