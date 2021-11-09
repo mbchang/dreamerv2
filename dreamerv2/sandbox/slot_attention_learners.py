@@ -13,34 +13,34 @@ class SlotAttentionAutoEncoder(layers.Layer):
   """Slot Attention-based auto-encoder for object discovery."""
 
   """
-config = ml_collections.ConfigDict(
-  dict(
-    subroot='runs',
-    expname='',
-    seed=0,
-    batch_size=64,
-    num_slots=5,
-    num_frames=1,
-    learning_rate=0.0004,
-    num_train_steps=500000,
-    warmup_steps=10000,
-    decay_rate=0.5,
-    decay_steps=100000,
-    dataroot='ball_data/U-Dk4s5n5t10_ab',
-    cpu=False,
-    headless=True,
-    jobtype='train',
-    model_type='factorized_world_model',
-    pred_horizon=0,
-    slot_temp=1,
-    ))
-
-
-monitoring_config = ml_collections.ConfigDict(dict(
-      log_every=100,
-      save_every=1000,
-      vis_every=1000,
+  config = ml_collections.ConfigDict(
+    dict(
+      subroot='runs',
+      expname='',
+      seed=0,
+      batch_size=64,
+      num_slots=5,
+      num_frames=1,
+      learning_rate=0.0004,
+      num_train_steps=500000,
+      warmup_steps=10000,
+      decay_rate=0.5,
+      decay_steps=100000,
+      dataroot='ball_data/U-Dk4s5n5t10_ab',
+      cpu=False,
+      headless=True,
+      jobtype='train',
+      model_type='factorized_world_model',
+      pred_horizon=0,
+      slot_temp=1,
       ))
+
+
+  monitoring_config = ml_collections.ConfigDict(dict(
+        log_every=100,
+        save_every=1000,
+        vis_every=1000,
+        ))
   """
 
   def __init__(self, resolution, num_slots, temp):
@@ -162,8 +162,8 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
         optim=ml_collections.ConfigDict(dict(
           batch_size=16,
           decay_rate=0.5,
-          decay_steps=10000,  # or 5000 for slim
-          learning_rate=5e-4,  # or 5e-4 for slim
+          decay_steps=10000,
+          learning_rate=5e-4,
           num_train_steps=500000,
           warmup_steps=10000,
           min_lr=1e-4,
@@ -399,6 +399,16 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
 
     # prior: t-1 to t'
     prior = self.img_step(prev_state, prev_action)
+
+
+    # what should this prior be, if the prev_state and prev_action are null?
+    # I suppose it could just be any generic prior? 
+    # what does dreamer do? --> well I suppose dreamer does not have the loss for both the prior and the posterior. 
+    # you could just make this prior the mean of your base distribution?
+
+    # In any case, I should fix this. 
+
+
     # posterior t' to t
     post = self.slot_attention(prior, embed)
     return post, prior
