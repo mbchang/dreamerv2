@@ -126,8 +126,6 @@ class Balls:
 class MutedBalls(Balls):
     scenarios = {
         'whiteball_push': 'intervenable_bouncing_white_action',
-        'simple_box4': 'simple_box4_coll_rcolor',
-        'simple_box': 'simple_box'
     }
 
     @property
@@ -135,5 +133,19 @@ class MutedBalls(Balls):
         # HACKY
         minimum = np.ones(self.action_dim_p) * -1
         maximum = np.ones(self.action_dim_p)
+        action = gym.spaces.Box(minimum, maximum, dtype=np.float32)
+        return {'action': action}
+
+class VeryMutedBalls(Balls):
+    scenarios = {
+        'simple_box4': 'simple_box4_coll_rcolor',
+        'simple_box': 'simple_box'
+    }
+
+    @property
+    def act_space(self):
+        # HACKY
+        minimum = np.ones(self.action_dim_p) * -0.5
+        maximum = np.ones(self.action_dim_p) * 0.5
         action = gym.spaces.Box(minimum, maximum, dtype=np.float32)
         return {'action': action}
