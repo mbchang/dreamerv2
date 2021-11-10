@@ -18,6 +18,9 @@ import pprint
 import sys
 import wandb
 
+import numpy as np
+import tensorflow as tf
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--num_workers', type=int, default=4)
@@ -87,6 +90,15 @@ else:
     prefix = ''
 
 torch.manual_seed(args.seed)
+tf.random.set_seed(args.seed)
+np.random.seed(args.seed)
+
+tf.config.run_functions_eagerly(True)
+if not args.cpu:
+    message = 'No GPU found. To actually train on CPU remove this assert.'
+    assert tf.config.experimental.list_physical_devices('GPU'), message
+for gpu in tf.config.experimental.list_physical_devices('GPU'):
+    tf.config.experimental.set_memory_growth(gpu, True)
 
 arg_str_list = ['{}={}'.format(k, v) for k, v in vars(args).items()]
 arg_str = '__'.join(arg_str_list)
@@ -129,8 +141,8 @@ loader_kwargs = {
 }
 
 lgr.info('Building dataloaders...')
-train_loader = DataLoader(train_dataset, sampler=train_sampler, **loader_kwargs)
-val_loader = DataLoader(val_dataset, sampler=val_sampler, **loader_kwargs)
+train_loader = shapes_3d.DataLoader(train_dataset, sampler=train_sampler, **loader_kwargs)
+val_loader = shapes_3d.DataLoader(val_dataset, sampler=val_sampler, **loader_kwargs)
 
 train_epoch_size = len(train_loader)
 val_epoch_size = len(val_loader)
@@ -160,12 +172,14 @@ else:
 if not args.cpu:
     model = model.cuda()
 
-optimizer = Adam([
-    {'params': (x[1] for x in model.named_parameters() if 'dvae' in x[0]), 'lr': args.lr_dvae},
-    {'params': (x[1] for x in model.named_parameters() if 'dvae' not in x[0]), 'lr': args.lr_main},
-])
-if checkpoint is not None:
-    optimizer.load_state_dict(checkpoint['optimizer'])
+# optimizer = Adam([
+#     {'params': (x[1] for x in model.named_parameters() if 'dvae' in x[0]), 'lr': args.lr_dvae},
+#     {'params': (x[1] for x in model.named_parameters() if 'dvae' not in x[0]), 'lr': args.lr_main},
+# ])
+dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
+main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
+# if checkpoint is not None:
+#     optimizer.load_state_dict(checkpoint['optimizer'])
 
 
 def linear_warmup(step, start_value, final_value, start_step, final_step):
@@ -213,6 +227,9 @@ def visualize(image, recon_orig, gen, attns, N=8):
 
     return torch.cat((image, recon_orig, gen, attns), dim=1).view(-1, 3, H, W)
 
+def f32(x):
+    return tf.cast(x, tf.float32)
+
 lgr.info('Begin training.')
 for epoch in range(start_epoch, args.epochs):
     
@@ -235,13 +252,16 @@ for epoch in range(start_epoch, args.epochs):
             0,
             args.lr_warmup_steps)
 
-        optimizer.param_groups[0]['lr'] = lr_decay_factor * args.lr_dvae
-        optimizer.param_groups[1]['lr'] = lr_decay_factor * lr_warmup_factor * args.lr_main
+        # optimizer.param_groups[0]['lr'] = lr_decay_factor * args.lr_dvae
+        # optimizer.param_groups[1]['lr'] = lr_decay_factor * lr_warmup_factor * args.lr_main
+        dvae_optimizer.lr = f32(lr_decay_factor * args.lr_dvae)
+        main_optimizer.lr = f32(lr_decay_factor * lr_warmup_factor * args.lr_main)
 
         if not args.cpu:
             image = image.cuda()
 
         (recon, cross_entropy, mse, attns) = model(image, tau, args.hard)
+        assert False
         
         loss = mse + cross_entropy
         

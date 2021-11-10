@@ -1,5 +1,7 @@
 from utils import *
 
+import tensorflow.keras.layers as tkl
+
 class MultiHeadAttention(nn.Module):
     
     def __init__(self, d_model, num_heads, dropout=0., gain=1.):
@@ -48,21 +50,25 @@ class MultiHeadAttention(nn.Module):
         return output
 
 
-class PositionalEncoding(nn.Module):
+class PositionalEncoding(tkl.Layer):
 
     def __init__(self, max_len, d_model, dropout=0.1):
         super().__init__()
-        self.dropout = nn.Dropout(dropout)
-        self.pe = nn.Parameter(torch.zeros(1, max_len, d_model), requires_grad=True)
-        nn.init.trunc_normal_(self.pe)
+        # self.dropout = nn.Dropout(dropout)
+        self.dropout = tkl.Dropout(dropout)
+        # self.pe = nn.Parameter(torch.zeros(1, max_len, d_model), requires_grad=True)
+        # nn.init.trunc_normal_(self.pe)
+        self.pe = self.add_weight(
+          initializer="truncated_normal",
+          shape=[1, max_len, d_model])
 
-    def forward(self, input):
+    def call(self, input, training=False):
         """
         input: batch_size x seq_len x d_model
         return: batch_size x seq_len x d_model
         """
         T = input.shape[1]
-        return self.dropout(input + self.pe[:, :T])
+        return self.dropout(input + self.pe[:, :T], training=training)
 
 
 class TransformerEncoderBlock(nn.Module):

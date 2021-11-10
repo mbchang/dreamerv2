@@ -4,8 +4,10 @@ from slot_attn import SlotAttentionEncoder
 from transformer import PositionalEncoding, TransformerDecoder
 
 from einops import rearrange
+import tensorflow as tf
+import tensorflow.keras.layers as layers
 
-class SLATE(nn.Module):
+class SLATE(layers.Layer):
     def __init__(self, args):
         super().__init__()
 
@@ -17,61 +19,77 @@ class SLATE(nn.Module):
 
         self.positional_encoder = PositionalEncoding(1 + (args.image_size // 4) ** 2, args.d_model, args.dropout)
 
-        self.slot_attn = SlotAttentionEncoder(
-            args.num_iterations, args.num_slots,
-            args.d_model, args.slot_size, args.mlp_hidden_size, args.pos_channels,
-            args.num_slot_heads)
+        # self.slot_attn = SlotAttentionEncoder(
+        #     args.num_iterations, args.num_slots,
+        #     args.d_model, args.slot_size, args.mlp_hidden_size, args.pos_channels,
+        #     args.num_slot_heads)
 
         self.dictionary = OneHotDictionary(args.vocab_size + 1, args.d_model)
         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
 
-        self.tf_dec = TransformerDecoder(
-            args.num_dec_blocks, (args.image_size // 4) ** 2, args.d_model, args.num_heads, args.dropout)
+        # self.tf_dec = TransformerDecoder(
+        #     args.num_dec_blocks, (args.image_size // 4) ** 2, args.d_model, args.num_heads, args.dropout)
 
         self.out = linear(args.d_model, args.vocab_size, bias=False)
 
-    def forward(self, image, tau, hard):
+    def call(self, image, tau, hard):
         """
         image: batch_size x img_channels x H x W
         """
 
-        B, C, H, W = image.size()
+        B, C, H, W = image.shape
 
         # dvae encode
-        z_logits = F.log_softmax(self.dvae.encoder(image), dim=1)
-        _, _, H_enc, W_enc = z_logits.size()
+        # z_logits = F.log_softmax(self.dvae.encoder(image), dim=1)
+        z_logits = tf.nn.log_softmax(self.dvae.encoder(image), axis=1)
+        _, _, H_enc, W_enc = z_logits.shape
         z = gumbel_softmax(z_logits, tau, hard, dim=1)
 
         # dvae recon
         recon = self.dvae.decoder(z)
-        mse = ((image - recon) ** 2).sum() / B
+        # mse = ((image - recon) ** 2).sum() / B
+        mse = tf.math.reduce_sum((image - recon) ** 2) / B
 
         # hard z
-        z_hard = gumbel_softmax(z_logits, tau, True, dim=1).detach()
+        # z_hard = gumbel_softmax(z_logits, tau, True, dim=1).detach()
+        z_hard = tf.stop_gradient(gumbel_softmax(z_logits, tau, True, dim=1))
 
         # target tokens for transformer
         z_transformer_target = rearrange(z_hard, 'b c h w -> b (h w) c')
 
         # add BOS token
-        z_transformer_input = torch.cat([torch.zeros_like(z_transformer_target[..., :1]), z_transformer_target], dim=-1)
-        z_transformer_input = torch.cat([torch.zeros_like(z_transformer_input[..., :1, :]), z_transformer_input], dim=-2)
-        z_transformer_input[:, 0, 0] = 1.0
+        # z_transformer_input = torch.cat([torch.zeros_like(z_transformer_target[..., :1]), z_transformer_target], dim=-1)
+        # z_transformer_input = torch.cat([torch.zeros_like(z_transformer_input[..., :1, :]), z_transformer_input], dim=-2)
+        # z_transformer_input[:, 0, 0] = 1.0
+        _, zhw, zc = z_transformer_target.shape
+        z_transformer_input = tf.concat([tf.zeros((B, zhw, 1)), z_transformer_target], axis=-1)
+        z_transformer_input = tf.concat([
+            tf.concat([tf.ones((B, 1, 1)), tf.zeros((B, 1, zc))], axis=-1),
+             z_transformer_input], axis=-2)
 
         # tokens to embeddings
         emb_input = self.dictionary(z_transformer_input)
-        emb_input = self.positional_encoder(emb_input)
+        # emb_input = self.positional_encoder(emb_input)
+        emb_input = self.positional_encoder(emb_input, training=self.training)
 
         # apply slot attention
-        slots, attns = self.slot_attn(emb_input[:, 1:])
-        attns = attns.transpose(-1, -2)
-        attns = attns.reshape(B, self.num_slots, 1, H_enc, W_enc).repeat_interleave(H // H_enc, dim=-2).repeat_interleave(W // W_enc, dim=-1)
-        attns = image.unsqueeze(1) * attns + 1. - attns
+        # slots, attns = self.slot_attn(emb_input[:, 1:])
+        slots, attns = tf.random.uniform((5, 3, 16)), tf.random.uniform((5, 256, 3))
+
+        # attns = attns.transpose(-1, -2)
+        attns = rearrange(attns, 'b hw k -> b k hw')
+        # attns = attns.reshape(B, self.num_slots, 1, H_enc, W_enc).repeat_interleave(H // H_enc, dim=-2).repeat_interleave(W // W_enc, dim=-1)
+        attns = tf.repeat(tf.repeat(tf.reshape(attns, (B, self.num_slots, 1, H_enc, W_enc)), H // H_enc, axis=-2), W // W_enc, axis=-1)
+        # attns = image.unsqueeze(1) * attns + 1. - attns
+        attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
 
         # apply transformer
         slots = self.slot_proj(slots)
-        decoder_output = self.tf_dec(emb_input[:, :-1], slots)
+        # decoder_output = self.tf_dec(emb_input[:, :-1], slots)
+        decoder_output = tf.random.uniform((5, 256, 16))
         pred = self.out(decoder_output)
-        cross_entropy = -(z_transformer_target * torch.log_softmax(pred, dim=-1)).flatten(start_dim=1).sum(-1).mean()
+        # cross_entropy = -(z_transformer_target * torch.log_softmax(pred, dim=-1)).flatten(start_dim=1).sum(-1).mean()
+        cross_entropy = -tf.reduce_mean(tf.reduce_sum(tf.reshape(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), (B, -1)), axis=-1))
 
         return (
             recon.clamp(0., 1.),
@@ -138,17 +156,25 @@ class SLATE(nn.Module):
 
         return recon_transformer.clamp(0., 1.)
 
+    def train(self):
+        self.training = True
 
-class OneHotDictionary(nn.Module):
+    def eval(self):
+        self.training = False
+
+
+class OneHotDictionary(layers.Layer):
     def __init__(self, vocab_size, emb_size):
         super().__init__()
-        self.dictionary = nn.Embedding(vocab_size, emb_size)
+        # self.dictionary = nn.Embedding(vocab_size, emb_size)
+        self.dictionary = layers.Embedding(vocab_size, emb_size)
 
-    def forward(self, x):
+    def call(self, x):
         """
         x: B, N, vocab_size
         """
 
-        tokens = torch.argmax(x, dim=-1)  # batch_size x N
+        # tokens = torch.argmax(x, dim=-1)  # batch_size x N
+        tokens = tf.math.argmax(x, axis=-1)
         token_embs = self.dictionary(tokens)  # batch_size x N x emb_size
         return token_embs
