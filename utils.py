@@ -113,15 +113,18 @@ class Conv2dBlock(tkl.Layer):
 def linear(in_features, out_features, bias=True, weight_init='xavier', gain=1.):
     
     # m = nn.Linear(in_features, out_features, bias)
+    if weight_init == 'kaiming':
+        # nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+        kernel_initializer = 'he_uniform'
+    else:
+        # nn.init.xavier_uniform_(m.weight, gain)
+        kernel_initializer = tf.keras.initializers.VarianceScaling(scale=gain**2, 
+            mode='fan_avg', distribution='uniform')
+
     m = tkl.Dense(
         units=out_features, 
         use_bias=bias,
-        kernel_initializer='he_uniform' if weight_init == 'kaiming' else 'glorot_uniform')
-    
-    # if weight_init == 'kaiming':
-    #     nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
-    # else:
-    #     nn.init.xavier_uniform_(m.weight, gain)
+        kernel_initializer=kernel_initializer)
     
     # if bias:
     #     nn.init.zeros_(m.bias)

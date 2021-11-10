@@ -27,8 +27,8 @@ class SLATE(layers.Layer):
         self.dictionary = OneHotDictionary(args.vocab_size + 1, args.d_model)
         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
 
-        # self.tf_dec = TransformerDecoder(
-        #     args.num_dec_blocks, (args.image_size // 4) ** 2, args.d_model, args.num_heads, args.dropout)
+        self.tf_dec = TransformerDecoder(
+            args.num_dec_blocks, (args.image_size // 4) ** 2, args.d_model, args.num_heads, args.dropout)
 
         self.out = linear(args.d_model, args.vocab_size, bias=False)
 
@@ -85,8 +85,7 @@ class SLATE(layers.Layer):
 
         # apply transformer
         slots = self.slot_proj(slots)
-        # decoder_output = self.tf_dec(emb_input[:, :-1], slots)
-        decoder_output = tf.random.uniform((5, 256, 16))
+        decoder_output = self.tf_dec(emb_input[:, :-1], slots)
         pred = self.out(decoder_output)
         # cross_entropy = -(z_transformer_target * torch.log_softmax(pred, dim=-1)).flatten(start_dim=1).sum(-1).mean()
         cross_entropy = -tf.reduce_mean(tf.reduce_sum(tf.reshape(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), (B, -1)), axis=-1))
