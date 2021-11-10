@@ -56,7 +56,7 @@ class DataLoader():
     def __init__(self, dataset, batch_size, **kwargs):
         self.dataset = dataset
         self.batch_size = batch_size
-        self.num_batches = len(self.dataset)
+        self.num_batches = len(self.dataset) // self.batch_size
         self.counter = 0
 
     def get_batch(self):
@@ -70,13 +70,13 @@ class DataLoader():
         return self
 
     def __next__(self):
-        if self.counter < self.num_batches:
+        if self.counter < len(self):
             self.counter += 1
             return self.get_batch()
         raise StopIteration
 
     def __len__(self):
-        return len(self.dataset)
+        return self.num_batches
 
 
 
