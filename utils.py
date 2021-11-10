@@ -10,6 +10,33 @@ import tensorflow.keras.activations as tka
 import tensorflow_addons as tfa
 
 
+def bottle(fn):
+  """
+    1. x: b t ...
+    2. x: (b t) ...
+    3. fn(x): (b t) ...
+    4. fn(x): b t ...
+  """
+  def bottled_fn(*x):
+    x = tuple(x)
+    n_args = len(x)
+    bsize = len(x[0])
+
+    flatten = lambda z: rearrange(z, 'b t ... -> (b t) ...', b=bsize)
+    unflatten = lambda z: rearrange(z, '(b t) ... -> b t ...', b=bsize)
+
+    if n_args > 1:
+        y = fn(*tuple(flatten(xx) for xx in x))
+    else:
+        y = fn(flatten(x))
+
+    if isinstance(y, tuple):
+      return tuple(unflatten(yy) for yy in y)
+    else:
+      return unflatten(y)
+  return bottled_fn
+
+
 def gumbel_max(logits, dim=-1):
     
     eps = torch.finfo(logits.dtype).tiny

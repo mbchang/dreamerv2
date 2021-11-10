@@ -19,10 +19,10 @@ class SLATE(layers.Layer):
 
         self.positional_encoder = PositionalEncoding(1 + (args.image_size // 4) ** 2, args.d_model, args.dropout)
 
-        # self.slot_attn = SlotAttentionEncoder(
-        #     args.num_iterations, args.num_slots,
-        #     args.d_model, args.slot_size, args.mlp_hidden_size, args.pos_channels,
-        #     args.num_slot_heads)
+        self.slot_attn = SlotAttentionEncoder(
+            args.num_iterations, args.num_slots,
+            args.d_model, args.slot_size, args.mlp_hidden_size, args.pos_channels,
+            args.num_slot_heads)
 
         self.dictionary = OneHotDictionary(args.vocab_size + 1, args.d_model)
         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
@@ -73,8 +73,7 @@ class SLATE(layers.Layer):
         emb_input = self.positional_encoder(emb_input, training=self.training)
 
         # apply slot attention
-        # slots, attns = self.slot_attn(emb_input[:, 1:])
-        slots, attns = tf.random.uniform((5, 3, 16)), tf.random.uniform((5, 256, 3))
+        slots, attns = self.slot_attn(emb_input[:, 1:])
 
         # attns = attns.transpose(-1, -2)
         attns = rearrange(attns, 'b hw k -> b k hw')
