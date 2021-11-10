@@ -90,7 +90,8 @@ class SLATE(layers.Layer):
         cross_entropy = -tf.reduce_mean(tf.reduce_sum(tf.reshape(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), (B, -1)), axis=-1))
 
         return (
-            recon.clamp(0., 1.),
+            # recon.clamp(0., 1.),
+            tf.clip_by_value(recon, 0., 1.),
             cross_entropy,
             mse,
             attns
