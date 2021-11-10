@@ -20,6 +20,7 @@ import wandb
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 parser = argparse.ArgumentParser()
 
@@ -68,7 +69,7 @@ args = parser.parse_args()
 if args.debug:
     args.num_workers = 0
     args.batch_size = 5
-    args.epochs = 2
+    args.epochs = 4
 
     args.lr_warmup_steps = 3
 
@@ -172,12 +173,21 @@ else:
 if not args.cpu:
     model = model.cuda()
 
+lgr.info('initialize with input...')
+model(train_loader.get_batch(), tau=1, hard=args.hard)
+
 # optimizer = Adam([
 #     {'params': (x[1] for x in model.named_parameters() if 'dvae' in x[0]), 'lr': args.lr_dvae},
 #     {'params': (x[1] for x in model.named_parameters() if 'dvae' not in x[0]), 'lr': args.lr_main},
 # ])
-dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
-main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
+dvae_optimizer = tfa.optimizers.AdamW(args.lr_dvae, epsilon=1e-08)
+main_optimizer = tfa.optimizers.AdamW(args.lr_main, epsilon=1e-08)
+# dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
+# main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
+optimizer = tfa.optimizers.MultiOptimizer([
+    (dvae_optimizer, model.dvae),
+    (main_optimizer, model.not_dvae)
+], clipvalue=args.clip)
 # if checkpoint is not None:
 #     optimizer.load_state_dict(checkpoint['optimizer'])
 
@@ -235,7 +245,10 @@ for epoch in range(start_epoch, args.epochs):
     
     model.train()
 
-    for batch, image in enumerate(train_loader):
+    # for batch, image in enumerate(train_loader):
+    for batch in range(train_loader.num_batches):
+        image = train_loader.get_batch()
+
         global_step = epoch * train_epoch_size + batch
         
         tau = cosine_anneal(
@@ -260,43 +273,51 @@ for epoch in range(start_epoch, args.epochs):
         if not args.cpu:
             image = image.cuda()
 
-        (recon, cross_entropy, mse, attns) = model(image, tau, args.hard)
-        assert False
+        with tf.GradientTape() as tape:
+            (recon, cross_entropy, mse, attns) = model(image, tau, args.hard)
         
-        loss = mse + cross_entropy
-        
-        loss.backward()
-        clip_grad_norm_(model.parameters(), args.clip, 'inf')
-        optimizer.step()
+            loss = mse + cross_entropy
+
+        # loss.backward()
+        # clip_grad_norm_(model.parameters(), args.clip, 'inf')
+        # optimizer.step()
+        gradients = tape.gradient(loss, model.trainable_weights)
+        optimizer.apply_gradients(zip(gradients, model.trainable_weights))
 
         with torch.no_grad():
             if batch % log_interval == 0:
+                # lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F}'.format(
+                #       epoch+1, batch, train_epoch_size, loss.item(), mse.item()))
+
+                # import ipdb
+                # ipdb.set_trace(context=20)
                 lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F}'.format(
-                      epoch+1, batch, train_epoch_size, loss.item(), mse.item()))
+                      epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy()))
+                # TODO: print the learning rates too
                 
-                writer.add_scalar('TRAIN/loss', loss.item(), global_step)
-                writer.add_scalar('TRAIN/cross_entropy', cross_entropy.item(), global_step)
-                writer.add_scalar('TRAIN/mse', mse.item(), global_step)
+                writer.add_scalar('TRAIN/loss', loss.numpy(), global_step)
+                writer.add_scalar('TRAIN/cross_entropy', cross_entropy.numpy(), global_step)
+                writer.add_scalar('TRAIN/mse', mse.numpy(), global_step)
                 
                 writer.add_scalar('TRAIN/tau', tau, global_step)
-                writer.add_scalar('TRAIN/lr_dvae', optimizer.param_groups[0]['lr'], global_step)
-                writer.add_scalar('TRAIN/lr_main', optimizer.param_groups[1]['lr'], global_step)
+                writer.add_scalar('TRAIN/lr_dvae', dvae_optimizer.lr.numpy(), global_step)
+                writer.add_scalar('TRAIN/lr_main', main_optimizer.lr.numpy(), global_step)
 
                 wandb.log({
-                    'train/loss': loss.item(),
-                    'train/cross_entropy': cross_entropy.item(),
-                    'train/mse': mse.item(),
+                    'train/loss': loss.numpy(),
+                    'train/cross_entropy': cross_entropy.numpy(),
+                    'train/mse': mse.numpy(),
                     'train/tau': tau,
-                    'train/lr_dvae': optimizer.param_groups[0]['lr'],
-                    'train/lr_main': optimizer.param_groups[1]['lr'],
+                    'train/lr_dvae': dvae_optimizer.lr.numpy(),
+                    'train/lr_main': main_optimizer.lr.numpy(),
                     'train/itr': global_step
                     }, step=global_step)
 
-    with torch.no_grad():
-        gen_img = model.reconstruct_autoregressive(image[:32])
-        vis_recon = visualize(image, recon, gen_img, attns, N=32)
-        grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
-        writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), grid)
+    # with torch.no_grad():
+    #     gen_img = model.reconstruct_autoregressive(image[:32])
+    #     vis_recon = visualize(image, recon, gen_img, attns, N=32)
+    #     grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
+    #     writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), grid)
     
     with torch.no_grad():
         model.eval()
@@ -307,7 +328,10 @@ for epoch in range(start_epoch, args.epochs):
         val_cross_entropy = 0.
         val_mse = 0.
         
-        for batch, image in enumerate(val_loader):
+        # for batch, image in enumerate(val_loader):
+        for batch in range(val_loader.num_batches):
+            image = val_loader.get_batch()
+
             if not args.cpu:
                 image = image.cuda()
 
@@ -315,11 +339,11 @@ for epoch in range(start_epoch, args.epochs):
             
             (recon, cross_entropy, mse, attns) = model(image, tau, True)
             
-            val_cross_entropy_relax += cross_entropy_relax.item()
-            val_mse_relax += mse_relax.item()
+            val_cross_entropy_relax += cross_entropy_relax.numpy()
+            val_mse_relax += mse_relax.numpy()
             
-            val_cross_entropy += cross_entropy.item()
-            val_mse += mse.item()
+            val_cross_entropy += cross_entropy.numpy()
+            val_mse += mse.numpy()
 
         val_cross_entropy_relax /= (val_epoch_size)
         val_mse_relax /= (val_epoch_size)
@@ -346,13 +370,13 @@ for epoch in range(start_epoch, args.epochs):
             best_val_loss = val_loss
             best_epoch = epoch + 1
 
-            torch.save(model.state_dict(), os.path.join(log_dir, 'best_model.pt'))
+            # torch.save(model.state_dict(), os.path.join(log_dir, 'best_model.pt'))
 
-            if 50 <= epoch:
-                gen_img = model.reconstruct_autoregressive(image)
-                vis_recon = visualize(image, recon, gen_img, attns, N=32)
-                grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
-                writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), grid)
+            # if 50 <= epoch:
+            #     gen_img = model.reconstruct_autoregressive(image)
+            #     vis_recon = visualize(image, recon, gen_img, attns, N=32)
+            #     grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
+            #     writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), grid)
 
         else:
             stagnation_counter += 1
@@ -373,17 +397,17 @@ for epoch in range(start_epoch, args.epochs):
             'val/epoch': epoch+1,
             }, step=global_step)
 
-        checkpoint = {
-            'epoch': epoch + 1,
-            'best_val_loss': best_val_loss,
-            'best_epoch': best_epoch,
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'stagnation_counter': stagnation_counter,
-            'lr_decay_factor': lr_decay_factor,
-        }
+        # checkpoint = {
+        #     'epoch': epoch + 1,
+        #     'best_val_loss': best_val_loss,
+        #     'best_epoch': best_epoch,
+        #     'model': model.state_dict(),
+        #     'optimizer': optimizer.state_dict(),
+        #     'stagnation_counter': stagnation_counter,
+        #     'lr_decay_factor': lr_decay_factor,
+        # }
 
-        torch.save(checkpoint, os.path.join(log_dir, 'checkpoint.pt.tar'))
+        # torch.save(checkpoint, os.path.join(log_dir, 'checkpoint.pt.tar'))
 
         lgr.info('====> Best Loss = {:F} @ Epoch {}'.format(best_val_loss, best_epoch))
 

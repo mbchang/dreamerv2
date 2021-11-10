@@ -32,6 +32,16 @@ class SLATE(layers.Layer):
 
         self.out = linear(args.d_model, args.vocab_size, bias=False)
 
+        self.not_dvae = [
+            self.positional_encoder, 
+            self.slot_attn, 
+            self.dictionary, 
+            self.slot_proj, 
+            self.tf_dec, 
+            self.out]
+
+        self.training = False
+
     def call(self, image, tau, hard):
         """
         image: batch_size x img_channels x H x W
