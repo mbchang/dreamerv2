@@ -145,7 +145,8 @@ class SLATE(layers.Layer):
         attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
         return attns
 
-    def call(self, image, tau, hard):
+    @tf.function(experimental_follow_type_hints=True)
+    def call(self, image: tf.Tensor, tau: tf.Tensor, hard: bool):
         """
         image: batch_size x img_channels x H x W
         """
@@ -168,7 +169,8 @@ class SLATE(layers.Layer):
             attns
         )
 
-    def reconstruct_autoregressive(self, image, eval=False):
+    @tf.function(experimental_follow_type_hints=True)
+    def reconstruct_autoregressive(self, image: tf.Tensor, eval: bool=False):
         """
         image: batch_size x img_channels x H x W
         """

@@ -17,6 +17,7 @@ from loguru import logger as lgr
 import pathlib
 import pprint
 import sys
+import time
 import wandb
 
 import numpy as np
@@ -64,6 +65,7 @@ parser.add_argument('--hard', action='store_true')
 parser.add_argument('--cpu', action='store_true')
 parser.add_argument('--headless', action='store_true')
 parser.add_argument('--debug', action='store_true')
+parser.add_argument('--jit', action='store_true')
 
 args = parser.parse_args()
 
@@ -86,6 +88,7 @@ if args.debug:
 
     args.cpu = True
     args.headless = False
+    # args.jit = False
 
     prefix = 'db_'
 else:
@@ -95,7 +98,7 @@ torch.manual_seed(args.seed)
 tf.random.set_seed(args.seed)
 np.random.seed(args.seed)
 
-tf.config.run_functions_eagerly(True)
+tf.config.run_functions_eagerly(not args.jit)
 if not args.cpu:
     message = 'No GPU found. To actually train on CPU remove this assert.'
     assert tf.config.experimental.list_physical_devices('GPU'), message
@@ -175,16 +178,16 @@ else:
 #     model = model.cuda()
 
 lgr.info('initialize with input...')
-model(train_loader.get_batch(), tau=1, hard=args.hard)
+model(train_loader.get_batch(), tau=tf.constant(1.0), hard=args.hard)
 
 # optimizer = Adam([
 #     {'params': (x[1] for x in model.named_parameters() if 'dvae' in x[0]), 'lr': args.lr_dvae},
 #     {'params': (x[1] for x in model.named_parameters() if 'dvae' not in x[0]), 'lr': args.lr_main},
 # ])
-dvae_optimizer = tfa.optimizers.AdamW(args.lr_dvae, epsilon=1e-08)
-main_optimizer = tfa.optimizers.AdamW(args.lr_main, epsilon=1e-08)
-# dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
-# main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
+# dvae_optimizer = tfa.optimizers.AdamW(args.lr_dvae, epsilon=1e-08)
+# main_optimizer = tfa.optimizers.AdamW(args.lr_main, epsilon=1e-08)
+dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
+main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
 optimizer = tfa.optimizers.MultiOptimizer([
     (dvae_optimizer, model.dvae),
     (main_optimizer, model.not_dvae)
@@ -239,8 +242,18 @@ def visualize(image, recon_orig, gen, attns, N=8):
 def f32(x):
     return tf.cast(x, tf.float32)
 
+@tf.function  # makes it twice as fast as only jitting the forward pass
+def train_step(model, optimizer, image, tau, hard):
+    with tf.GradientTape() as tape:
+        (recon, cross_entropy, mse, attns) = model(image, tau, args.hard)
+        loss = mse + cross_entropy
+    gradients = tape.gradient(loss, model.trainable_weights)
+    optimizer.apply_gradients(zip(gradients, model.trainable_weights))
+    return loss, recon, cross_entropy, mse, attns
+
 lgr.info('Begin training.')
 for epoch in range(start_epoch, args.epochs):
+    t_epoch = time.time()
     
     model.train()
 
@@ -271,25 +284,27 @@ for epoch in range(start_epoch, args.epochs):
 
         # if not args.cpu:
         #     image = image.cuda()
-
-        with tf.GradientTape() as tape:
-            (recon, cross_entropy, mse, attns) = model(image, tau, args.hard)
+        # with tf.GradientTape() as tape:
+        #     (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), args.hard)
         
-            loss = mse + cross_entropy
+        #     loss = mse + cross_entropy
 
-        # loss.backward()
-        # clip_grad_norm_(model.parameters(), args.clip, 'inf')
-        # optimizer.step()
-        gradients = tape.gradient(loss, model.trainable_weights)
-        optimizer.apply_gradients(zip(gradients, model.trainable_weights))
+        # # loss.backward()
+        # # clip_grad_norm_(model.parameters(), args.clip, 'inf')
+        # # optimizer.step()
+        # gradients = tape.gradient(loss, model.trainable_weights)
+        # optimizer.apply_gradients(zip(gradients, model.trainable_weights))
+
+        t0 = time.time()
+        loss, recon, cross_entropy, mse, attns = train_step(model, optimizer, image, tf.constant(tau), args.hard)
 
         with torch.no_grad():
             if batch % log_interval == 0:
                 # lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F}'.format(
                 #       epoch+1, batch, train_epoch_size, loss.item(), mse.item()))
 
-                lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F}'.format(
-                      epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy()))
+                lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
+                      epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy(), time.time()-t0))
                 # TODO: print the learning rates too
                 
                 writer.add_scalar('TRAIN/loss', loss.numpy(), global_step)
@@ -311,7 +326,9 @@ for epoch in range(start_epoch, args.epochs):
                     }, step=global_step)
 
     with torch.no_grad():
+        t0 = time.time()
         gen_img = model.reconstruct_autoregressive(image[:32])
+        lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
         vis_recon = visualize(image, recon, gen_img, attns, N=32)
         # grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
@@ -326,15 +343,16 @@ for epoch in range(start_epoch, args.epochs):
         val_mse = 0.
         
         # for batch, image in enumerate(val_loader):
+        t0 = time.time()
         for batch in range(val_loader.num_batches):
             image = val_loader.get_batch()
 
             # if not args.cpu:
             #     image = image.cuda()
 
-            (recon_relax, cross_entropy_relax, mse_relax, attns_relax) = model(image, tau, False)
+            (recon_relax, cross_entropy_relax, mse_relax, attns_relax) = model(image, tf.constant(tau), False)
             
-            (recon, cross_entropy, mse, attns) = model(image, tau, True)
+            (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), True)
             
             val_cross_entropy_relax += cross_entropy_relax.numpy()
             val_mse_relax += mse_relax.numpy()
@@ -359,8 +377,8 @@ for epoch in range(start_epoch, args.epochs):
         writer.add_scalar('VAL/cross_entropy', val_cross_entropy, epoch + 1)
         writer.add_scalar('VAL/mse', val_mse, epoch+1)
 
-        lgr.info('====> Epoch: {:3} \t Loss = {:F} \t MSE = {:F}'.format(
-            epoch+1, val_loss, val_mse))
+        lgr.info('====> Epoch: {:3} \t Loss = {:F} \t MSE = {:F} \t Time: {:F}'.format(
+            epoch+1, val_loss, val_mse, time.time() - t0))
 
         if val_loss < best_val_loss:
             stagnation_counter = 0
@@ -370,7 +388,9 @@ for epoch in range(start_epoch, args.epochs):
             # torch.save(model.state_dict(), os.path.join(log_dir, 'best_model.pt'))
 
             if 50 <= epoch:
+                t0 = time.time()
                 gen_img = model.reconstruct_autoregressive(image)
+                lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
                 vis_recon = visualize(image, recon, gen_img, attns, N=32)
                 # grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
@@ -406,6 +426,6 @@ for epoch in range(start_epoch, args.epochs):
 
         # torch.save(checkpoint, os.path.join(log_dir, 'checkpoint.pt.tar'))
 
-        lgr.info('====> Best Loss = {:F} @ Epoch {}'.format(best_val_loss, best_epoch))
+        lgr.info('====> Best Loss = {:F} @ Epoch {} \t Time per epoch: {:F}'.format(best_val_loss, best_epoch, time.time() - t_epoch))
 
 writer.close()
