@@ -69,7 +69,7 @@ args = parser.parse_args()
 if args.debug:
     args.num_workers = 0
     args.batch_size = 5
-    args.epochs = 4
+    args.epochs = 2
 
     args.lr_warmup_steps = 3
 
@@ -126,7 +126,7 @@ if not args.headless:
     lgr.info(f'Logdir: {log_dir}')
 
 lgr.info('Building dataset...')
-databuilder = shapes_3d.DebugShapes3D if args.debug else Shapes3D
+databuilder = shapes_3d.DebugShapes3D if args.debug else shapes_3d.Shapes3D
 train_dataset = databuilder(root=args.data_path, phase='train')
 val_dataset = databuilder(root=args.data_path, phase='val')
 
@@ -170,8 +170,8 @@ else:
     stagnation_counter = 0
     lr_decay_factor = 1.0
 
-if not args.cpu:
-    model = model.cuda()
+# if not args.cpu:
+#     model = model.cuda()
 
 lgr.info('initialize with input...')
 model(train_loader.get_batch(), tau=1, hard=args.hard)
@@ -270,8 +270,8 @@ for epoch in range(start_epoch, args.epochs):
         dvae_optimizer.lr = f32(lr_decay_factor * args.lr_dvae)
         main_optimizer.lr = f32(lr_decay_factor * lr_warmup_factor * args.lr_main)
 
-        if not args.cpu:
-            image = image.cuda()
+        # if not args.cpu:
+        #     image = image.cuda()
 
         with tf.GradientTape() as tape:
             (recon, cross_entropy, mse, attns) = model(image, tau, args.hard)
@@ -332,8 +332,8 @@ for epoch in range(start_epoch, args.epochs):
         for batch in range(val_loader.num_batches):
             image = val_loader.get_batch()
 
-            if not args.cpu:
-                image = image.cuda()
+            # if not args.cpu:
+            #     image = image.cuda()
 
             (recon_relax, cross_entropy_relax, mse_relax, attns_relax) = model(image, tau, False)
             
