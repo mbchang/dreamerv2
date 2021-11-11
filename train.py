@@ -245,7 +245,7 @@ def f32(x):
 @tf.function  # makes it twice as fast as only jitting the forward pass
 def train_step(model, optimizer, image, tau, hard):
     with tf.GradientTape() as tape:
-        (recon, cross_entropy, mse, attns) = model(image, tau, args.hard)
+        (recon, cross_entropy, mse, attns) = model(image, tau, hard)
         loss = mse + cross_entropy
     gradients = tape.gradient(loss, model.trainable_weights)
     optimizer.apply_gradients(zip(gradients, model.trainable_weights))
@@ -284,19 +284,22 @@ for epoch in range(start_epoch, args.epochs):
 
         # if not args.cpu:
         #     image = image.cuda()
-        # with tf.GradientTape() as tape:
-        #     (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), args.hard)
-        
-        #     loss = mse + cross_entropy
-
-        # # loss.backward()
-        # # clip_grad_norm_(model.parameters(), args.clip, 'inf')
-        # # optimizer.step()
-        # gradients = tape.gradient(loss, model.trainable_weights)
-        # optimizer.apply_gradients(zip(gradients, model.trainable_weights))
-
         t0 = time.time()
-        loss, recon, cross_entropy, mse, attns = train_step(model, optimizer, image, tf.constant(tau), args.hard)
+
+        if args.jit:
+            loss, recon, cross_entropy, mse, attns = train_step(model, optimizer, image, tf.constant(tau), args.hard)
+        else:
+            with tf.GradientTape() as tape:
+                (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), args.hard)
+            
+                loss = mse + cross_entropy
+
+            # loss.backward()
+            # clip_grad_norm_(model.parameters(), args.clip, 'inf')
+            # optimizer.step()
+            gradients = tape.gradient(loss, model.trainable_weights)
+            optimizer.apply_gradients(zip(gradients, model.trainable_weights))
+
 
         with torch.no_grad():
             if batch % log_interval == 0:
