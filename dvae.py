@@ -8,6 +8,7 @@ class dVAE(tkl.Layer):
     
     def __init__(self, vocab_size, img_channels):
         super().__init__()
+        self.vocab_size = vocab_size
         
         self.encoder = tf.keras.Sequential([
             Rearrange('b c h w -> b h w c'),
@@ -41,16 +42,26 @@ class dVAE(tkl.Layer):
             Rearrange('b h w c -> b c h w'),
         ])
 
+    def get_logits(self, image):
+        # z_logits = F.log_softmax(self.encoder(image), dim=1)
+        z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)
+        return z_logits
+
+    def sample(self, z_logits, tau, hard):
+        z = gumbel_softmax(z_logits, tau, hard, dim=1)
+        return z
+
+    def mode(self, z_logits):
+        z_hard = torch.argmax(z_logits, axis=1)
+        z_hard = F.one_hot(z_hard, num_classes=self.vocab_size).permute(0, 3, 1, 2).float()
+        return z_hard
+
     def call(self, image, tau, hard):
-        import time
-        t0 = time.time()
         B, C, H, W = image.shape
 
         # dvae encode
-        # z_logits = F.log_softmax(self.encoder(image), dim=1)
-        z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)
-        _, _, H_enc, W_enc = z_logits.shape
-        z = gumbel_softmax(z_logits, tau, hard, dim=1)
+        z_logits = self.get_logits(image)
+        z = self.sample(z_logits, tau, hard)
 
         # dvae recon
         recon = self.decoder(z)
@@ -58,10 +69,8 @@ class dVAE(tkl.Layer):
         mse = tf.math.reduce_sum((image - recon) ** 2) / B
 
         # hard z
-        # z_hard = gumbel_softmax(z_logits, tau, True, dim=1).detach()
-        z_hard = tf.stop_gradient(gumbel_softmax(z_logits, tau, True, dim=1))
+        z_hard = tf.stop_gradient(self.sample(z_logits, tau, True))
 
-        print(f'That took {time.time() - t0} seconds.')
         return recon, z_hard, mse
 
 
