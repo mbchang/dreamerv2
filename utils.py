@@ -117,15 +117,13 @@ class Conv2dBlock(tkl.Layer):
                         bias=False, weight_init='kaiming')
         # self.weight = nn.Parameter(torch.ones(out_channels))
         # self.bias = nn.Parameter(torch.zeros(out_channels))
-        self.group_norm = tfa.layers.GroupNormalization(groups=1)
+        self.group_norm = tfa.layers.GroupNormalization(groups=1, axis=-1)
     
     
     def call(self, x):
         # TODO: later we will just reshape the input once
-        x = rearrange(x, 'b c h w -> b h w c')
         x = self.m(x)
         x = tka.relu(self.group_norm(x))
-        x = rearrange(x, 'b h w c -> b c h w')
         return x
         # return F.relu(F.group_norm(x, 1, self.weight, self.bias))
 

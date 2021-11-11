@@ -10,6 +10,7 @@ class dVAE(tkl.Layer):
         super().__init__()
         
         self.encoder = tf.keras.Sequential([
+            Rearrange('b c h w -> b h w c'),
             Conv2dBlock(img_channels, 64, 4, 4),
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64, 1, 1),
@@ -17,35 +18,32 @@ class dVAE(tkl.Layer):
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64, 1, 1),
-            Rearrange('b c h w -> b h w c'),  # TODO: take this out if you reshape the entire input
             conv2d(64, vocab_size, 1),
-            Rearrange('b h w c -> b c h w'),  # TODO: take this out if you reshape the entire input
+            Rearrange('b h w c -> b c h w'),
         ])
         
         self.decoder = tf.keras.Sequential([
+            Rearrange('b c h w -> b h w c'),
             Conv2dBlock(vocab_size, 64, 1),
-            Conv2dBlock(64, 64, 3, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64 * 2 * 2, 1),  # -> (B, 256, 14, 14)
-            # nn.PixelShuffle(2),
-            Rearrange('b c h w -> b h w c'),  # TODO: take this out if you reshape the entire input
-            PixelShuffle(2),
-            Rearrange('b h w c -> b c h w'),  # TODO: take this out if you reshape the entire input
             Conv2dBlock(64, 64, 3, 1, 1),
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64 * 2 * 2, 1),
             # nn.PixelShuffle(2),
-            Rearrange('b c h w -> b h w c'),  # TODO: take this out if you reshape the entire input
             PixelShuffle(2),
-            Rearrange('b h w c -> b c h w'),  # TODO: take this out if you reshape the entire input
-            Rearrange('b c h w -> b h w c'),  # TODO: take this out if you reshape the entire input
+            Conv2dBlock(64, 64, 3, 1, 1),
+            Conv2dBlock(64, 64, 1, 1),
+            Conv2dBlock(64, 64, 1, 1),
+            Conv2dBlock(64, 64 * 2 * 2, 1),
+            # nn.PixelShuffle(2),
+            PixelShuffle(2),
             conv2d(64, img_channels, 1),
-            Rearrange('b h w c -> b c h w'),  # TODO: take this out if you reshape the entire input
+            Rearrange('b h w c -> b c h w'),
         ])
 
     def call(self, image, tau, hard):
+        import time
+        t0 = time.time()
         B, C, H, W = image.shape
 
         # dvae encode
@@ -63,6 +61,7 @@ class dVAE(tkl.Layer):
         # z_hard = gumbel_softmax(z_logits, tau, True, dim=1).detach()
         z_hard = tf.stop_gradient(gumbel_softmax(z_logits, tau, True, dim=1))
 
+        print(f'That took {time.time() - t0} seconds.')
         return recon, z_hard, mse
 
 
