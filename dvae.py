@@ -45,6 +45,27 @@ class dVAE(tkl.Layer):
             Rearrange('b h w c -> b c h w'),  # TODO: take this out if you reshape the entire input
         ])
 
+    def call(self, image, tau, hard):
+        B, C, H, W = image.shape
+
+        # dvae encode
+        # z_logits = F.log_softmax(self.encoder(image), dim=1)
+        z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)
+        _, _, H_enc, W_enc = z_logits.shape
+        z = gumbel_softmax(z_logits, tau, hard, dim=1)
+
+        # dvae recon
+        recon = self.decoder(z)
+        # mse = ((image - recon) ** 2).sum() / B
+        mse = tf.math.reduce_sum((image - recon) ** 2) / B
+
+        # hard z
+        # z_hard = gumbel_softmax(z_logits, tau, True, dim=1).detach()
+        z_hard = tf.stop_gradient(gumbel_softmax(z_logits, tau, True, dim=1))
+
+        return recon, z_hard, mse
+
+
 class PixelShuffle(tkl.Layer):
     def __init__(self, upscale_factor):
         super().__init__()

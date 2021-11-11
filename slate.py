@@ -49,20 +49,22 @@ class SLATE(layers.Layer):
 
         B, C, H, W = image.shape
 
-        # dvae encode
-        # z_logits = F.log_softmax(self.dvae.encoder(image), dim=1)
-        z_logits = tf.nn.log_softmax(self.dvae.encoder(image), axis=1)
-        _, _, H_enc, W_enc = z_logits.shape
-        z = gumbel_softmax(z_logits, tau, hard, dim=1)
+        # # dvae encode
+        # # z_logits = F.log_softmax(self.dvae.encoder(image), dim=1)
+        # z_logits = tf.nn.log_softmax(self.dvae.encoder(image), axis=1)
+        # _, _, H_enc, W_enc = z_logits.shape
+        # z = gumbel_softmax(z_logits, tau, hard, dim=1)
 
-        # dvae recon
-        recon = self.dvae.decoder(z)
-        # mse = ((image - recon) ** 2).sum() / B
-        mse = tf.math.reduce_sum((image - recon) ** 2) / B
+        # # dvae recon
+        # recon = self.dvae.decoder(z)
+        # # mse = ((image - recon) ** 2).sum() / B
+        # mse = tf.math.reduce_sum((image - recon) ** 2) / B
 
-        # hard z
-        # z_hard = gumbel_softmax(z_logits, tau, True, dim=1).detach()
-        z_hard = tf.stop_gradient(gumbel_softmax(z_logits, tau, True, dim=1))
+        # # hard z
+        # # z_hard = gumbel_softmax(z_logits, tau, True, dim=1).detach()
+        # z_hard = tf.stop_gradient(gumbel_softmax(z_logits, tau, True, dim=1))
+        recon, z_hard, mse = self.dvae(image, tau, hard)
+        _, _, H_enc, W_enc = z_hard.shape
 
         # target tokens for transformer
         z_transformer_target = rearrange(z_hard, 'b c h w -> b (h w) c')
