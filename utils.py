@@ -108,14 +108,6 @@ def conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0,
 
     return m
 
-
-# def conv2d(x, f, strides=None, padding=None):
-#     h, w, ci, co = f.shape
-#     assert padding in ["SAME"]
-#     return F.conv2d(x.permute(0, 3, 1, 2), f.permute(3, 2, 0, 1).contiguous(), 
-#         stride=strides[1:3], padding=(h // 2, w // 2)).permute(0, 2, 3, 1)
-
-
 class Conv2dBlock(tkl.Layer):
     
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0):
