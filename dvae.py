@@ -52,8 +52,10 @@ class dVAE(tkl.Layer):
         return z
 
     def mode(self, z_logits):
-        z_hard = torch.argmax(z_logits, axis=1)
-        z_hard = F.one_hot(z_hard, num_classes=self.vocab_size).permute(0, 3, 1, 2).float()
+        # z_hard = torch.argmax(z_logits, axis=1)
+        z_hard = tf.math.argmax(z_logits, axis=1)
+        # z_hard = rearrange(F.one_hot(z_hard, num_classes=self.vocab_size), 'b h w v -> b v h w').float()
+        z_hard = tf.cast(rearrange(tf.one_hot(z_hard, depth=self.vocab_size), 'b h w v -> b v h w'), tf.float32)
         return z_hard
 
     def call(self, image, tau, hard):

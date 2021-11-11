@@ -12,6 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 import shapes_3d
 from slate import SLATE
 
+from einops import rearrange
 from loguru import logger as lgr
 import pathlib
 import pprint
@@ -229,13 +230,11 @@ def cosine_anneal(step, start_value, final_value, start_step, final_step):
 
 
 def visualize(image, recon_orig, gen, attns, N=8):
-    _, _, H, W = image.shape
-    image = image[:N].expand(-1, 3, H, W).unsqueeze(dim=1)
-    recon_orig = recon_orig[:N].expand(-1, 3, H, W).unsqueeze(dim=1)
-    gen = gen[:N].expand(-1, 3, H, W).unsqueeze(dim=1)
-    attns = attns[:N].expand(-1, -1, 3, H, W)
+    unsqueeze = lambda x: rearrange(x, 'b c h w -> b 1 c h w')
+    image, recon_orig, gen = map(unsqueeze, (image[:N], recon_orig[:N], gen[:N]))
+    attns = attns[:N]
+    return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
 
-    return torch.cat((image, recon_orig, gen, attns), dim=1).view(-1, 3, H, W)
 
 def f32(x):
     return tf.cast(x, tf.float32)
@@ -289,8 +288,6 @@ for epoch in range(start_epoch, args.epochs):
                 # lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F}'.format(
                 #       epoch+1, batch, train_epoch_size, loss.item(), mse.item()))
 
-                # import ipdb
-                # ipdb.set_trace(context=20)
                 lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F}'.format(
                       epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy()))
                 # TODO: print the learning rates too
@@ -313,11 +310,11 @@ for epoch in range(start_epoch, args.epochs):
                     'train/itr': global_step
                     }, step=global_step)
 
-    # with torch.no_grad():
-    #     gen_img = model.reconstruct_autoregressive(image[:32])
-    #     vis_recon = visualize(image, recon, gen_img, attns, N=32)
-    #     grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
-    #     writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), grid)
+    with torch.no_grad():
+        gen_img = model.reconstruct_autoregressive(image[:32])
+        vis_recon = visualize(image, recon, gen_img, attns, N=32)
+        # grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
+        writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
     
     with torch.no_grad():
         model.eval()
@@ -372,11 +369,11 @@ for epoch in range(start_epoch, args.epochs):
 
             # torch.save(model.state_dict(), os.path.join(log_dir, 'best_model.pt'))
 
-            # if 50 <= epoch:
-            #     gen_img = model.reconstruct_autoregressive(image)
-            #     vis_recon = visualize(image, recon, gen_img, attns, N=32)
-            #     grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
-            #     writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), grid)
+            if 50 <= epoch:
+                gen_img = model.reconstruct_autoregressive(image)
+                vis_recon = visualize(image, recon, gen_img, attns, N=32)
+                # grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
+                writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
 
         else:
             stagnation_counter += 1
