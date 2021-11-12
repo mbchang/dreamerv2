@@ -80,6 +80,7 @@ class SlotModel(layers.Layer):
 
         return z_gen
 
+    @tf.function
     def call(self, z_transformer_input, z_transformer_target):
         B = z_transformer_input.shape[0]
         emb_input = self.embed_tokens(z_transformer_input)
@@ -114,6 +115,17 @@ def create_tokens(z_hard):
     return z_transformer_input, z_transformer_target
 
 
+def overlay_attention(attns, image, H_enc, W_enc):
+    B, C, H, W = image.shape
+    # attns = attns.transpose(-1, -2)
+    attns = rearrange(attns, 'b hw k -> b k hw')
+    # attns = attns.reshape(B, self.num_slots, 1, H_enc, W_enc).repeat_interleave(H // H_enc, dim=-2).repeat_interleave(W // W_enc, dim=-1)
+    attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
+    # attns = image.unsqueeze(1) * attns + 1. - attns
+    attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
+    return attns
+
+
 class SLATE(layers.Layer):
     def __init__(self, args):
         super().__init__()
@@ -135,17 +147,8 @@ class SLATE(layers.Layer):
 
         self.training = False
 
-    def overlay_attention(self, attns, image, H_enc, W_enc):
-        B, C, H, W = image.shape
-        # attns = attns.transpose(-1, -2)
-        attns = rearrange(attns, 'b hw k -> b k hw')
-        # attns = attns.reshape(B, self.num_slots, 1, H_enc, W_enc).repeat_interleave(H // H_enc, dim=-2).repeat_interleave(W // W_enc, dim=-1)
-        attns = tf.repeat(tf.repeat(tf.reshape(attns, (B, self.num_slots, 1, H_enc, W_enc)), H // H_enc, axis=-2), W // W_enc, axis=-1)
-        # attns = image.unsqueeze(1) * attns + 1. - attns
-        attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
-        return attns
 
-    @tf.function
+    # @tf.function
     def call(self, image: tf.Tensor, tau: tf.Tensor, hard: bool):
         """
         image: batch_size x img_channels x H x W
@@ -158,7 +161,7 @@ class SLATE(layers.Layer):
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
         attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
 
-        attns = self.overlay_attention(attns, image, H_enc, W_enc)
+        attns = overlay_attention(attns, image, H_enc, W_enc)
 
         return (
             # recon.clamp(0., 1.),
@@ -192,7 +195,7 @@ class SLATE(layers.Layer):
 
         recon_transformer = self.dvae.decoder(z_gen)
 
-        attns = self.overlay_attention(attns, image, H_enc, W_enc)
+        attns = overlay_attention(attns, image, H_enc, W_enc)
 
         if eval:
             # return recon_transformer.clamp(0., 1.), attns
