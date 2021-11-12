@@ -205,6 +205,66 @@ def what_if_we_jit_entire_slatecall_11_11_21():
     r.add_flag('log_path', ['logs/what_if_we_jit_entire_slatecall'])
     r.generate_commands(args.for_real)
 
+def what_if_we_jit_forward_and_backward_separately_11_11_21():
+    """
+        if I do this, then I get an error:
+
+    ValueError: in user code:
+
+        /home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/slate/tf_slate/train.py:273 backward  *  
+            optimizer.apply_gradients(zip(gradients, model.trainable_weights))
+        /home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow_addons/optimizers/discriminative_layer_training.py:119 apply_gradients  *
+            [
+        /home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/keras/optimizer_v2/optimizer_v2.py:622 apply_gradients  **
+            grads_and_vars = optimizer_utils.filter_empty_gradients(grads_and_vars)
+        /home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/keras/optimizer_v2/utils.py:72 filter_empty_gradients
+            raise ValueError("No gradients provided for any variable: %s." %
+
+
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_we_jit_forward_and_backward_separately'])
+    r.generate_commands(args.for_real)
+
+def check_again_that_jitting_train_step_does_not_work_11_11_21():
+    """
+        it does not work
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/check_again_that_jitting_train_step_does_not_work'])
+    r.generate_commands(args.for_real)
+
+def what_if_I_wrap_train_step_at_runtime_instead_of_decorating_11_11_21():
+    """
+        motivation from https://stackoverflow.com/questions/65988276/fail-to-train-a-model-using-tf-function
+
+        then I get this error
+
+        WARNING:tensorflow:5 out of the last 5 calls to <function train_step at 0x7fbf4c253a60> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has experimental_relax_shapes=True option that relaxes argument shapes that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+        WARNING:tensorflow:6 out of the last 6 calls to <function train_step at 0x7fbf4c253a60> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has experimental_relax_shapes=True option that relaxes argument shapes that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+
+        But it still seems to learn correctly though
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_I_wrap_train_step_at_runtime_instead_of_decorating'])
+    r.generate_commands(args.for_real)
+
+def what_if_we_jit_entire_slatecall_and_autoregressive_11_11_21():
+    """
+        this seems to work
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_we_jit_entire_slatecall_and_autoregressive_11_11_21'])
+    r.generate_commands(args.for_real)
+
 
 if __name__ == '__main__':
     # does_jit_really_make_the_difference_11_11_21()
@@ -213,6 +273,9 @@ if __name__ == '__main__':
     # what_if_we_jit_dvae_and_transformer_not_slot_attn_11_11_21()
     # what_if_we_jit_dvae_slotattn_transformer_not_slotmodelcall_11_11_21()
     # what_if_we_jit_entire_slotmodelcall_11_11_21()
-    what_if_we_jit_entire_slatecall_11_11_21()
-
+    # what_if_we_jit_entire_slatecall_11_11_21()
+    # what_if_we_jit_forward_and_backward_separately_11_11_21()
+    # check_again_that_jitting_train_step_does_not_work_11_11_21()
+    # what_if_I_wrap_train_step_at_runtime_instead_of_decorating_11_11_21()
+    what_if_we_jit_entire_slatecall_and_autoregressive_11_11_21()
 
