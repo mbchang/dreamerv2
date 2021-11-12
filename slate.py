@@ -38,11 +38,13 @@ class SlotModel(layers.Layer):
         emb_input = self.positional_encoder(emb_input, training=self.training)
         return emb_input
 
+    # @tf.function
     def apply_slot_attn(self, emb_input):
         slots, attns = self.slot_attn(emb_input[:, 1:])
         slots = self.slot_proj(slots)
         return slots, attns
 
+    # @tf.function
     def parallel_decode(self, emb_input, slots):
         decoder_output = self.tf_dec(emb_input[:, :-1], slots)
         pred = self.out(decoder_output)
@@ -80,6 +82,7 @@ class SlotModel(layers.Layer):
 
         return z_gen
 
+    # @tf.function
     def call(self, z_transformer_input, z_transformer_target):
         B = z_transformer_input.shape[0]
         emb_input = self.embed_tokens(z_transformer_input)
@@ -145,19 +148,23 @@ class SLATE(layers.Layer):
         attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
         return attns
 
-    @tf.function(experimental_follow_type_hints=True)
+    @tf.function#(experimental_follow_type_hints=True)
     def call(self, image: tf.Tensor, tau: tf.Tensor, hard: bool):
         """
         image: batch_size x img_channels x H x W
         """
 
         B, C, H, W = image.shape
-
+        # import time
+        # t0 = time.time()
         recon, z_hard, mse = self.dvae(image, tau, hard)
+        # print(f'dVAE took {time.time()-t0} seconds')
         _, _, H_enc, W_enc = z_hard.shape
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+        # t0 = time.time()
         attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
+        # print(f'Slot Model took {time.time()-t0} seconds')
 
         attns = self.overlay_attention(attns, image, H_enc, W_enc)
 
@@ -169,7 +176,7 @@ class SLATE(layers.Layer):
             attns
         )
 
-    @tf.function(experimental_follow_type_hints=True)
+    # @tf.function(experimental_follow_type_hints=True)
     def reconstruct_autoregressive(self, image: tf.Tensor, eval: bool=False):
         """
         image: batch_size x img_channels x H x W

@@ -133,6 +133,8 @@ class RunnerWithIDs(Runner):
 def does_jit_really_make_the_difference_11_11_21():
     """
         seems like jit hurts the slot model's performance. Let's see if this is actually the case.
+
+        conclusion: yes, it is only jit
     """
     r = RunnerWithIDs(command='python train.py', gpus=[0, 1])
     r.add_flag('jit', [True, False])
@@ -140,9 +142,77 @@ def does_jit_really_make_the_difference_11_11_21():
     r.add_flag('log_path', ['logs/does_jit_really_make_the_difference'])
     r.generate_commands(args.for_real)
 
+def what_if_we_just_jit_the_dvae_11_11_21():
+    """
+        works
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[0, 1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_we_just_jit_the_dvae'])
+    r.generate_commands(args.for_real)
+
+def what_if_we_jit_dvae_and_slotattn_not_transformer_11_11_21():
+    """
+        works
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_we_jit_dvae_and_slotattn_not_transformer'])
+    r.generate_commands(args.for_real)
+
+def what_if_we_jit_dvae_and_transformer_not_slot_attn_11_11_21():
+    """
+        works
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_we_jit_dvae_and_transformer_not_slot_attn'])
+    r.generate_commands(args.for_real)
+
+def what_if_we_jit_dvae_slotattn_transformer_not_slotmodelcall_11_11_21():
+    """
+        expect this should work
+        I think this works
+        works
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_we_jit_dvae_slotattn_transformer_not_slotmodelcall'])
+    r.generate_commands(args.for_real)
+
+def what_if_we_jit_entire_slotmodelcall_11_11_21():
+    """
+        this might fail
+        this seems to work
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_we_jit_entire_slotmodelcall'])
+    r.generate_commands(args.for_real)
+
+def what_if_we_jit_entire_slatecall_11_11_21():
+    """
+        this seems to work
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/what_if_we_jit_entire_slatecall'])
+    r.generate_commands(args.for_real)
+
 
 if __name__ == '__main__':
-    does_jit_really_make_the_difference_11_11_21()
-
+    # does_jit_really_make_the_difference_11_11_21()
+    # what_if_we_just_jit_the_dvae_11_11_21()
+    # what_if_we_jit_dvae_and_slotattn_not_transformer_11_11_21()
+    # what_if_we_jit_dvae_and_transformer_not_slot_attn_11_11_21()
+    # what_if_we_jit_dvae_slotattn_transformer_not_slotmodelcall_11_11_21()
+    # what_if_we_jit_entire_slotmodelcall_11_11_21()
+    what_if_we_jit_entire_slatecall_11_11_21()
 
 

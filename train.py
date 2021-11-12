@@ -167,7 +167,7 @@ val_loader = shapes_3d.DataLoader(val_dataset, sampler=val_sampler, **loader_kwa
 train_epoch_size = len(train_loader)
 val_epoch_size = len(val_loader)
 
-log_interval = train_epoch_size // 5
+log_interval = train_epoch_size // 10
 
 lgr.info('Building model...')
 model = SLATE(args)
@@ -257,7 +257,7 @@ def visualize(image, recon_orig, gen, attns, N=8):
 def f32(x):
     return tf.cast(x, tf.float32)
 
-@tf.function  # makes it twice as fast as only jitting the forward pass
+# @tf.function  # makes it twice as fast as only jitting the forward pass
 def train_step(model, optimizer, image, tau, hard):
     with tf.GradientTape() as tape:
         (recon, cross_entropy, mse, attns) = model(image, tau, hard)
