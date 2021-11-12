@@ -16,6 +16,7 @@ from einops import rearrange
 from loguru import logger as lgr
 import pathlib
 import pprint
+import shutil
 import sys
 import time
 import wandb
@@ -105,10 +106,18 @@ if not args.cpu:
 for gpu in tf.config.experimental.list_physical_devices('GPU'):
     tf.config.experimental.set_memory_growth(gpu, True)
 
+def create_expdir(data_name, prefix, args):
+    exp_name = f'{prefix}'
+    if args.jit:
+        exp_name += 'jit_'
+    exp_name += f'{datetime.now():%Y%m%d%H%M%S}'
+    exp_dir = pathlib.Path(os.path.join(data_name, exp_name))
+    return exp_dir
+
 arg_str_list = ['{}={}'.format(k, v) for k, v in vars(args).items()]
 arg_str = '__'.join(arg_str_list)
 data_name = pathlib.Path(args.data_path).with_suffix('').name
-exp_dir = pathlib.Path(os.path.join(data_name, f'{prefix}{datetime.now():%Y%m%d%H%M%S}'))
+exp_dir = create_expdir(data_name, prefix, args)
 log_dir = pathlib.Path(os.path.join(args.log_path, exp_dir))
 writer = SummaryWriter(log_dir)
 writer.add_text('hparams', arg_str)
@@ -119,7 +128,7 @@ wandb.init(
     config=vars(args),
     project='slate_pytorch',
     dir=log_dir,
-    group=f'{prefix}{args.log_path}_{data_name}',
+    group=f'{prefix}{pathlib.Path(args.log_path).name}_{data_name}',
     job_type='train',
     id=f'slate_{data_name}_{log_dir.name}')
 
@@ -128,6 +137,12 @@ lgr.add(os.path.join(log_dir, 'debug.log'))
 if not args.headless:
     lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
     lgr.info(f'Logdir: {log_dir}')
+
+# save source code
+code_dir = os.path.join(log_dir, 'code')
+os.makedirs(code_dir, exist_ok=True)
+for src_file in [x for x in os.listdir('.') if '.py' in x]:
+    shutil.copy2(src_file, code_dir)
 
 lgr.info('Building dataset...')
 databuilder = shapes_3d.DebugShapes3D if args.debug else shapes_3d.Shapes3D
@@ -286,19 +301,19 @@ for epoch in range(start_epoch, args.epochs):
         #     image = image.cuda()
         t0 = time.time()
 
-        if args.jit:
-            loss, recon, cross_entropy, mse, attns = train_step(model, optimizer, image, tf.constant(tau), args.hard)
-        else:
-            with tf.GradientTape() as tape:
-                (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), args.hard)
+        # if args.jit:
+        loss, recon, cross_entropy, mse, attns = train_step(model, optimizer, image, tf.constant(tau), args.hard)
+        # else:
+        #     with tf.GradientTape() as tape:
+        #         (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), args.hard)
             
-                loss = mse + cross_entropy
+        #         loss = mse + cross_entropy
 
-            # loss.backward()
-            # clip_grad_norm_(model.parameters(), args.clip, 'inf')
-            # optimizer.step()
-            gradients = tape.gradient(loss, model.trainable_weights)
-            optimizer.apply_gradients(zip(gradients, model.trainable_weights))
+        #     # loss.backward()
+        #     # clip_grad_norm_(model.parameters(), args.clip, 'inf')
+        #     # optimizer.step()
+        #     gradients = tape.gradient(loss, model.trainable_weights)
+        #     optimizer.apply_gradients(zip(gradients, model.trainable_weights))
 
 
         with torch.no_grad():
