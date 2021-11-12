@@ -265,6 +265,104 @@ def what_if_we_jit_entire_slatecall_and_autoregressive_11_11_21():
     r.add_flag('log_path', ['logs/what_if_we_jit_entire_slatecall_and_autoregressive_11_11_21'])
     r.generate_commands(args.for_real)
 
+def split_into_separate_train_steps_and_jit_each_11_11_21():
+    """
+        if this works, then we can work with this for dreamer
+
+        --> it doesn't seem to work
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/split_into_separate_train_steps_and_jit_each'])
+    r.generate_commands(args.for_real)
+
+def split_into_separate_train_steps_and_no_jit_11_11_21():
+    """
+        interesting - if I separate these two train steps, even without jit I only use 4GB of memory?
+        wheresa if I put the entire train step together, without jit I use 8 GB of memory.
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/split_into_separate_train_steps_and_no_jit'])
+    r.generate_commands(args.for_real)
+
+def split_into_separate_train_steps_jit_dvae_trainstep_only_11_11_21():
+    """
+        works
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/split_into_separate_train_steps_jit_dvae_trainstep_only'])
+    r.generate_commands(args.for_real)
+
+def split_into_separate_train_steps_jit_slotmodel_trainstep_only_11_11_21():
+    """
+        does not work
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/split_into_separate_train_steps_jit_slotmodel_trainstep_only'])
+    r.generate_commands(args.for_real)
+
+def split_into_separate_train_steps_jit_dvae_train_step_slot_model_forward_11_11_21():
+    """
+        works
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/split_into_separate_train_steps_jit_dvae_train_step_slot_model_forward'])
+    r.generate_commands(args.for_real)
+
+def split_into_separate_train_steps_jit_slotmodel_train_step_dvae_forward_11_11_21():
+    """
+        does not work
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/split_into_separate_train_steps_jit_slotmodel_train_step_dvae_forward'])
+    r.generate_commands(args.for_real)
+
+"""
+Traceback (most recent call last):
+  File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/slate/tf_slate/modular_train.py", line 196, in <module>
+    model(train_loader.get_batch(), tau=tf.constant(1.0), hard=args.hard)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/keras/engine/base_layer.py", line 1037, in __call__
+    outputs = call_fn(inputs, *args, **kwargs)
+  File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/slate/tf_slate/slate.py", line 161, in call
+    attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/keras/engine/base_layer.py", line 1037, in __call__
+    outputs = call_fn(inputs, *args, **kwargs)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/eager/def_function.py", line 885, in __call__
+    result = self._call(*args, **kwds)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/eager/def_function.py", line 933, in _call
+    self._initialize(args, kwds, add_initializers_to=initializers)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/eager/def_function.py", line 759, in _initialize
+    self._stateful_fn._get_concrete_function_internal_garbage_collected(  # pylint: disable=protected-access
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/eager/function.py", line 3066, in _get_concrete_function_internal_garbage_collected
+    graph_function, _ = self._maybe_define_function(args, kwargs)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/eager/function.py", line 3463, in _maybe_define_function
+    graph_function = self._create_graph_function(args, kwargs)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/eager/function.py", line 3298, in _create_graph_function
+    func_graph_module.func_graph_from_py_func(
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/framework/func_graph.py", line 1007, in func_graph_from_py_func
+    func_outputs = python_func(*func_args, **func_kwargs)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/eager/def_function.py", line 668, in wrapped_fn
+    out = weak_wrapped_fn().__wrapped__(*args, **kwds)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/eager/function.py", line 3990, in bound_method_wrapper
+    return wrapped_fn(*args, **kwargs)
+  File "/home/mbchang/.anaconda2/envs/dv2/lib/python3.9/site-packages/tensorflow/python/framework/func_graph.py", line 994, in wrapper
+    raise e.ag_error_metadata.to_exception(e)
+TypeError: in user code:
+
+
+    TypeError: tf__autoregressive_decode() missing 1 required positional argument: 'gen_len'
+"""
 
 if __name__ == '__main__':
     # does_jit_really_make_the_difference_11_11_21()
@@ -277,5 +375,11 @@ if __name__ == '__main__':
     # what_if_we_jit_forward_and_backward_separately_11_11_21()
     # check_again_that_jitting_train_step_does_not_work_11_11_21()
     # what_if_I_wrap_train_step_at_runtime_instead_of_decorating_11_11_21()
-    what_if_we_jit_entire_slatecall_and_autoregressive_11_11_21()
+    # what_if_we_jit_entire_slatecall_and_autoregressive_11_11_21()
+    # split_into_separate_train_steps_and_jit_each_11_11_21()
+    # split_into_separate_train_steps_and_no_jit_11_11_21()
+    # split_into_separate_train_steps_jit_dvae_trainstep_only_11_11_21()
+    # split_into_separate_train_steps_jit_slotmodel_trainstep_only_11_11_21()
+    split_into_separate_train_steps_jit_dvae_train_step_slot_model_forward_11_11_21()
+    # split_into_separate_train_steps_jit_slotmodel_train_step_dvae_forward_11_11_21()
 
