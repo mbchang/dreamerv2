@@ -348,6 +348,26 @@ def jit_both_numpy_inputs_into_slotmodel_11_12_21():
     r.add_flag('log_path', ['logs/jit_both_numpy_inputs_into_slotmodel'])
     r.generate_commands(args.for_real)
 
+
+def jit_dvae_do_not_jit_apply_gradient_for_slot_model_11_12_21():
+    """
+
+    @tf.function
+    def slot_model_train_step(slot_model, main_optimizer, z_transformer_input, z_transformer_target):
+        with tf.GradientTape() as tape:
+            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
+        gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
+        return attns, cross_entropy, gradients
+
+    It turns out that this works
+
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/jit_dvae_do_not_jit_apply_gradient_for_slot_model'])
+    r.generate_commands(args.for_real)
+
 """
 Traceback (most recent call last):
   File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/slate/tf_slate/modular_train.py", line 196, in <module>
@@ -403,4 +423,5 @@ if __name__ == '__main__':
     # split_into_separate_train_steps_jit_dvae_train_step_slot_model_forward_11_11_21()
     # split_into_separate_train_steps_jit_slotmodel_train_step_dvae_forward_11_11_21()
     # jit_dvae_fb_slotmodel_f_numpy_inputs_into_slotmodel_11_12_21()
-    jit_both_numpy_inputs_into_slotmodel_11_12_21()
+    # jit_both_numpy_inputs_into_slotmodel_11_12_21()
+    jit_dvae_do_not_jit_apply_gradient_for_slot_model_11_12_21()
