@@ -71,7 +71,7 @@ class dVAE(tkl.Layer):
         mse = tf.math.reduce_sum((image - recon) ** 2) / B
 
         # hard z
-        z_hard = tf.stop_gradient(self.sample(z_logits, tau, True))
+        z_hard = self.sample(z_logits, tau, True)
 
         return recon, z_hard, mse
 

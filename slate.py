@@ -156,7 +156,7 @@ class SLATE(layers.Layer):
         recon, z_hard, mse = self.dvae(image, tau, hard)
         _, _, H_enc, W_enc = z_hard.shape
 
-        z_transformer_input, z_transformer_target = create_tokens(z_hard)
+        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
         attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
 
         attns = self.overlay_attention(attns, image, H_enc, W_enc)
