@@ -303,6 +303,9 @@ for epoch in range(start_epoch, args.epochs):
 
         # if args.jit:
         loss, recon, cross_entropy, mse, attns = train_step(model, optimizer, image, tf.constant(tau), args.hard)
+
+        # loss, recon, cross_entropy, mse, attns = tf.function(train_step)(model, optimizer, image, tf.constant(tau), args.hard)
+
         # else:
         #     with tf.GradientTape() as tape:
         #         (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), args.hard)
