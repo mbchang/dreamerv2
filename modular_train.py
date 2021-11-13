@@ -37,7 +37,7 @@ parser.add_argument('--image_size', type=int, default=64)
 
 parser.add_argument('--checkpoint_path', default='checkpoint.pt.tar')
 parser.add_argument('--log_path', default='logs')
-parser.add_argument('--data_path', default='../3dshapes.h5')
+parser.add_argument('--data_path', default='../slate_data/3dshapes.h5')
 
 parser.add_argument('--lr_dvae', type=float, default=3e-4)
 parser.add_argument('--lr_main', type=float, default=1e-4)
