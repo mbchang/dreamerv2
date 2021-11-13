@@ -137,14 +137,6 @@ class SLATE(layers.Layer):
         self.dvae = dVAE(args.vocab_size, args.img_channels)
         self.slot_model = SlotModel(args)
 
-        self.not_dvae = [
-            self.slot_model.positional_encoder, 
-            self.slot_model.slot_attn, 
-            self.slot_model.dictionary, 
-            self.slot_model.slot_proj, 
-            self.slot_model.tf_dec, 
-            self.slot_model.out]
-
         self.training = False
 
 
