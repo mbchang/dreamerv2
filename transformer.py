@@ -13,9 +13,7 @@ class MultiHeadAttention(tkl.Layer):
         self.d_model = d_model
         self.num_heads = num_heads
         
-        # self.attn_dropout = nn.Dropout(dropout)
         self.attn_dropout = tkl.Dropout(dropout)
-        # self.output_dropout = nn.Dropout(dropout)
         self.output_dropout = tkl.Dropout(dropout)
         
         self.proj_q = linear(d_model, d_model, bias=False)
@@ -40,7 +38,6 @@ class MultiHeadAttention(tkl.Layer):
         attn = tf.einsum('bhlk,bhtk->bhlt', q, k)
         
         if attn_mask is not None:
-            # attn = attn.masked_fill(attn_mask, float('-inf'))
             attn += (attn_mask * -1e9)  
         
         attn = tf.nn.softmax(attn, axis=-1)
@@ -57,10 +54,7 @@ class PositionalEncoding(tkl.Layer):
 
     def __init__(self, max_len, d_model, dropout=0.1):
         super().__init__()
-        # self.dropout = nn.Dropout(dropout)
         self.dropout = tkl.Dropout(dropout)
-        # self.pe = nn.Parameter(torch.zeros(1, max_len, d_model), requires_grad=True)
-        # nn.init.trunc_normal_(self.pe)
         self.pe = self.add_weight(
           initializer="truncated_normal",
           shape=[1, max_len, d_model])
@@ -148,32 +142,20 @@ class TransformerDecoderBlock(tkl.Layer):
         
         self.is_first = is_first
         
-        # self.self_attn_layer_norm = nn.LayerNorm(d_model)
         self.self_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.self_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
         
-        # mask = torch.triu(torch.ones((max_len, max_len), dtype=torch.bool), diagonal=1)
         mask = tf.experimental.numpy.triu(tf.ones((max_len, max_len)), k=1)  # float, not bool
-        # self.self_attn_mask = nn.Parameter(mask, requires_grad=False)
         self.self_attn_mask = tf.Variable(mask, trainable=False)
         
-        # self.encoder_decoder_attn_layer_norm = nn.LayerNorm(d_model)
         self.encoder_decoder_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.encoder_decoder_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
         
-        # self.ffn_layer_norm = nn.LayerNorm(d_model)
         self.ffn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
-        # self.ffn = nn.Sequential(
-        #     linear(d_model, 4 * d_model, weight_init='kaiming'),
-        #     nn.ReLU(),
-        #     linear(4 * d_model, d_model, gain=gain),
-        #     nn.Dropout(dropout))
         self.ffn = tf.keras.Sequential([
             linear(d_model, 4 * d_model, weight_init='kaiming'),
-            # nn.ReLU(),
             tkl.ReLU(),
             linear(4 * d_model, d_model, gain=gain),
-            # nn.Dropout(dropout)
             tkl.Dropout(dropout)
             ])
     
@@ -211,16 +193,10 @@ class TransformerDecoder(tkl.Layer):
         
         if num_blocks > 0:
             gain = (3 * num_blocks) ** (-0.5)
-            # self.blocks = nn.ModuleList(
-            #     [TransformerDecoderBlock(max_len, d_model, num_heads, dropout, gain, is_first=True)] +
-            #     [TransformerDecoderBlock(max_len, d_model, num_heads, dropout, gain, is_first=False)
-            #      for _ in range(num_blocks - 1)])
             self.blocks = [TransformerDecoderBlock(max_len, d_model, num_heads, dropout, gain, is_first=True)] + [TransformerDecoderBlock(max_len, d_model, num_heads, dropout, gain, is_first=False) for _ in range(num_blocks - 1)]
         else:
-            # self.blocks = nn.ModuleList()
             self.blocks = []
         
-        # self.layer_norm = nn.LayerNorm(d_model)
         self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
     
     

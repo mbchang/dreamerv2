@@ -29,7 +29,6 @@ class SlotAttention(tkl.Layer):
         self.project_v = linear(input_size, slot_size, bias=False)
         
         # Slot update functions.
-        # self.gru = gru_cell(slot_size, slot_size)
         self.gru = tkl.GRUCell(slot_size)
         self.mlp = tf.keras.Sequential([
             linear(slot_size, mlp_hidden_size, weight_init='kaiming'),
@@ -52,9 +51,8 @@ class SlotAttention(tkl.Layer):
             slots_prev = slots
             slots = self.norm_slots(slots)
             
-            # # Attention.
+            # Attention.
             q = eo.rearrange(self.project_q(slots), 'b s (head d) -> b head s d', head=self.num_heads)
-            # attn_logits = torch.matmul(k, q.transpose(-1, -2))                             # Shape: [batch_size, num_heads, num_inputs, num_slots].
             attn_logits = tf.einsum('bhtd,bhsd->bhts', k, q)
             attn = eo.rearrange(
                  tf.nn.softmax(eo.rearrange(attn_logits, 'b h t s -> b t (h s)'), axis=-1),
@@ -62,15 +60,13 @@ class SlotAttention(tkl.Layer):
                 )
             attn_vis = eo.reduce(attn, 'b h t s -> b t s', 'sum')
             
-            # # Weighted mean.
+            # Weighted mean.
             attn = attn + self.epsilon
             attn = attn / tf.math.reduce_sum(attn, axis=-2, keepdims=True)
-            # updates = torch.matmul(attn.transpose(-1, -2), v)                              # Shape: [batch_size, num_heads, num_slots, slot_size // num_heads].
             updates = tf.einsum('bhts,bhtd->bhsd', attn, v)
             updates = eo.rearrange(updates, 'b h s d -> b s (h d)')
 
             # Slot update.
-            # slots = bottle(self.gru)(updates, slots_prev)
             slots, _ = bottle(self.gru)(updates, slots_prev)
             slots = slots + self.mlp(self.norm_mlp(slots))
         
@@ -89,7 +85,6 @@ class SlotAttentionEncoder(tkl.Layer):
         self.mlp_hidden_size = mlp_hidden_size
         self.pos_channels = pos_channels
 
-        # self.layer_norm = nn.LayerNorm(input_channels)
         self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.mlp = tf.keras.Sequential([
             linear(input_channels, input_channels, weight_init='kaiming'),
@@ -98,10 +93,6 @@ class SlotAttentionEncoder(tkl.Layer):
             linear(input_channels, input_channels)])
         
         # Parameters for Gaussian init (shared by all slots).
-        # self.slot_mu = nn.Parameter(torch.zeros(1, 1, slot_size))
-        # self.slot_log_sigma = nn.Parameter(torch.zeros(1, 1, slot_size))
-        # nn.init.xavier_uniform_(self.slot_mu)
-        # nn.init.xavier_uniform_(self.slot_log_sigma)
         self.slots_mu = self.add_weight(initializer="glorot_uniform", shape=[1, 1, self.slot_size])
         self.slots_log_sigma = self.add_weight(initializer="glorot_uniform", shape=[1, 1, self.slot_size])
         
@@ -113,14 +104,11 @@ class SlotAttentionEncoder(tkl.Layer):
     def call(self, x):
         # `image` has shape: [batch_size, img_channels, img_height, img_width].
         # `encoder_grid` has shape: [batch_size, pos_channels, enc_height, enc_width].
-        # B, *_ = x.size()
         B, *_ = x.shape
         x = self.mlp(self.layer_norm(x))
         # `x` has shape: [batch_size, enc_height * enc_width, cnn_hidden_size].
 
         # Slot Attention module.
-        # slots = x.new_empty(B, self.num_slots, self.slot_size).normal_()
-        # slots = self.slot_mu + torch.exp(self.slot_log_sigma) * slots
         slots = self.slots_mu + tf.exp(self.slots_log_sigma) * tf.random.normal([B, self.num_slots, self.slot_size])
         slots, attn = self.slot_attention(x, slots)
         # `slots` has shape: [batch_size, num_slots, slot_size].

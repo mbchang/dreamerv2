@@ -49,22 +49,16 @@ def gumbel_max(logits, dim=-1):
 
 def gumbel_softmax(logits, tau=1., hard=False, dim=-1):
     
-    # eps = torch.finfo(logits.dtype).tiny
     eps = tf.experimental.numpy.finfo(logits.dtype).tiny
     
-    # gumbels = -(torch.empty_like(logits).exponential_() + eps).log()
     gumbels = -tf.math.log(tf.random.gamma(logits.shape, alpha=1, beta=1) + eps)
     gumbels = (logits + gumbels) / tau
     
-    # y_soft = F.softmax(gumbels, dim)
     y_soft = tf.nn.softmax(gumbels, axis=dim)
     
     if hard:
-        # index = y_soft.argmax(dim, keepdim=True)
         index = tf.math.argmax(y_soft, axis=dim)
-        # y_hard = torch.zeros_like(logits).scatter_(dim, index, 1.)
         y_hard = tf.one_hot(index, depth=logits.shape[dim], axis=dim)
-        # return y_hard - y_soft.detach() + y_soft
         return y_hard - tf.stop_gradient(y_soft) + y_soft
     else:
         return y_soft
@@ -83,8 +77,6 @@ def conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0,
            dilation=1, groups=1, bias=True, padding_mode='zeros',
            weight_init='xavier'):
     
-    # m = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding,
-    #               dilation, groups, bias, padding_mode)
     m = tf.keras.Sequential([
         tkl.ZeroPadding2D(padding=padding),
         tkl.Conv2D(
@@ -97,15 +89,6 @@ def conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0,
             kernel_initializer='he_uniform' if weight_init == 'kaiming' else 'glorot_uniform')
         ])
 
-    
-    # if weight_init == 'kaiming':
-    #     nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
-    # else:
-    #     nn.init.xavier_uniform_(m.weight)
-    
-    # if bias:
-    #     nn.init.zeros_(m.bias)
-
     return m
 
 class Conv2dBlock(tkl.Layer):
@@ -115,26 +98,18 @@ class Conv2dBlock(tkl.Layer):
         
         self.m = conv2d(in_channels, out_channels, kernel_size, stride, padding,
                         bias=False, weight_init='kaiming')
-        # self.weight = nn.Parameter(torch.ones(out_channels))
-        # self.bias = nn.Parameter(torch.zeros(out_channels))
         self.group_norm = tfa.layers.GroupNormalization(groups=1, axis=-1)
     
-    
     def call(self, x):
-        # TODO: later we will just reshape the input once
         x = self.m(x)
         x = tka.relu(self.group_norm(x))
         return x
-        # return F.relu(F.group_norm(x, 1, self.weight, self.bias))
 
 def linear(in_features, out_features, bias=True, weight_init='xavier', gain=1.):
     
-    # m = nn.Linear(in_features, out_features, bias)
     if weight_init == 'kaiming':
-        # nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
         kernel_initializer = 'he_uniform'
     else:
-        # nn.init.xavier_uniform_(m.weight, gain)
         kernel_initializer = tf.keras.initializers.VarianceScaling(scale=gain**2, 
             mode='fan_avg', distribution='uniform')
 
@@ -142,10 +117,7 @@ def linear(in_features, out_features, bias=True, weight_init='xavier', gain=1.):
         units=out_features, 
         use_bias=bias,
         kernel_initializer=kernel_initializer)
-    
-    # if bias:
-    #     nn.init.zeros_(m.bias)
-    
+        
     return m
 
 

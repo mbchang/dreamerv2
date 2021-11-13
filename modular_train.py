@@ -189,27 +189,12 @@ else:
     stagnation_counter = 0
     lr_decay_factor = 1.0
 
-# if not args.cpu:
-#     model = model.cuda()
 
 lgr.info('initialize with input...')
 model(train_loader.get_batch(), tau=tf.constant(1.0), hard=args.hard)
 
-# optimizer = Adam([
-#     {'params': (x[1] for x in model.named_parameters() if 'dvae' in x[0]), 'lr': args.lr_dvae},
-#     {'params': (x[1] for x in model.named_parameters() if 'dvae' not in x[0]), 'lr': args.lr_main},
-# ])
-# dvae_optimizer = tfa.optimizers.AdamW(args.lr_dvae, epsilon=1e-08)
-# main_optimizer = tfa.optimizers.AdamW(args.lr_main, epsilon=1e-08)
 dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
 main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
-# optimizer = tfa.optimizers.MultiOptimizer([
-#     (dvae_optimizer, model.dvae),
-#     (main_optimizer, model.not_dvae)
-# ], clipvalue=args.clip)
-# if checkpoint is not None:
-#     optimizer.load_state_dict(checkpoint['optimizer'])
-
 
 def linear_warmup(step, start_value, final_value, start_step, final_step):
     
@@ -257,15 +242,6 @@ def visualize(image, recon_orig, gen, attns, N=8):
 def f32(x):
     return tf.cast(x, tf.float32)
 
-# @tf.function  # makes it twice as fast as only jitting the forward pass
-def train_step(model, optimizer, image, tau, hard):
-    with tf.GradientTape() as tape:
-        (recon, cross_entropy, mse, attns) = model(image, tau, hard)
-        loss = mse + cross_entropy
-    gradients = tape.gradient(loss, model.trainable_weights)
-    optimizer.apply_gradients(zip(gradients, model.trainable_weights))
-    return loss, recon, cross_entropy, mse, attns
-
 
 @tf.function
 def dvae_train_step(dvae, image, tau, hard):
@@ -290,7 +266,6 @@ for epoch in range(start_epoch, args.epochs):
     
     model.train()
 
-    # for batch, image in enumerate(train_loader):
     for batch in range(train_loader.num_batches):
         image = train_loader.get_batch()
 
@@ -310,13 +285,9 @@ for epoch in range(start_epoch, args.epochs):
             0,
             args.lr_warmup_steps)
 
-        # optimizer.param_groups[0]['lr'] = lr_decay_factor * args.lr_dvae
-        # optimizer.param_groups[1]['lr'] = lr_decay_factor * lr_warmup_factor * args.lr_main
         dvae_optimizer.lr = f32(lr_decay_factor * args.lr_dvae)
         main_optimizer.lr = f32(lr_decay_factor * lr_warmup_factor * args.lr_main)
 
-        # if not args.cpu:
-        #     image = image.cuda()
         t0 = time.time()
 
         recon, z_hard, mse, gradients = dvae_train_step(model.dvae, image, tf.constant(tau), args.hard)
@@ -335,12 +306,8 @@ for epoch in range(start_epoch, args.epochs):
 
         with torch.no_grad():
             if batch % log_interval == 0:
-                # lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F}'.format(
-                #       epoch+1, batch, train_epoch_size, loss.item(), mse.item()))
-
                 lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
                       epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy(), time.time()-t0))
-                # TODO: print the learning rates too
                 
                 writer.add_scalar('TRAIN/loss', loss.numpy(), global_step)
                 writer.add_scalar('TRAIN/cross_entropy', cross_entropy.numpy(), global_step)
@@ -365,7 +332,6 @@ for epoch in range(start_epoch, args.epochs):
         gen_img = model.reconstruct_autoregressive(image[:32])
         lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
         vis_recon = visualize(image, recon, gen_img, attns, N=32)
-        # grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
     
     with torch.no_grad():
@@ -377,13 +343,9 @@ for epoch in range(start_epoch, args.epochs):
         val_cross_entropy = 0.
         val_mse = 0.
         
-        # for batch, image in enumerate(val_loader):
         t0 = time.time()
         for batch in range(val_loader.num_batches):
             image = val_loader.get_batch()
-
-            # if not args.cpu:
-            #     image = image.cuda()
 
             (recon_relax, cross_entropy_relax, mse_relax, attns_relax) = model(image, tf.constant(tau), False)
             
@@ -420,14 +382,11 @@ for epoch in range(start_epoch, args.epochs):
             best_val_loss = val_loss
             best_epoch = epoch + 1
 
-            # torch.save(model.state_dict(), os.path.join(log_dir, 'best_model.pt'))
-
             if 50 <= epoch:
                 t0 = time.time()
                 gen_img = model.reconstruct_autoregressive(image)
                 lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
                 vis_recon = visualize(image, recon, gen_img, attns, N=32)
-                # grid = vutils.make_grid(vis_recon, nrow=args.num_slots + 3, pad_value=0.2)[:, 2:-2, 2:-2]
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
 
         else:
