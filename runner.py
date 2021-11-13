@@ -368,6 +368,27 @@ def jit_dvae_do_not_jit_apply_gradient_for_slot_model_11_12_21():
     r.add_flag('log_path', ['logs/jit_dvae_do_not_jit_apply_gradient_for_slot_model'])
     r.generate_commands(args.for_real)
 
+def do_not_jit_apply_gradients_at_all_11_12_21():
+    """
+    this should work -- works
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/do_not_jit_apply_gradients_at_all'])
+    r.generate_commands(args.for_real)
+
+def do_not_jit_apply_gradients_at_all_for_combined_11_12_21():
+    """
+    this should work --> works
+    but this takes up twice as much memory as do_not_jit_apply_gradients_at_all_11_12_21 for some reason
+    """
+    r = RunnerWithIDs(command='python train.py', gpus=[1])
+    r.add_flag('jit', [True])
+    r.add_flag('headless', [True])
+    r.add_flag('log_path', ['logs/do_not_jit_apply_gradients_at_all_for_combined'])
+    r.generate_commands(args.for_real)
+
 """
 Traceback (most recent call last):
   File "/home/mbchang/Documents/research/counterfactual_dyna_umbrella/baselines/slate/tf_slate/modular_train.py", line 196, in <module>
@@ -424,4 +445,6 @@ if __name__ == '__main__':
     # split_into_separate_train_steps_jit_slotmodel_train_step_dvae_forward_11_11_21()
     # jit_dvae_fb_slotmodel_f_numpy_inputs_into_slotmodel_11_12_21()
     # jit_both_numpy_inputs_into_slotmodel_11_12_21()
-    jit_dvae_do_not_jit_apply_gradient_for_slot_model_11_12_21()
+    # jit_dvae_do_not_jit_apply_gradient_for_slot_model_11_12_21()
+    # do_not_jit_apply_gradients_at_all_11_12_21()
+    do_not_jit_apply_gradients_at_all_for_combined_11_12_21()
