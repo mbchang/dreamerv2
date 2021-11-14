@@ -4,7 +4,15 @@ import einops as eo
 import tensorflow as tf
 import tensorflow.keras.layers as tkl
 
-class SlotAttention(tkl.Layer):
+class Factorized(tf.Module):
+  def register_num_slots(self, num_slots):
+    self.num_slots = num_slots
+    for sm in self.submodules:
+      if isinstance(sm, Factorized):
+        sm.register_num_slots(num_slots)
+
+
+class SlotAttention(tkl.Layer, Factorized):
     
     def __init__(self, num_iterations, num_slots,
                  input_size, slot_size, mlp_hidden_size, heads,
@@ -31,10 +39,9 @@ class SlotAttention(tkl.Layer):
         # Slot update functions.
         self.gru = tkl.GRUCell(slot_size)
         self.mlp = tf.keras.Sequential([
-            linear(slot_size, mlp_hidden_size, weight_init='kaiming'),
-            # nn.ReLU(),
+            linear(slot_size, slot_size, weight_init='kaiming'),
             tkl.ReLU(),
-            linear(mlp_hidden_size, slot_size)])
+            linear(slot_size, slot_size)])
 
     def call(self, inputs, slots):
         # `inputs` has shape [batch_size, num_inputs, input_size].
@@ -88,7 +95,6 @@ class SlotAttentionEncoder(tkl.Layer):
         self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.mlp = tf.keras.Sequential([
             linear(input_channels, input_channels, weight_init='kaiming'),
-            # nn.ReLU(),
             tkl.ReLU(),
             linear(input_channels, input_channels)])
         
