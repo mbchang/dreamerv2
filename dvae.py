@@ -30,20 +30,17 @@ class dVAE(tkl.Layer):
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64 * 2 * 2, 1),
-            # nn.PixelShuffle(2),
             PixelShuffle(2),
             Conv2dBlock(64, 64, 3, 1, 1),
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64, 1, 1),
             Conv2dBlock(64, 64 * 2 * 2, 1),
-            # nn.PixelShuffle(2),
             PixelShuffle(2),
             conv2d(64, img_channels, 1),
             Rearrange('b h w c -> b c h w'),
         ])
 
     def get_logits(self, image):
-        # z_logits = F.log_softmax(self.encoder(image), dim=1)
         z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)
         return z_logits
 
@@ -52,9 +49,7 @@ class dVAE(tkl.Layer):
         return z
 
     def mode(self, z_logits):
-        # z_hard = torch.argmax(z_logits, axis=1)
         z_hard = tf.math.argmax(z_logits, axis=1)
-        # z_hard = rearrange(F.one_hot(z_hard, num_classes=self.vocab_size), 'b h w v -> b v h w').float()
         z_hard = tf.cast(rearrange(tf.one_hot(z_hard, depth=self.vocab_size), 'b h w v -> b v h w'), tf.float32)
         return z_hard
 
@@ -67,7 +62,6 @@ class dVAE(tkl.Layer):
 
         # dvae recon
         recon = self.decoder(z)
-        # mse = ((image - recon) ** 2).sum() / B
         mse = tf.math.reduce_sum((image - recon) ** 2) / B
 
         # hard z
