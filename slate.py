@@ -30,7 +30,6 @@ class SlotModel(layers.Layer):
     def __init__(self, args):
         super().__init__()
 
-        # self.num_slots = args.num_slots
         self.vocab_size = args.vocab_size
         self.d_model = args.d_model
 
