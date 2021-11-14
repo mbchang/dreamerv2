@@ -1,6 +1,6 @@
 from utils import *
 from dvae import dVAE
-from slot_attn import SlotAttentionEncoder
+from slot_attn import SlotAttention
 from transformer import PositionalEncoding, TransformerDecoder
 
 from einops import rearrange
@@ -8,26 +8,48 @@ import tensorflow as tf
 import tensorflow.keras.layers as layers
 
 class SlotModel(layers.Layer):
+    @staticmethod
+    def get_default_args():
+        default_args = ml_collections.ConfigDict(dict(
+            d_model=192,
+            image_size=64,
+            vocab_size=1024,
+            dropout=0.1,
+
+            num_iterations=3,
+            num_slots=3,
+            num_slot_heads=1,
+            slot_size=192,
+            pos_channels=4,
+
+            num_dec_blocks=4,
+            num_heads=4
+            ))
+        return default_args
+
     def __init__(self, args):
         super().__init__()
 
-        self.num_slots = args.num_slots
+        # self.num_slots = args.num_slots
         self.vocab_size = args.vocab_size
         self.d_model = args.d_model
 
-        self.positional_encoder = PositionalEncoding(1 + (args.image_size // 4) ** 2, args.d_model, args.dropout)
-
-        self.slot_attn = SlotAttentionEncoder(
-            args.num_iterations, args.num_slots,
-            args.d_model, args.slot_size, args.mlp_hidden_size, args.pos_channels,
-            args.num_slot_heads)
-
+        # obs encoder
         self.dictionary = OneHotDictionary(args.vocab_size + 1, args.d_model)
+        self.positional_encoder = PositionalEncoding(1 + (args.image_size // 4) ** 2, args.d_model, args.dropout)
+        self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
+        self.token_mlp = tf.keras.Sequential([
+            linear(args.d_model, args.d_model, weight_init='kaiming'),
+            tkl.ReLU(),
+            linear(args.d_model, args.d_model)])
+
+        # recurrent: replace this with rssm
+        self.slot_attn = SlotAttention(args.slot_size,args.slot_attn)
         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
 
+        # decoder
         self.tf_dec = TransformerDecoder(
             args.num_dec_blocks, (args.image_size // 4) ** 2, args.d_model, args.num_heads, args.dropout)
-
         self.out = linear(args.d_model, args.vocab_size, bias=False)
 
         self.training = False
@@ -35,10 +57,12 @@ class SlotModel(layers.Layer):
     def embed_tokens(self, tokens):
         emb_input = self.dictionary(tokens)
         emb_input = self.positional_encoder(emb_input, training=self.training)
+        emb_input = self.token_mlp(self.layer_norm(emb_input))
         return emb_input
 
     def apply_slot_attn(self, emb_input):
-        slots, attns = self.slot_attn(emb_input[:, 1:])
+        slots = self.slot_attn.reset(emb_input.shape[0])
+        slots, attns = self.slot_attn(emb_input[:, 1:], slots)
         slots = self.slot_proj(slots)
         return slots, attns
 
@@ -113,7 +137,7 @@ class SLATE(layers.Layer):
     def __init__(self, args):
         super().__init__()
 
-        self.num_slots = args.num_slots
+        # self.num_slots = args.num_slots
         self.vocab_size = args.vocab_size
         self.d_model = args.d_model
 

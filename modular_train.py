@@ -10,7 +10,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 import shapes_3d
-from slate import SLATE, create_tokens, overlay_attention
+import slate
+import slot_attn
 
 from absl import app
 from absl import flags
@@ -52,11 +53,8 @@ args = ml_collections.ConfigDict(dict(
     num_heads=4,
     dropout=0.1,
 
-    num_iterations=3,
-    num_slots=3,
-    num_slot_heads=1,
+    slot_attn = slot_attn.SlotAttention.get_default_args(),
     slot_size=192,
-    mlp_hidden_size=192,
     img_channels=3,
     pos_channels=4,
 
@@ -87,9 +85,8 @@ def main(argv):
         args.d_model = 16
         args.num_heads = 2
 
-        args.num_iterations = 2
+        args.slot_attn.num_iterations = 2
         args.slot_size = 16
-        args.mlp_hidden_size = 16
         args.tau_steps = 3
 
         args.cpu = True
@@ -175,7 +172,7 @@ def main(argv):
     log_interval = train_epoch_size // 10
 
     lgr.info('Building model...')
-    model = SLATE(args)
+    model = slate.SLATE(args)
     lgr.info(model)
 
     if os.path.isfile(args.checkpoint_path):
@@ -298,7 +295,7 @@ def main(argv):
             recon, z_hard, mse, gradients = dvae_train_step(model.dvae, image, tf.constant(tau), args.hard)
             dvae_optimizer.apply_gradients(zip(gradients, model.dvae.trainable_weights))
 
-            z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+            z_transformer_input, z_transformer_target = slate.create_tokens(tf.stop_gradient(z_hard))
 
             attns, cross_entropy, gradients = slot_model_train_step(model.slot_model, z_transformer_input, z_transformer_target)
             # NOTE: if we put this inside tf.function then the performance becomes very bad
@@ -307,7 +304,7 @@ def main(argv):
             loss = mse + cross_entropy
 
             _, _, H_enc, W_enc = z_hard.shape
-            attns = overlay_attention(attns, image, H_enc, W_enc)
+            attns = slate.overlay_attention(attns, image, H_enc, W_enc)
 
             with torch.no_grad():
                 if batch % log_interval == 0:
