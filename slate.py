@@ -10,24 +10,6 @@ import tensorflow as tf
 import tensorflow.keras.layers as layers
 
 class SlotModel(layers.Layer):
-    # @staticmethod
-    # def get_default_args():
-    #     default_args = ml_collections.ConfigDict(dict(
-    #         d_model=192,
-    #         image_size=64,
-    #         vocab_size=1024,
-    #         dropout=0.1,
-
-    #         num_iterations=3,
-    #         num_slots=3,
-    #         num_slot_heads=1,
-    #         slot_size=192,
-    #         pos_channels=4,
-
-    #         num_dec_blocks=4,
-    #         num_heads=4
-    #         ))
-    #     return default_args
 
     def __init__(self, args):
         super().__init__()
@@ -119,7 +101,6 @@ class SlotModel(layers.Layer):
         self.training = False
 
 
-
 def create_tokens(z_hard):
     # target tokens for transformer
     z_transformer_target = rearrange(z_hard, 'b c h w -> b (h w) c')
@@ -131,16 +112,6 @@ def create_tokens(z_hard):
         tf.concat([tf.ones((B, 1, 1)), tf.zeros((B, 1, zc))], axis=-1),
          z_transformer_input], axis=-2)
     return z_transformer_input, z_transformer_target
-
-
-# def overlay_attention(attns, image, H_enc, W_enc):
-#     B, C, H, W = image.shape
-#     attns = rearrange(attns, 'b hw k -> b k hw')
-#     attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
-#     import ipdb
-#     ipdb.set_trace(context=20)
-#     attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
-#     return attns
 
 
 def overlay_attention(attns, image, H_enc, W_enc):
@@ -156,7 +127,6 @@ class SLATE(layers.Layer):
     def __init__(self, args):
         super().__init__()
 
-        # self.num_slots = args.num_slots
         self.vocab_size = args.vocab_size
         self.d_model = args.d_model
 
@@ -180,7 +150,6 @@ class SLATE(layers.Layer):
         attns = overlay_attention(attns, image, H_enc, W_enc)
 
         return (
-            # tf.clip_by_value(recon, 0., 1.),
             recon,
             cross_entropy,
             mse,
@@ -214,7 +183,6 @@ class SLATE(layers.Layer):
         attns = overlay_attention(attns, image, H_enc, W_enc)
 
         if eval:
-            # return tf.clip_by_value(recon_transformer, 0., 1.), attns
             return recon_transformer, attns
 
         return recon_transformer
