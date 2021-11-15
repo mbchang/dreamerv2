@@ -97,20 +97,20 @@ class WhiteBallDataLoader():
 
         self.batch_size = batch_size
 
-    # def normalize_obs(self, x):
-    #     return x - 0.5 # Rescale to [-0.5, 0.5]
-
-    # def unnormalize_obs(self, x):
-    #     """Renormalize from [-0.5, 0.5] to [0, 1]."""
-    #     return tf.clip_by_value(x + 0.5, 0., 1.)
-
-    # [0, 1] --> [0, 1]
     def normalize_obs(self, x):
-        return x
+        return x - 0.5 # Rescale to [-0.5, 0.5]
 
-    # [0, 1] --> [0, 1]
     def unnormalize_obs(self, x):
-        return tf.clip_by_value(x, 0., 1.)
+        """Renormalize from [-0.5, 0.5] to [0, 1]."""
+        return tf.clip_by_value(x + 0.5, 0., 1.)
+
+    # # [0, 1] --> [0, 1]
+    # def normalize_obs(self, x):
+    #     return x
+
+    # # [0, 1] --> [0, 1]
+    # def unnormalize_obs(self, x):
+    #     return tf.clip_by_value(x, 0., 1.)
 
     def normalize_actions(self, act_batch):
         # normalize actions from [0, 5] to [-1, 1]
