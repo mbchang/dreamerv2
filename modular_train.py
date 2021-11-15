@@ -231,7 +231,6 @@ def main(argv):
 
             loss, mse, cross_entropy, recon, attns, tau = model.train_step(image, global_step, args)
 
-            # with torch.no_grad():
             if batch % log_interval == 0:
                 lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
                       epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy(), time.time()-t0))
@@ -254,7 +253,6 @@ def main(argv):
                     'train/itr': global_step
                     }, step=global_step)
 
-        # with torch.no_grad():
         t0 = time.time()
         gen_img = model.reconstruct_autoregressive(image[:32])
         lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
@@ -266,7 +264,6 @@ def main(argv):
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
         
         if args.eval:
-            # with torch.no_grad():
             model.eval()
             
             val_cross_entropy_relax = 0.
