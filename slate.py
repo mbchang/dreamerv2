@@ -3,6 +3,7 @@ from utils import *
 import dvae
 from slot_attn import SlotAttention
 from transformer import PositionalEncoding, TransformerDecoder
+import utils
 
 from einops import rearrange, repeat
 import ml_collections
@@ -131,7 +132,10 @@ class SLATE(layers.Layer):
         self.d_model = args.d_model
 
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
+        self.dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
+
         self.slot_model = SlotModel(args)
+        self.main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
 
         self.training = False
 
@@ -186,6 +190,44 @@ class SLATE(layers.Layer):
             return recon_transformer, attns
 
         return recon_transformer
+
+    # later replace this with train_args?
+    def train_step(self, image, global_step, args):
+        tau = utils.cosine_anneal(
+            global_step,
+            args.tau_start,
+            args.tau_final,
+            0,
+            args.tau_steps)
+
+        lr_warmup_factor = utils.linear_warmup(
+            global_step,
+            0.,
+            1.0,
+            0,
+            args.lr_warmup_steps)
+
+        self.dvae_optimizer.lr = utils.f32(args.lr_decay_factor * args.lr_dvae)
+        self.main_optimizer.lr = utils.f32(args.lr_decay_factor * lr_warmup_factor * args.lr_main)
+
+        # t0 = time.time()
+
+        recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), args.hard)
+        self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
+
+        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+
+        attns, cross_entropy, gradients = SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
+        # NOTE: if we put this inside tf.function then the performance becomes very bad
+        self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
+
+        loss = mse + cross_entropy
+
+        _, _, H_enc, W_enc = z_hard.shape
+        attns = overlay_attention(attns, image, H_enc, W_enc)
+
+        return loss, mse, cross_entropy, recon, attns, tau
+
 
     def train(self):
         self.training = True

@@ -10,10 +10,11 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 import dataloading
-import dvae as dv
+# import dvae as dv
 import slate
 import slot_attn
 import transformer
+import utils
 
 from absl import app
 from absl import flags
@@ -50,6 +51,7 @@ args = ml_collections.ConfigDict(dict(
     lr_dvae=3e-4,
     lr_main=1e-4,
     lr_warmup_steps=30000,
+    lr_decay_factor=1.0,
 
     vocab_size=1024,
     d_model=192,
@@ -203,7 +205,7 @@ def main(argv):
         best_val_loss = math.inf
         best_epoch = 0
         stagnation_counter = 0
-        lr_decay_factor = 1.0
+        lr_decay_factor = args.lr_decay_factor#1.0
 
 
     lgr.info('initialize with input...')
@@ -212,54 +214,54 @@ def main(argv):
         image = image['image']
     model(image, tau=tf.constant(1.0), hard=args.hard)
 
-    dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
-    main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
+    # dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
+    # main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
 
-    def linear_warmup(step, start_value, final_value, start_step, final_step):
+    # def linear_warmup(step, start_value, final_value, start_step, final_step):
         
-        assert start_value <= final_value
-        assert start_step <= final_step
+    #     assert start_value <= final_value
+    #     assert start_step <= final_step
         
-        if step < start_step:
-            value = start_value
-        elif step >= final_step:
-            value = final_value
-        else:
-            a = final_value - start_value
-            b = start_value
-            progress = (step + 1 - start_step) / (final_step - start_step)
-            value = a * progress + b
+    #     if step < start_step:
+    #         value = start_value
+    #     elif step >= final_step:
+    #         value = final_value
+    #     else:
+    #         a = final_value - start_value
+    #         b = start_value
+    #         progress = (step + 1 - start_step) / (final_step - start_step)
+    #         value = a * progress + b
         
-        return value
+    #     return value
 
 
-    def cosine_anneal(step, start_value, final_value, start_step, final_step):
+    # def cosine_anneal(step, start_value, final_value, start_step, final_step):
         
-        assert start_value >= final_value
-        assert start_step <= final_step
+    #     assert start_value >= final_value
+    #     assert start_step <= final_step
         
-        if step < start_step:
-            value = start_value
-        elif step >= final_step:
-            value = final_value
-        else:
-            a = 0.5 * (start_value - final_value)
-            b = 0.5 * (start_value + final_value)
-            progress = (step - start_step) / (final_step - start_step)
-            value = a * math.cos(math.pi * progress) + b
+    #     if step < start_step:
+    #         value = start_value
+    #     elif step >= final_step:
+    #         value = final_value
+    #     else:
+    #         a = 0.5 * (start_value - final_value)
+    #         b = 0.5 * (start_value + final_value)
+    #         progress = (step - start_step) / (final_step - start_step)
+    #         value = a * math.cos(math.pi * progress) + b
         
-        return value
+    #     return value
 
 
-    def visualize(image, recon_orig, gen, attns, N=8):
-        unsqueeze = lambda x: rearrange(x, 'b c h w -> b 1 c h w')
-        image, recon_orig, gen = map(unsqueeze, (image[:N], recon_orig[:N], gen[:N]))
-        attns = attns[:N]
-        return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
+    # def visualize(image, recon_orig, gen, attns, N=8):
+    #     unsqueeze = lambda x: rearrange(x, 'b c h w -> b 1 c h w')
+    #     image, recon_orig, gen = map(unsqueeze, (image[:N], recon_orig[:N], gen[:N]))
+    #     attns = attns[:N]
+    #     return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
 
 
-    def f32(x):
-        return tf.cast(x, tf.float32)
+    # def f32(x):
+    #     return tf.cast(x, tf.float32)
 
     lgr.info('Begin training.')
     for epoch in range(start_epoch, args.epochs):
@@ -274,38 +276,40 @@ def main(argv):
 
             global_step = epoch * train_epoch_size + batch
             
-            tau = cosine_anneal(
-                global_step,
-                args.tau_start,
-                args.tau_final,
-                0,
-                args.tau_steps)
+            # tau = utils.cosine_anneal(
+            #     global_step,
+            #     args.tau_start,
+            #     args.tau_final,
+            #     0,
+            #     args.tau_steps)
 
-            lr_warmup_factor = linear_warmup(
-                global_step,
-                0.,
-                1.0,
-                0,
-                args.lr_warmup_steps)
+            # lr_warmup_factor = utils.linear_warmup(
+            #     global_step,
+            #     0.,
+            #     1.0,
+            #     0,
+            #     args.lr_warmup_steps)
 
-            dvae_optimizer.lr = f32(lr_decay_factor * args.lr_dvae)
-            main_optimizer.lr = f32(lr_decay_factor * lr_warmup_factor * args.lr_main)
+            # model.dvae_optimizer.lr = utils.f32(lr_decay_factor * args.lr_dvae)
+            # model.main_optimizer.lr = utils.f32(lr_decay_factor * lr_warmup_factor * args.lr_main)
 
             t0 = time.time()
 
-            recon, z_hard, mse, gradients = dv.dVAE.loss_and_grad(model.dvae, image, tf.constant(tau), args.hard)
-            dvae_optimizer.apply_gradients(zip(gradients, model.dvae.trainable_weights))
+            # recon, z_hard, mse, gradients = dv.dVAE.loss_and_grad(model.dvae, image, tf.constant(tau), args.hard)
+            # model.dvae_optimizer.apply_gradients(zip(gradients, model.dvae.trainable_weights))
 
-            z_transformer_input, z_transformer_target = slate.create_tokens(tf.stop_gradient(z_hard))
+            # z_transformer_input, z_transformer_target = slate.create_tokens(tf.stop_gradient(z_hard))
 
-            attns, cross_entropy, gradients = slate.SlotModel.loss_and_grad(model.slot_model, z_transformer_input, z_transformer_target)
-            # NOTE: if we put this inside tf.function then the performance becomes very bad
-            main_optimizer.apply_gradients(zip(gradients, model.slot_model.trainable_weights))
+            # attns, cross_entropy, gradients = slate.SlotModel.loss_and_grad(model.slot_model, z_transformer_input, z_transformer_target)
+            # # NOTE: if we put this inside tf.function then the performance becomes very bad
+            # model.main_optimizer.apply_gradients(zip(gradients, model.slot_model.trainable_weights))
 
-            loss = mse + cross_entropy
+            # loss = mse + cross_entropy
 
-            _, _, H_enc, W_enc = z_hard.shape
-            attns = slate.overlay_attention(attns, image, H_enc, W_enc)
+            # _, _, H_enc, W_enc = z_hard.shape
+            # attns = slate.overlay_attention(attns, image, H_enc, W_enc)
+
+            loss, mse, cross_entropy, recon, attns, tau = model.train_step(image, global_step, args)
 
             with torch.no_grad():
                 if batch % log_interval == 0:
@@ -317,16 +321,16 @@ def main(argv):
                     writer.add_scalar('TRAIN/mse', mse.numpy(), global_step)
                     
                     writer.add_scalar('TRAIN/tau', tau, global_step)
-                    writer.add_scalar('TRAIN/lr_dvae', dvae_optimizer.lr.numpy(), global_step)
-                    writer.add_scalar('TRAIN/lr_main', main_optimizer.lr.numpy(), global_step)
+                    writer.add_scalar('TRAIN/lr_dvae', model.dvae_optimizer.lr.numpy(), global_step)
+                    writer.add_scalar('TRAIN/lr_main', model.main_optimizer.lr.numpy(), global_step)
 
                     wandb.log({
                         'train/loss': loss.numpy(),
                         'train/cross_entropy': cross_entropy.numpy(),
                         'train/mse': mse.numpy(),
                         'train/tau': tau,
-                        'train/lr_dvae': dvae_optimizer.lr.numpy(),
-                        'train/lr_main': main_optimizer.lr.numpy(),
+                        'train/lr_dvae': model.dvae_optimizer.lr.numpy(),
+                        'train/lr_main': model.main_optimizer.lr.numpy(),
                         'train/itr': global_step
                         }, step=global_step)
 
@@ -334,7 +338,7 @@ def main(argv):
             t0 = time.time()
             gen_img = model.reconstruct_autoregressive(image[:32])
             lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
-            vis_recon = visualize(
+            vis_recon = utils.visualize(
                 train_loader.unnormalize_obs(image), 
                 train_loader.unnormalize_obs(recon), 
                 train_loader.unnormalize_obs(gen_img), 
@@ -396,7 +400,7 @@ def main(argv):
                         t0 = time.time()
                         gen_img = model.reconstruct_autoregressive(image)
                         lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
-                        vis_recon = visualize(
+                        vis_recon = utils.visualize(
                             train_loader.unnormalize_obs(image), 
                             train_loader.unnormalize_obs(recon), 
                             train_loader.unnormalize_obs(gen_img), 

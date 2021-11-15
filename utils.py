@@ -9,6 +9,59 @@ import tensorflow.keras.layers as tkl
 import tensorflow.keras.activations as tka
 import tensorflow_addons as tfa
 
+########################################################################
+## Training utils
+########################################################################
+def linear_warmup(step, start_value, final_value, start_step, final_step):
+    
+    assert start_value <= final_value
+    assert start_step <= final_step
+    
+    if step < start_step:
+        value = start_value
+    elif step >= final_step:
+        value = final_value
+    else:
+        a = final_value - start_value
+        b = start_value
+        progress = (step + 1 - start_step) / (final_step - start_step)
+        value = a * progress + b
+    
+    return value
+
+
+def cosine_anneal(step, start_value, final_value, start_step, final_step):
+    
+    assert start_value >= final_value
+    assert start_step <= final_step
+    
+    if step < start_step:
+        value = start_value
+    elif step >= final_step:
+        value = final_value
+    else:
+        a = 0.5 * (start_value - final_value)
+        b = 0.5 * (start_value + final_value)
+        progress = (step - start_step) / (final_step - start_step)
+        value = a * math.cos(math.pi * progress) + b
+    
+    return value
+
+
+def visualize(image, recon_orig, gen, attns, N=8):
+    unsqueeze = lambda x: rearrange(x, 'b c h w -> b 1 c h w')
+    image, recon_orig, gen = map(unsqueeze, (image[:N], recon_orig[:N], gen[:N]))
+    attns = attns[:N]
+    return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
+
+
+def f32(x):
+    return tf.cast(x, tf.float32)
+
+
+########################################################################
+## Algorithm utils
+########################################################################
 
 def bottle(fn):
   """
@@ -35,6 +88,10 @@ def bottle(fn):
     else:
       return unflatten(y)
   return bottled_fn
+
+########################################################################
+## Network utils
+########################################################################
 
 
 def gumbel_max(logits, dim=-1):
