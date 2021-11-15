@@ -231,134 +231,134 @@ def main(argv):
 
             loss, mse, cross_entropy, recon, attns, tau = model.train_step(image, global_step, args)
 
-            with torch.no_grad():
-                if batch % log_interval == 0:
-                    lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
-                          epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy(), time.time()-t0))
-                    
-                    writer.add_scalar('TRAIN/loss', loss.numpy(), global_step)
-                    writer.add_scalar('TRAIN/cross_entropy', cross_entropy.numpy(), global_step)
-                    writer.add_scalar('TRAIN/mse', mse.numpy(), global_step)
-                    
-                    writer.add_scalar('TRAIN/tau', tau, global_step)
-                    writer.add_scalar('TRAIN/lr_dvae', model.dvae_optimizer.lr.numpy(), global_step)
-                    writer.add_scalar('TRAIN/lr_main', model.main_optimizer.lr.numpy(), global_step)
-
-                    wandb.log({
-                        'train/loss': loss.numpy(),
-                        'train/cross_entropy': cross_entropy.numpy(),
-                        'train/mse': mse.numpy(),
-                        'train/tau': tau,
-                        'train/lr_dvae': model.dvae_optimizer.lr.numpy(),
-                        'train/lr_main': model.main_optimizer.lr.numpy(),
-                        'train/itr': global_step
-                        }, step=global_step)
-
-        with torch.no_grad():
-            t0 = time.time()
-            gen_img = model.reconstruct_autoregressive(image[:32])
-            lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
-            vis_recon = utils.visualize(
-                train_loader.unnormalize_obs(image), 
-                train_loader.unnormalize_obs(recon), 
-                train_loader.unnormalize_obs(gen_img), 
-                attns, N=32)
-            writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
-        
-        if args.eval:
-            with torch.no_grad():
-                model.eval()
+            # with torch.no_grad():
+            if batch % log_interval == 0:
+                lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
+                      epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy(), time.time()-t0))
                 
-                val_cross_entropy_relax = 0.
-                val_mse_relax = 0.
+                writer.add_scalar('TRAIN/loss', loss.numpy(), global_step)
+                writer.add_scalar('TRAIN/cross_entropy', cross_entropy.numpy(), global_step)
+                writer.add_scalar('TRAIN/mse', mse.numpy(), global_step)
                 
-                val_cross_entropy = 0.
-                val_mse = 0.
-                
-                t0 = time.time()
-                for batch in range(val_loader.num_batches):
-                    image = val_loader.get_batch()
-                    if isinstance(image, dict):
-                        image = image['image']
-
-                    (recon_relax, cross_entropy_relax, mse_relax, attns_relax) = model(image, tf.constant(tau), False)
-                    
-                    (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), True)
-                    
-                    val_cross_entropy_relax += cross_entropy_relax.numpy()
-                    val_mse_relax += mse_relax.numpy()
-                    
-                    val_cross_entropy += cross_entropy.numpy()
-                    val_mse += mse.numpy()
-
-                val_cross_entropy_relax /= (val_epoch_size)
-                val_mse_relax /= (val_epoch_size)
-                
-                val_cross_entropy /= (val_epoch_size)
-                val_mse /= (val_epoch_size)
-                
-                val_loss_relax = val_mse_relax + val_cross_entropy_relax
-                val_loss = val_mse + val_cross_entropy
-
-                writer.add_scalar('VAL/loss_relax', val_loss_relax, epoch+1)
-                writer.add_scalar('VAL/cross_entropy_relax', val_cross_entropy_relax, epoch + 1)
-                writer.add_scalar('VAL/mse_relax', val_mse_relax, epoch+1)
-
-                writer.add_scalar('VAL/loss', val_loss, epoch+1)
-                writer.add_scalar('VAL/cross_entropy', val_cross_entropy, epoch + 1)
-                writer.add_scalar('VAL/mse', val_mse, epoch+1)
-
-                lgr.info('====> Epoch: {:3} \t Loss = {:F} \t MSE = {:F} \t Time: {:F}'.format(
-                    epoch+1, val_loss, val_mse, time.time() - t0))
-
-                if val_loss < best_val_loss:
-                    stagnation_counter = 0
-                    best_val_loss = val_loss
-                    best_epoch = epoch + 1
-
-                    if 50 <= epoch:
-                        t0 = time.time()
-                        gen_img = model.reconstruct_autoregressive(image)
-                        lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
-                        vis_recon = utils.visualize(
-                            train_loader.unnormalize_obs(image), 
-                            train_loader.unnormalize_obs(recon), 
-                            train_loader.unnormalize_obs(gen_img), 
-                            attns, N=32)
-                        writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
-
-                else:
-                    stagnation_counter += 1
-                    if stagnation_counter >= args.patience:
-                        lr_decay_factor = lr_decay_factor / 2.0
-                        stagnation_counter = 0
-
-                writer.add_scalar('VAL/best_loss', best_val_loss, epoch+1)
+                writer.add_scalar('TRAIN/tau', tau, global_step)
+                writer.add_scalar('TRAIN/lr_dvae', model.dvae_optimizer.lr.numpy(), global_step)
+                writer.add_scalar('TRAIN/lr_main', model.main_optimizer.lr.numpy(), global_step)
 
                 wandb.log({
-                    'val/loss_relax': val_loss_relax,
-                    'val/cross_entropy_relax': val_cross_entropy_relax,
-                    'val/mse_relax': val_mse_relax,
-                    'val/loss': val_loss,
-                    'val/cross_entropy': val_cross_entropy,
-                    'val/mse': val_mse,
-                    'val/best_loss': best_val_loss,
-                    'val/epoch': epoch+1,
+                    'train/loss': loss.numpy(),
+                    'train/cross_entropy': cross_entropy.numpy(),
+                    'train/mse': mse.numpy(),
+                    'train/tau': tau,
+                    'train/lr_dvae': model.dvae_optimizer.lr.numpy(),
+                    'train/lr_main': model.main_optimizer.lr.numpy(),
+                    'train/itr': global_step
                     }, step=global_step)
 
-                # checkpoint = {
-                #     'epoch': epoch + 1,
-                #     'best_val_loss': best_val_loss,
-                #     'best_epoch': best_epoch,
-                #     'model': model.state_dict(),
-                #     'optimizer': optimizer.state_dict(),
-                #     'stagnation_counter': stagnation_counter,
-                #     'lr_decay_factor': lr_decay_factor,
-                # }
+        # with torch.no_grad():
+        t0 = time.time()
+        gen_img = model.reconstruct_autoregressive(image[:32])
+        lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
+        vis_recon = utils.visualize(
+            train_loader.unnormalize_obs(image), 
+            train_loader.unnormalize_obs(recon), 
+            train_loader.unnormalize_obs(gen_img), 
+            attns, N=32)
+        writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
+        
+        if args.eval:
+            # with torch.no_grad():
+            model.eval()
+            
+            val_cross_entropy_relax = 0.
+            val_mse_relax = 0.
+            
+            val_cross_entropy = 0.
+            val_mse = 0.
+            
+            t0 = time.time()
+            for batch in range(val_loader.num_batches):
+                image = val_loader.get_batch()
+                if isinstance(image, dict):
+                    image = image['image']
 
-                # torch.save(checkpoint, os.path.join(log_dir, 'checkpoint.pt.tar'))
+                (recon_relax, cross_entropy_relax, mse_relax, attns_relax) = model(image, tf.constant(tau), False)
+                
+                (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), True)
+                
+                val_cross_entropy_relax += cross_entropy_relax.numpy()
+                val_mse_relax += mse_relax.numpy()
+                
+                val_cross_entropy += cross_entropy.numpy()
+                val_mse += mse.numpy()
 
-                lgr.info('====> Best Loss = {:F} @ Epoch {} \t Time per epoch: {:F}'.format(best_val_loss, best_epoch, time.time() - t_epoch))
+            val_cross_entropy_relax /= (val_epoch_size)
+            val_mse_relax /= (val_epoch_size)
+            
+            val_cross_entropy /= (val_epoch_size)
+            val_mse /= (val_epoch_size)
+            
+            val_loss_relax = val_mse_relax + val_cross_entropy_relax
+            val_loss = val_mse + val_cross_entropy
+
+            writer.add_scalar('VAL/loss_relax', val_loss_relax, epoch+1)
+            writer.add_scalar('VAL/cross_entropy_relax', val_cross_entropy_relax, epoch + 1)
+            writer.add_scalar('VAL/mse_relax', val_mse_relax, epoch+1)
+
+            writer.add_scalar('VAL/loss', val_loss, epoch+1)
+            writer.add_scalar('VAL/cross_entropy', val_cross_entropy, epoch + 1)
+            writer.add_scalar('VAL/mse', val_mse, epoch+1)
+
+            lgr.info('====> Epoch: {:3} \t Loss = {:F} \t MSE = {:F} \t Time: {:F}'.format(
+                epoch+1, val_loss, val_mse, time.time() - t0))
+
+            if val_loss < best_val_loss:
+                stagnation_counter = 0
+                best_val_loss = val_loss
+                best_epoch = epoch + 1
+
+                if 50 <= epoch:
+                    t0 = time.time()
+                    gen_img = model.reconstruct_autoregressive(image)
+                    lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
+                    vis_recon = utils.visualize(
+                        train_loader.unnormalize_obs(image), 
+                        train_loader.unnormalize_obs(recon), 
+                        train_loader.unnormalize_obs(gen_img), 
+                        attns, N=32)
+                    writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
+
+            else:
+                stagnation_counter += 1
+                if stagnation_counter >= args.patience:
+                    lr_decay_factor = lr_decay_factor / 2.0
+                    stagnation_counter = 0
+
+            writer.add_scalar('VAL/best_loss', best_val_loss, epoch+1)
+
+            wandb.log({
+                'val/loss_relax': val_loss_relax,
+                'val/cross_entropy_relax': val_cross_entropy_relax,
+                'val/mse_relax': val_mse_relax,
+                'val/loss': val_loss,
+                'val/cross_entropy': val_cross_entropy,
+                'val/mse': val_mse,
+                'val/best_loss': best_val_loss,
+                'val/epoch': epoch+1,
+                }, step=global_step)
+
+            # checkpoint = {
+            #     'epoch': epoch + 1,
+            #     'best_val_loss': best_val_loss,
+            #     'best_epoch': best_epoch,
+            #     'model': model.state_dict(),
+            #     'optimizer': optimizer.state_dict(),
+            #     'stagnation_counter': stagnation_counter,
+            #     'lr_decay_factor': lr_decay_factor,
+            # }
+
+            # torch.save(checkpoint, os.path.join(log_dir, 'checkpoint.pt.tar'))
+
+            lgr.info('====> Best Loss = {:F} @ Epoch {} \t Time per epoch: {:F}'.format(best_val_loss, best_epoch, time.time() - t_epoch))
 
     writer.close()
 
