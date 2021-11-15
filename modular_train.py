@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 import shapes_3d
+import dvae as dv
 import slate
 import slot_attn
 import transformer
@@ -243,24 +244,6 @@ def main(argv):
     def f32(x):
         return tf.cast(x, tf.float32)
 
-
-    @tf.function
-    def dvae_train_step(dvae, image, tau, hard):
-        with tf.GradientTape() as tape:
-            recon, z_hard, mse = dvae(image, tau, hard)
-        gradients = tape.gradient(mse, dvae.trainable_weights)
-        return tf.clip_by_value(recon, 0., 1.), z_hard, mse, gradients
-
-
-    @tf.function
-    def slot_model_train_step(slot_model, z_transformer_input, z_transformer_target):
-        with tf.GradientTape() as tape:
-            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
-        gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
-        return attns, cross_entropy, gradients
-
-
-
     lgr.info('Begin training.')
     for epoch in range(start_epoch, args.epochs):
         t_epoch = time.time()
@@ -291,12 +274,12 @@ def main(argv):
 
             t0 = time.time()
 
-            recon, z_hard, mse, gradients = dvae_train_step(model.dvae, image, tf.constant(tau), args.hard)
+            recon, z_hard, mse, gradients = dv.dVAE.loss_and_grad(model.dvae, image, tf.constant(tau), args.hard)
             dvae_optimizer.apply_gradients(zip(gradients, model.dvae.trainable_weights))
 
             z_transformer_input, z_transformer_target = slate.create_tokens(tf.stop_gradient(z_hard))
 
-            attns, cross_entropy, gradients = slot_model_train_step(model.slot_model, z_transformer_input, z_transformer_target)
+            attns, cross_entropy, gradients = slate.SlotModel.loss_and_grad(model.slot_model, z_transformer_input, z_transformer_target)
             # NOTE: if we put this inside tf.function then the performance becomes very bad
             main_optimizer.apply_gradients(zip(gradients, model.slot_model.trainable_weights))
 
