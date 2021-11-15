@@ -4,7 +4,7 @@ import dvae
 from slot_attn import SlotAttention
 from transformer import PositionalEncoding, TransformerDecoder
 
-from einops import rearrange
+from einops import rearrange, repeat
 import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as layers
@@ -133,10 +133,21 @@ def create_tokens(z_hard):
     return z_transformer_input, z_transformer_target
 
 
+# def overlay_attention(attns, image, H_enc, W_enc):
+#     B, C, H, W = image.shape
+#     attns = rearrange(attns, 'b hw k -> b k hw')
+#     attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
+#     import ipdb
+#     ipdb.set_trace(context=20)
+#     attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
+#     return attns
+
+
 def overlay_attention(attns, image, H_enc, W_enc):
     B, C, H, W = image.shape
     attns = rearrange(attns, 'b hw k -> b k hw')
     attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
+    attns = repeat(attns, 'b k h w -> b k c h w', c=3)  # 3 is img_channels
     attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
     return attns
 
@@ -169,7 +180,8 @@ class SLATE(layers.Layer):
         attns = overlay_attention(attns, image, H_enc, W_enc)
 
         return (
-            tf.clip_by_value(recon, 0., 1.),
+            # tf.clip_by_value(recon, 0., 1.),
+            recon,
             cross_entropy,
             mse,
             attns
@@ -202,9 +214,10 @@ class SLATE(layers.Layer):
         attns = overlay_attention(attns, image, H_enc, W_enc)
 
         if eval:
-            return tf.clip_by_value(recon_transformer, 0., 1.), attns
+            # return tf.clip_by_value(recon_transformer, 0., 1.), attns
+            return recon_transformer, attns
 
-        return tf.clip_by_value(recon_transformer, 0., 1.)
+        return recon_transformer
 
     def train(self):
         self.training = True

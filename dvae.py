@@ -75,7 +75,8 @@ class dVAE(tkl.Layer):
         with tf.GradientTape() as tape:
             recon, z_hard, mse = dvae(image, tau, hard)
         gradients = tape.gradient(mse, dvae.trainable_weights)
-        return tf.clip_by_value(recon, 0., 1.), z_hard, mse, gradients
+        # return tf.clip_by_value(recon, 0., 1.), z_hard, mse, gradients
+        return recon, z_hard, mse, gradients
 
 
 class PixelShuffle(tkl.Layer):
