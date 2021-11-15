@@ -425,6 +425,40 @@ TypeError: in user code:
     TypeError: tf__autoregressive_decode() missing 1 required positional argument: 'gen_len'
 """
 
+def try_on_balls_data_normalized_11_15_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('args.data_path', ['../ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_on_balls_data_normalized_11_15_21'])
+    r.generate_commands(args.for_real)
+
+def try_on_balls_data_unnormalized_11_15_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('args.data_path', ['../ball_data/whiteballpush/U-Dk4s0n2000t10_ab'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_on_balls_data_unnormalized_11_15_21'])
+    r.generate_commands(args.for_real)
+
+def try_on_dmc_manip_normalized_11_15_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('args.data_path', ['../dmc_data/data/dmc_manip_place_cradle/wmoFalse_20211101152629'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_on_dmc_manip_normalized_11_15_21'])
+    r.generate_commands(args.for_real)
+
+
 if __name__ == '__main__':
     # does_jit_really_make_the_difference_11_11_21()
     # what_if_we_just_jit_the_dvae_11_11_21()
@@ -447,4 +481,8 @@ if __name__ == '__main__':
     # jit_both_numpy_inputs_into_slotmodel_11_12_21()
     # jit_dvae_do_not_jit_apply_gradient_for_slot_model_11_12_21()
     # do_not_jit_apply_gradients_at_all_11_12_21()
-    do_not_jit_apply_gradients_at_all_for_combined_11_12_21()
+    # do_not_jit_apply_gradients_at_all_for_combined_11_12_21()
+    # try_on_balls_data_11_15_21()
+    # try_on_balls_data_normalized_11_15_21()
+    # try_on_balls_data_unnormalized_11_15_21()
+    try_on_dmc_manip_normalized_11_15_21()
