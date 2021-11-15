@@ -146,9 +146,9 @@ class TransformerDecoderBlock(tkl.Layer):
         self.self_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.self_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
         
-        # this could actually be generated on the fly
-        mask = tf.experimental.numpy.triu(tf.ones((max_len, max_len)), k=1)  # float, not bool
-        self.self_attn_mask = tf.Variable(mask, trainable=False)
+        # # this could actually be generated on the fly
+        # mask = tf.experimental.numpy.triu(tf.ones((max_len, max_len)), k=1)  # float, not bool
+        # self.self_attn_mask = tf.Variable(mask, trainable=False)
         
         self.encoder_decoder_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.encoder_decoder_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
@@ -169,14 +169,15 @@ class TransformerDecoderBlock(tkl.Layer):
         return: batch_size x target_len x d_model
         """
         T = input.shape[1]
+        mask = tf.experimental.numpy.triu(tf.ones((T, T)), k=1)  # float, not bool
         
         if self.is_first:
             input = self.self_attn_layer_norm(input)
-            x = self.self_attn(input, input, input, self.self_attn_mask[:T, :T])
+            x = self.self_attn(input, input, input, mask)#self.self_attn_mask[:T, :T])
             input = input + x
         else:
             x = self.self_attn_layer_norm(input)
-            x = self.self_attn(x, x, x, self.self_attn_mask[:T, :T])
+            x = self.self_attn(x, x, x, mask)#self.self_attn_mask[:T, :T])
             input = input + x
         
         x = self.encoder_decoder_attn_layer_norm(input)
