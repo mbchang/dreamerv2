@@ -459,6 +459,28 @@ def try_on_dmc_manip_normalized_11_15_21():
     r.generate_commands(args.for_real)
 
 
+def try_on_dmc_manip_bigmodel_11_15_21():
+    """
+        vocab size 4096
+        decoder layers 8
+        decoder heads 8
+        slot attention iterations 7
+
+        obs_transformer
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('args.data_path', ['../dmc_data/data/dmc_manip_place_cradle/wmoFalse_20211101152629'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.vocab_size', [4096])
+    r.add_flag('args.obs_transformer.num_blocks', [8])
+    r.add_flag('args.obs_transformer.num_heads', [8])
+    r.add_flag('args.slot_attn.num_slots', [5])
+    r.add_flag('args.slot_attn.num_iterations', [7])
+    r.add_flag('args.log_path', ['logs/try_on_dmc_manip_bigmodel_11_15_21'])
+    r.generate_commands(args.for_real)
+
+
 if __name__ == '__main__':
     # does_jit_really_make_the_difference_11_11_21()
     # what_if_we_just_jit_the_dvae_11_11_21()
@@ -485,4 +507,5 @@ if __name__ == '__main__':
     # try_on_balls_data_11_15_21()
     # try_on_balls_data_normalized_11_15_21()
     # try_on_balls_data_unnormalized_11_15_21()
-    try_on_dmc_manip_normalized_11_15_21()
+    # try_on_dmc_manip_normalized_11_15_21()
+    try_on_dmc_manip_bigmodel_11_15_21()
