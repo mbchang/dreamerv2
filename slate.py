@@ -210,8 +210,6 @@ class SLATE(layers.Layer):
         self.dvae_optimizer.lr = utils.f32(args.lr_decay_factor * args.lr_dvae)
         self.main_optimizer.lr = utils.f32(args.lr_decay_factor * lr_warmup_factor * args.lr_main)
 
-        # t0 = time.time()
-
         recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), args.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
