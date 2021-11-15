@@ -1,6 +1,7 @@
 from utils import *
 
 from einops import rearrange
+import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as tkl
 
@@ -145,6 +146,7 @@ class TransformerDecoderBlock(tkl.Layer):
         self.self_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.self_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
         
+        # this could actually be generated on the fly
         mask = tf.experimental.numpy.triu(tf.ones((max_len, max_len)), k=1)  # float, not bool
         self.self_attn_mask = tf.Variable(mask, trainable=False)
         
@@ -187,10 +189,41 @@ class TransformerDecoderBlock(tkl.Layer):
 
 
 class TransformerDecoder(tkl.Layer):
+
+    @staticmethod
+    def get_obs_model_args_debug():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=2,
+            num_heads=2,
+            dropout=0.1,
+            ))
+        return default_args
+
+    @staticmethod
+    def get_obs_model_args():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=4,
+            num_heads=4,
+            dropout=0.1,
+            ))
+        return default_args
+
+    @staticmethod
+    def get_dyn_model_args():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=4,
+            num_heads=4,
+            dropout=0.1,
+            ))
+        return default_args
     
-    def __init__(self, num_blocks, max_len, d_model, num_heads, dropout=0.):
+    def __init__(self, max_len, d_model, cfg):
         super().__init__()
-        
+
+        num_blocks = cfg.num_blocks
+        num_heads = cfg.num_heads
+        dropout = cfg.dropout
+
         if num_blocks > 0:
             gain = (3 * num_blocks) ** (-0.5)
             self.blocks = [TransformerDecoderBlock(max_len, d_model, num_heads, dropout, gain, is_first=True)] + [TransformerDecoderBlock(max_len, d_model, num_heads, dropout, gain, is_first=False) for _ in range(num_blocks - 1)]

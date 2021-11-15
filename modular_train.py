@@ -12,6 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 import shapes_3d
 import slate
 import slot_attn
+import transformer
 
 from absl import app
 from absl import flags
@@ -47,13 +48,12 @@ args = ml_collections.ConfigDict(dict(
     lr_main=1e-4,
     lr_warmup_steps=30000,
 
-    num_dec_blocks=4,
     vocab_size=1024,
     d_model=192,
-    num_heads=4,
     dropout=0.1,
+    obs_transformer=transformer.TransformerDecoder.get_obs_model_args(),
 
-    slot_attn = slot_attn.SlotAttention.get_default_args(),
+    slot_attn=slot_attn.SlotAttention.get_default_args(),
     slot_size=192,
     img_channels=3,
     pos_channels=4,
@@ -80,10 +80,9 @@ def main(argv):
 
         args.lr_warmup_steps = 3
 
-        args.num_dec_blocks = 2
         args.vocab_size = 32
         args.d_model = 16
-        args.num_heads = 2
+        args.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
 
         args.slot_attn.num_iterations = 2
         args.slot_size = 16
