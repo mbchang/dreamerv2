@@ -10,7 +10,7 @@ class dVAE(tkl.Layer):
     @staticmethod
     def get_default_args():
         default_args = ml_collections.ConfigDict(dict(
-            lr_dvae=3e-4,
+            lr=3e-4,
 
             tau_start=1.0,
             tau_final=0.1,

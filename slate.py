@@ -17,15 +17,31 @@ import wandb
 
 class SlotModel(layers.Layer):
 
-    def __init__(self, args):
+    @staticmethod
+    def get_default_args():
+        default_args = ml_collections.ConfigDict(dict(
+            lr=1e-4,
+            lr_warmup_steps=30000,
+
+            d_model=192,
+            dropout=0.1,
+
+            obs_transformer=transformer.TransformerDecoder.get_obs_model_args(),
+
+            slot_attn=slot_attn.SlotAttention.get_default_args(),
+            slot_size=192,
+            ))
+        return default_args
+
+    def __init__(self, vocab_size, num_tokens, args):
         super().__init__()
 
-        self.vocab_size = args.vocab_size
+        self.vocab_size = vocab_size
         self.d_model = args.d_model
-        self.num_tokens = (args.image_size // 4) ** 2
+        self.num_tokens = num_tokens#(args.image_size // 4) ** 2
 
         # obs encoder
-        self.dictionary = OneHotDictionary(args.vocab_size + 1, args.d_model)
+        self.dictionary = OneHotDictionary(self.vocab_size + 1, args.d_model)
         self.positional_encoder = transformer.PositionalEncoding(1 + self.num_tokens, args.d_model, args.dropout)
         self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.token_mlp = tf.keras.Sequential([
@@ -39,7 +55,7 @@ class SlotModel(layers.Layer):
 
         # decoder
         self.tf_dec = transformer.TransformerDecoder(self.num_tokens, args.d_model, args.obs_transformer)
-        self.out = linear(args.d_model, args.vocab_size, bias=False)
+        self.out = linear(args.d_model, self.vocab_size, bias=False)
 
         self.training = False
 
@@ -141,43 +157,25 @@ class SLATE(layers.Layer):
             log_interval=800,
 
             image_size=64,
-            batch_size=50,
+            img_channels=3,
 
-            # lr_dvae=3e-4,
-            lr_main=1e-4,
-            lr_warmup_steps=30000,
+            batch_size=50,
             lr_decay_factor=1.0,
 
             vocab_size=1024,
-            d_model=192,
-            dropout=0.1,
-            obs_transformer=transformer.TransformerDecoder.get_obs_model_args(),
-
-            slot_attn=slot_attn.SlotAttention.get_default_args(),
-            slot_size=192,
-            img_channels=3,
-            pos_channels=4,
-
-            # tau_start=1.0,
-            # tau_final=0.1,
-            # tau_steps=30000,
-
-            # hard=False,
-            dvae=dvae.dVAE.get_default_args()
+            dvae=dvae.dVAE.get_default_args(),
+            slot_model=SlotModel.get_default_args(),
             ))
         return default_args
 
     def __init__(self, args):
         super().__init__()
 
-        self.vocab_size = args.vocab_size
-        self.d_model = args.d_model
-
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
-        self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr_dvae, epsilon=1e-08)
+        self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
-        self.slot_model = SlotModel(args)
-        self.main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
+        self.slot_model = SlotModel(args.vocab_size, (args.image_size // 4) ** 2, args.slot_model)
+        self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
 
         self.training = False
 
@@ -249,10 +247,10 @@ class SLATE(layers.Layer):
             0.,
             1.0,
             0,
-            args.lr_warmup_steps)
+            args.slot_model.lr_warmup_steps)
 
-        self.dvae_optimizer.lr = utils.f32(args.lr_decay_factor * args.dvae.lr_dvae)
-        self.main_optimizer.lr = utils.f32(args.lr_decay_factor * lr_warmup_factor * args.lr_main)
+        self.dvae_optimizer.lr = utils.f32(args.lr_decay_factor * args.dvae.lr)
+        self.main_optimizer.lr = utils.f32(args.lr_decay_factor * lr_warmup_factor * args.slot_model.lr)
 
         recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
@@ -277,7 +275,7 @@ class SLATE(layers.Layer):
                 'train/cross_entropy': cross_entropy.numpy(),
                 'train/mse': mse.numpy(),
                 'train/tau': tau,
-                'train/lr_dvae': self.dvae_optimizer.lr.numpy(),
+                'train/lr': self.dvae_optimizer.lr.numpy(),
                 'train/lr_main': self.main_optimizer.lr.numpy(),
                 'train/itr': global_step
                 }, step=global_step)

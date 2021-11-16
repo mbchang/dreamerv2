@@ -62,14 +62,14 @@ def main(argv):
 
         args.slate.batch_size = 5
 
-        args.slate.lr_warmup_steps = 3
+        args.slate.slot_model.lr_warmup_steps = 3
 
         args.slate.vocab_size = 32
-        args.slate.d_model = 16
-        args.slate.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
+        args.slate.slot_model.d_model = 16
+        args.slate.slot_model.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
 
-        args.slate.slot_attn.num_iterations = 2
-        args.slate.slot_size = 16
+        args.slate.slot_model.slot_attn.num_iterations = 2
+        args.slate.slot_model.slot_size = 16
         args.slate.dvae.tau_steps = 3
 
         args.cpu = True
