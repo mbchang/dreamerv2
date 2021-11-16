@@ -183,8 +183,6 @@ def main(argv):
     else:
         raise NotImplementedError
 
-
-
     log_interval = train_epoch_size // 10
 
     lgr.info('Building model...')
@@ -231,17 +229,17 @@ def main(argv):
 
             loss, mse, cross_entropy, recon, attns, tau = model.train_step(image, global_step, args)
 
-            if batch % log_interval == 0:
+            if global_step % log_interval == 0:
                 lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
                       epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy(), time.time()-t0))
                 
-                writer.add_scalar('TRAIN/loss', loss.numpy(), global_step)
-                writer.add_scalar('TRAIN/cross_entropy', cross_entropy.numpy(), global_step)
-                writer.add_scalar('TRAIN/mse', mse.numpy(), global_step)
+                # writer.add_scalar('TRAIN/loss', loss.numpy(), global_step)
+                # writer.add_scalar('TRAIN/cross_entropy', cross_entropy.numpy(), global_step)
+                # writer.add_scalar('TRAIN/mse', mse.numpy(), global_step)
                 
-                writer.add_scalar('TRAIN/tau', tau, global_step)
-                writer.add_scalar('TRAIN/lr_dvae', model.dvae_optimizer.lr.numpy(), global_step)
-                writer.add_scalar('TRAIN/lr_main', model.main_optimizer.lr.numpy(), global_step)
+                # writer.add_scalar('TRAIN/tau', tau, global_step)
+                # writer.add_scalar('TRAIN/lr_dvae', model.dvae_optimizer.lr.numpy(), global_step)
+                # writer.add_scalar('TRAIN/lr_main', model.main_optimizer.lr.numpy(), global_step)
 
                 wandb.log({
                     'train/loss': loss.numpy(),
@@ -297,13 +295,13 @@ def main(argv):
             val_loss_relax = val_mse_relax + val_cross_entropy_relax
             val_loss = val_mse + val_cross_entropy
 
-            writer.add_scalar('VAL/loss_relax', val_loss_relax, epoch+1)
-            writer.add_scalar('VAL/cross_entropy_relax', val_cross_entropy_relax, epoch + 1)
-            writer.add_scalar('VAL/mse_relax', val_mse_relax, epoch+1)
+            # writer.add_scalar('VAL/loss_relax', val_loss_relax, epoch+1)
+            # writer.add_scalar('VAL/cross_entropy_relax', val_cross_entropy_relax, epoch + 1)
+            # writer.add_scalar('VAL/mse_relax', val_mse_relax, epoch+1)
 
-            writer.add_scalar('VAL/loss', val_loss, epoch+1)
-            writer.add_scalar('VAL/cross_entropy', val_cross_entropy, epoch + 1)
-            writer.add_scalar('VAL/mse', val_mse, epoch+1)
+            # writer.add_scalar('VAL/loss', val_loss, epoch+1)
+            # writer.add_scalar('VAL/cross_entropy', val_cross_entropy, epoch + 1)
+            # writer.add_scalar('VAL/mse', val_mse, epoch+1)
 
             lgr.info('====> Epoch: {:3} \t Loss = {:F} \t MSE = {:F} \t Time: {:F}'.format(
                 epoch+1, val_loss, val_mse, time.time() - t0))
@@ -330,7 +328,7 @@ def main(argv):
                     lr_decay_factor = lr_decay_factor / 2.0
                     stagnation_counter = 0
 
-            writer.add_scalar('VAL/best_loss', best_val_loss, epoch+1)
+            # writer.add_scalar('VAL/best_loss', best_val_loss, epoch+1)
 
             wandb.log({
                 'val/loss_relax': val_loss_relax,
