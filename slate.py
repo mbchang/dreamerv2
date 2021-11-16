@@ -38,7 +38,7 @@ class SlotModel(layers.Layer):
 
         self.vocab_size = vocab_size
         self.d_model = args.d_model
-        self.num_tokens = num_tokens#(args.image_size // 4) ** 2
+        self.num_tokens = num_tokens
 
         # obs encoder
         self.dictionary = OneHotDictionary(self.vocab_size + 1, args.d_model)
