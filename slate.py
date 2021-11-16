@@ -1,8 +1,10 @@
 from utils import *
 # from dvae import dVAE
 import dvae
-from slot_attn import SlotAttention
-from transformer import PositionalEncoding, TransformerDecoder
+# from slot_attn import SlotAttention
+import slot_attn
+# from transformer import PositionalEncoding, TransformerDecoder
+import transformer
 import utils
 
 from einops import rearrange, repeat
@@ -24,7 +26,7 @@ class SlotModel(layers.Layer):
 
         # obs encoder
         self.dictionary = OneHotDictionary(args.vocab_size + 1, args.d_model)
-        self.positional_encoder = PositionalEncoding(1 + self.num_tokens, args.d_model, args.dropout)
+        self.positional_encoder = transformer.PositionalEncoding(1 + self.num_tokens, args.d_model, args.dropout)
         self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.token_mlp = tf.keras.Sequential([
             linear(args.d_model, args.d_model, weight_init='kaiming'),
@@ -32,11 +34,11 @@ class SlotModel(layers.Layer):
             linear(args.d_model, args.d_model)])
 
         # recurrent: replace this with rssm
-        self.slot_attn = SlotAttention(args.slot_size, args.slot_attn)
+        self.slot_attn = slot_attn.SlotAttention(args.slot_size, args.slot_attn)
         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
 
         # decoder
-        self.tf_dec = TransformerDecoder(self.num_tokens, args.d_model, args.obs_transformer)
+        self.tf_dec = transformer.TransformerDecoder(self.num_tokens, args.d_model, args.obs_transformer)
         self.out = linear(args.d_model, args.vocab_size, bias=False)
 
         self.training = False
@@ -128,6 +130,42 @@ def overlay_attention(attns, image, H_enc, W_enc):
 
 
 class SLATE(layers.Layer):
+
+    # optim
+    # training
+    # model args
+
+    @staticmethod
+    def get_default_args():
+        default_args = ml_collections.ConfigDict(dict(
+            log_interval=800,
+
+            image_size=64,
+            batch_size=50,
+
+            lr_dvae=3e-4,
+            lr_main=1e-4,
+            lr_warmup_steps=30000,
+            lr_decay_factor=1.0,
+
+            vocab_size=1024,
+            d_model=192,
+            dropout=0.1,
+            obs_transformer=transformer.TransformerDecoder.get_obs_model_args(),
+
+            slot_attn=slot_attn.SlotAttention.get_default_args(),
+            slot_size=192,
+            img_channels=3,
+            pos_channels=4,
+
+            tau_start=1.0,
+            tau_final=0.1,
+            tau_steps=30000,
+
+            hard=False,
+            ))
+        return default_args
+
     def __init__(self, args):
         super().__init__()
 

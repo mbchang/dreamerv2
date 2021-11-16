@@ -35,40 +35,42 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 
 args = ml_collections.ConfigDict(dict(
-    num_workers=4,
+    # num_workers=4,
     seed=0,
-    batch_size=50,
     epochs=20,
     patience=4,
-    clip=1.0,
-    image_size=64,
-    log_interval=800,
+    # clip=1.0,
+    # image_size=64,
+    # log_interval=800,
 
     checkpoint_path='checkpoint.pt.tar',
     log_path='logs',
     data_path='../slate_data/3dshapes.h5',
     # data_path='../ball_data/whiteballpush/U-Dk4s0n2000t10_ab',
 
-    lr_dvae=3e-4,
-    lr_main=1e-4,
-    lr_warmup_steps=30000,
-    lr_decay_factor=1.0,
+    # batch_size=50,
 
-    vocab_size=1024,
-    d_model=192,
-    dropout=0.1,
-    obs_transformer=transformer.TransformerDecoder.get_obs_model_args(),
+    # lr_dvae=3e-4,
+    # lr_main=1e-4,
+    # lr_warmup_steps=30000,
+    # lr_decay_factor=1.0,
 
-    slot_attn=slot_attn.SlotAttention.get_default_args(),
-    slot_size=192,
-    img_channels=3,
-    pos_channels=4,
+    # vocab_size=1024,
+    # d_model=192,
+    # dropout=0.1,
+    # obs_transformer=transformer.TransformerDecoder.get_obs_model_args(),
 
-    tau_start=1.0,
-    tau_final=0.1,
-    tau_steps=30000,
+    # slot_attn=slot_attn.SlotAttention.get_default_args(),
+    # slot_size=192,
+    # img_channels=3,
+    # pos_channels=4,
 
-    hard=False,
+    # tau_start=1.0,
+    # tau_final=0.1,
+    # tau_steps=30000,
+
+    # hard=False,
+    slate=slate.SLATE.get_default_args(),
 
     cpu=False,
     headless=False,
@@ -81,20 +83,32 @@ config_flags.DEFINE_config_dict('args', args)
 
 def main(argv):
     if args.debug:
-        args.num_workers = 0
-        args.batch_size = 5
         args.epochs = 2
-        args.log_interval = 8
+        args.slate.log_interval = 8
 
-        args.lr_warmup_steps = 3
+        # args.batch_size = 5
 
-        args.vocab_size = 32
-        args.d_model = 16
-        args.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
+        # args.lr_warmup_steps = 3
 
-        args.slot_attn.num_iterations = 2
-        args.slot_size = 16
-        args.tau_steps = 3
+        # args.vocab_size = 32
+        # args.d_model = 16
+        # args.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
+
+        # args.slot_attn.num_iterations = 2
+        # args.slot_size = 16
+        # args.tau_steps = 3
+
+        args.slate.batch_size = 5
+
+        args.slate.lr_warmup_steps = 3
+
+        args.slate.vocab_size = 32
+        args.slate.d_model = 16
+        args.slate.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
+
+        args.slate.slot_attn.num_iterations = 2
+        args.slate.slot_size = 16
+        args.slate.tau_steps = 3
 
         args.cpu = True
         args.headless = False
@@ -157,15 +171,15 @@ def main(argv):
     if '3dshapes' in args.data_path:
         databuilder = dataloading.DebugShapes3D if args.debug else dataloading.Shapes3D
         train_loader = dataloading.DataLoader(
-            dataset = databuilder(root=args.data_path, phase='train'), batch_size=args.batch_size)
+            dataset = databuilder(root=args.data_path, phase='train'), batch_size=args.slate.batch_size)
         val_loader = dataloading.DataLoader(
-            dataset = databuilder(root=args.data_path, phase='val'), batch_size=args.batch_size)
+            dataset = databuilder(root=args.data_path, phase='val'), batch_size=args.slate.batch_size)
         train_epoch_size = len(train_loader)
         val_epoch_size = len(val_loader)
     elif 'ball' in args.data_path:
         args.eval = False
         assert not args.eval
-        train_loader = dataloading.WhiteBallDataLoader(h5=h5py.File(f'{args.data_path}.h5', 'r'), batch_size=args.batch_size)
+        train_loader = dataloading.WhiteBallDataLoader(h5=h5py.File(f'{args.data_path}.h5', 'r'), batch_size=args.slate.batch_size)
         if args.debug:
             train_loader.num_batches = 80
             train_epoch_size = 80
@@ -175,7 +189,7 @@ def main(argv):
     elif 'dmc' in args.data_path:
         args.eval = False
         assert not args.eval
-        train_loader = dataloading.DMCDatLoader(dataroot=args.data_path, batch_size=args.batch_size)
+        train_loader = dataloading.DMCDatLoader(dataroot=args.data_path, batch_size=args.slate.batch_size)
         if args.debug:
             train_loader.num_batches = 80
             train_epoch_size = 80
@@ -188,7 +202,7 @@ def main(argv):
     # log_interval = train_epoch_size // 10
 
     lgr.info('Building model...')
-    model = slate.SLATE(args)
+    model = slate.SLATE(args.slate)
     lgr.info(model)
 
     if os.path.isfile(args.checkpoint_path):
@@ -205,14 +219,14 @@ def main(argv):
         best_val_loss = math.inf
         best_epoch = 0
         stagnation_counter = 0
-        lr_decay_factor = args.lr_decay_factor#1.0
+        lr_decay_factor = args.slate.lr_decay_factor
 
 
     lgr.info('initialize with input...')
     image = train_loader.get_batch()
     if isinstance(image, dict):
         image = image['image']
-    model(image, tau=tf.constant(1.0), hard=args.hard)
+    model(image, tau=tf.constant(1.0), hard=True)
 
     lgr.info('Begin training.')
     for epoch in range(start_epoch, args.epochs):
@@ -226,7 +240,7 @@ def main(argv):
                 image = image['image']
 
             global_step = epoch * train_epoch_size + batch
-            recon, attns, tau = model.train_step(image, global_step, args)
+            recon, attns, tau = model.train_step(image, global_step, args.slate)
 
         t0 = time.time()
         gen_img = model.reconstruct_autoregressive(image[:32])
