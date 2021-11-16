@@ -74,7 +74,6 @@ def main(argv):
 
         args.cpu = True
         args.headless = False
-        # args.jit = False
 
         prefix = 'db_'
     else:
@@ -202,7 +201,7 @@ def main(argv):
                 image = image['image']
 
             global_step = epoch * train_epoch_size + batch
-            recon, attns, tau = model.train_step(image, global_step, args.slate)
+            recon, attns, tau = model.train_step(image, global_step)#, args.slate)
 
         t0 = time.time()
         gen_img = model.reconstruct_autoregressive(image[:32])

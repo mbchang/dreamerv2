@@ -166,6 +166,7 @@ class SLATE(layers.Layer):
 
     def __init__(self, args):
         super().__init__()
+        self.args = args
 
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
@@ -228,27 +229,27 @@ class SLATE(layers.Layer):
         return recon_transformer
 
     # later replace this with train_args?
-    def train_step(self, image, global_step, args):
+    def train_step(self, image, global_step):
         t0 = time.time()
 
         tau = utils.cosine_anneal(
             step=global_step,
-            start_value=args.dvae.tau_start,
-            final_value=args.dvae.tau_final,
+            start_value=self.args.dvae.tau_start,
+            final_value=self.args.dvae.tau_final,
             start_step=0,
-            final_step=args.dvae.tau_steps)
+            final_step=self.args.dvae.tau_steps)
 
         lr_warmup_factor = utils.linear_warmup(
             step=global_step,
             start_value=0.,
             final_value=1.0,
             start_step=0,
-            final_step=args.slot_model.lr_warmup_steps)
+            final_step=self.args.slot_model.lr_warmup_steps)
 
-        self.dvae_optimizer.lr = utils.f32(args.lr_decay_factor * args.dvae.lr)
-        self.main_optimizer.lr = utils.f32(args.lr_decay_factor * lr_warmup_factor * args.slot_model.lr)
+        self.dvae_optimizer.lr = utils.f32(self.args.lr_decay_factor * self.args.dvae.lr)
+        self.main_optimizer.lr = utils.f32(self.args.lr_decay_factor * lr_warmup_factor * self.args.slot_model.lr)
 
-        recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), args.dvae.hard)
+        recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
@@ -262,7 +263,7 @@ class SLATE(layers.Layer):
         _, _, H_enc, W_enc = z_hard.shape
         attns = overlay_attention(attns, image, H_enc, W_enc)
 
-        if global_step % args.log_interval == 0:
+        if global_step % self.args.log_interval == 0:
             lgr.info('Train Step: {:3} \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
                   global_step, loss.numpy(), mse.numpy(), time.time()-t0))
 
