@@ -35,41 +35,15 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 
 args = ml_collections.ConfigDict(dict(
-    # num_workers=4,
     seed=0,
     epochs=20,
     patience=4,
-    # clip=1.0,
-    # image_size=64,
-    # log_interval=800,
 
     checkpoint_path='checkpoint.pt.tar',
     log_path='logs',
     data_path='../slate_data/3dshapes.h5',
     # data_path='../ball_data/whiteballpush/U-Dk4s0n2000t10_ab',
 
-    # batch_size=50,
-
-    # lr_dvae=3e-4,
-    # lr_main=1e-4,
-    # lr_warmup_steps=30000,
-    # lr_decay_factor=1.0,
-
-    # vocab_size=1024,
-    # d_model=192,
-    # dropout=0.1,
-    # obs_transformer=transformer.TransformerDecoder.get_obs_model_args(),
-
-    # slot_attn=slot_attn.SlotAttention.get_default_args(),
-    # slot_size=192,
-    # img_channels=3,
-    # pos_channels=4,
-
-    # tau_start=1.0,
-    # tau_final=0.1,
-    # tau_steps=30000,
-
-    # hard=False,
     slate=slate.SLATE.get_default_args(),
 
     cpu=False,
@@ -85,18 +59,6 @@ def main(argv):
     if args.debug:
         args.epochs = 2
         args.slate.log_interval = 8
-
-        # args.batch_size = 5
-
-        # args.lr_warmup_steps = 3
-
-        # args.vocab_size = 32
-        # args.d_model = 16
-        # args.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
-
-        # args.slot_attn.num_iterations = 2
-        # args.slot_size = 16
-        # args.tau_steps = 3
 
         args.slate.batch_size = 5
 
