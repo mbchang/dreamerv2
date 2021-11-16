@@ -1,10 +1,24 @@
 from utils import *
 
-from einops.layers.keras import Rearrange 
+from einops.layers.keras import Rearrange
+import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as tkl
 
 class dVAE(tkl.Layer):
+
+    @staticmethod
+    def get_default_args():
+        default_args = ml_collections.ConfigDict(dict(
+            lr_dvae=3e-4,
+
+            tau_start=1.0,
+            tau_final=0.1,
+            tau_steps=30000,
+
+            hard=False,
+            ))
+        return default_args
     
     def __init__(self, vocab_size, img_channels):
         super().__init__()
@@ -75,7 +89,6 @@ class dVAE(tkl.Layer):
         with tf.GradientTape() as tape:
             recon, z_hard, mse = dvae(image, tau, hard)
         gradients = tape.gradient(mse, dvae.trainable_weights)
-        # return tf.clip_by_value(recon, 0., 1.), z_hard, mse, gradients
         return recon, z_hard, mse, gradients
 
 

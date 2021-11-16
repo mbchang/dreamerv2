@@ -143,7 +143,7 @@ class SLATE(layers.Layer):
             image_size=64,
             batch_size=50,
 
-            lr_dvae=3e-4,
+            # lr_dvae=3e-4,
             lr_main=1e-4,
             lr_warmup_steps=30000,
             lr_decay_factor=1.0,
@@ -158,11 +158,12 @@ class SLATE(layers.Layer):
             img_channels=3,
             pos_channels=4,
 
-            tau_start=1.0,
-            tau_final=0.1,
-            tau_steps=30000,
+            # tau_start=1.0,
+            # tau_final=0.1,
+            # tau_steps=30000,
 
-            hard=False,
+            # hard=False,
+            dvae=dvae.dVAE.get_default_args()
             ))
         return default_args
 
@@ -173,7 +174,7 @@ class SLATE(layers.Layer):
         self.d_model = args.d_model
 
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
-        self.dvae_optimizer = tf.keras.optimizers.Adam(args.lr_dvae, epsilon=1e-08)
+        self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr_dvae, epsilon=1e-08)
 
         self.slot_model = SlotModel(args)
         self.main_optimizer = tf.keras.optimizers.Adam(args.lr_main, epsilon=1e-08)
@@ -238,10 +239,10 @@ class SLATE(layers.Layer):
 
         tau = utils.cosine_anneal(
             global_step,
-            args.tau_start,
-            args.tau_final,
+            args.dvae.tau_start,
+            args.dvae.tau_final,
             0,
-            args.tau_steps)
+            args.dvae.tau_steps)
 
         lr_warmup_factor = utils.linear_warmup(
             global_step,
@@ -250,10 +251,10 @@ class SLATE(layers.Layer):
             0,
             args.lr_warmup_steps)
 
-        self.dvae_optimizer.lr = utils.f32(args.lr_decay_factor * args.lr_dvae)
+        self.dvae_optimizer.lr = utils.f32(args.lr_decay_factor * args.dvae.lr_dvae)
         self.main_optimizer.lr = utils.f32(args.lr_decay_factor * lr_warmup_factor * args.lr_main)
 
-        recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), args.hard)
+        recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))

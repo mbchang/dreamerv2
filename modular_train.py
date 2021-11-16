@@ -70,7 +70,7 @@ def main(argv):
 
         args.slate.slot_attn.num_iterations = 2
         args.slate.slot_size = 16
-        args.slate.tau_steps = 3
+        args.slate.dvae.tau_steps = 3
 
         args.cpu = True
         args.headless = False
