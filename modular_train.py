@@ -42,6 +42,7 @@ args = ml_collections.ConfigDict(dict(
     patience=4,
     clip=1.0,
     image_size=64,
+    log_interval=800,
 
     checkpoint_path='checkpoint.pt.tar',
     log_path='logs',
@@ -83,6 +84,7 @@ def main(argv):
         args.num_workers = 0
         args.batch_size = 5
         args.epochs = 2
+        args.log_interval = 8
 
         args.lr_warmup_steps = 3
 
@@ -183,7 +185,7 @@ def main(argv):
     else:
         raise NotImplementedError
 
-    log_interval = train_epoch_size // 10
+    # log_interval = train_epoch_size // 10
 
     lgr.info('Building model...')
     model = slate.SLATE(args)
@@ -224,24 +226,7 @@ def main(argv):
                 image = image['image']
 
             global_step = epoch * train_epoch_size + batch
-
-            t0 = time.time()
-
-            loss, mse, cross_entropy, recon, attns, tau = model.train_step(image, global_step, args)
-
-            if global_step % log_interval == 0:
-                lgr.info('Train Epoch: {:3} [{:5}/{:5}] \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
-                      epoch+1, batch, train_epoch_size, loss.numpy(), mse.numpy(), time.time()-t0))
-
-                wandb.log({
-                    'train/loss': loss.numpy(),
-                    'train/cross_entropy': cross_entropy.numpy(),
-                    'train/mse': mse.numpy(),
-                    'train/tau': tau,
-                    'train/lr_dvae': model.dvae_optimizer.lr.numpy(),
-                    'train/lr_main': model.main_optimizer.lr.numpy(),
-                    'train/itr': global_step
-                    }, step=global_step)
+            recon, attns, tau = model.train_step(image, global_step, args)
 
         t0 = time.time()
         gen_img = model.reconstruct_autoregressive(image[:32])

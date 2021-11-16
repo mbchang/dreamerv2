@@ -6,9 +6,12 @@ from transformer import PositionalEncoding, TransformerDecoder
 import utils
 
 from einops import rearrange, repeat
+from loguru import logger as lgr
 import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as layers
+import time
+import wandb
 
 class SlotModel(layers.Layer):
 
@@ -193,6 +196,8 @@ class SLATE(layers.Layer):
 
     # later replace this with train_args?
     def train_step(self, image, global_step, args):
+        t0 = time.time()
+
         tau = utils.cosine_anneal(
             global_step,
             args.tau_start,
@@ -224,8 +229,21 @@ class SLATE(layers.Layer):
         _, _, H_enc, W_enc = z_hard.shape
         attns = overlay_attention(attns, image, H_enc, W_enc)
 
-        return loss, mse, cross_entropy, recon, attns, tau
+        if global_step % args.log_interval == 0:
+            lgr.info('Train Step: {:3} \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
+                  global_step, loss.numpy(), mse.numpy(), time.time()-t0))
 
+            wandb.log({
+                'train/loss': loss.numpy(),
+                'train/cross_entropy': cross_entropy.numpy(),
+                'train/mse': mse.numpy(),
+                'train/tau': tau,
+                'train/lr_dvae': self.dvae_optimizer.lr.numpy(),
+                'train/lr_main': self.main_optimizer.lr.numpy(),
+                'train/itr': global_step
+                }, step=global_step)
+
+        return recon, attns, tau
 
     def train(self):
         self.training = True
