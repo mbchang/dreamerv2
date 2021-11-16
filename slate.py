@@ -236,18 +236,18 @@ class SLATE(layers.Layer):
         t0 = time.time()
 
         tau = utils.cosine_anneal(
-            global_step,
-            args.dvae.tau_start,
-            args.dvae.tau_final,
-            0,
-            args.dvae.tau_steps)
+            step=global_step,
+            start_value=args.dvae.tau_start,
+            final_value=args.dvae.tau_final,
+            start_step=0,
+            final_step=args.dvae.tau_steps)
 
         lr_warmup_factor = utils.linear_warmup(
-            global_step,
-            0.,
-            1.0,
-            0,
-            args.slot_model.lr_warmup_steps)
+            step=global_step,
+            start_value=0.,
+            final_value=1.0,
+            start_step=0,
+            final_step=args.slot_model.lr_warmup_steps)
 
         self.dvae_optimizer.lr = utils.f32(args.lr_decay_factor * args.dvae.lr)
         self.main_optimizer.lr = utils.f32(args.lr_decay_factor * lr_warmup_factor * args.slot_model.lr)
