@@ -147,10 +147,6 @@ def overlay_attention(attns, image, H_enc, W_enc):
 
 class SLATE(layers.Layer):
 
-    # optim
-    # training
-    # model args
-
     @staticmethod
     def get_default_args():
         default_args = ml_collections.ConfigDict(dict(
