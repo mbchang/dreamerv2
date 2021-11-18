@@ -139,8 +139,7 @@ def create_tokens(z_hard):
 def overlay_attention(attns, image, H_enc, W_enc):
     B, C, H, W = image.shape
     attns = rearrange(attns, 'b hw k -> b k hw')
-    attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
-    attns = repeat(attns, 'b k h w -> b k c h w', c=3)  # 3 is img_channels
+    attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k 1 h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
     attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
     return attns
 
