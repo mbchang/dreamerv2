@@ -41,8 +41,8 @@ args = ml_collections.ConfigDict(dict(
 
     checkpoint_path='checkpoint.pt.tar',
     log_path='logs',
-    # data_path='../slate_data/3dshapes.h5',
-    data_path='../ball_data/whiteballpush/U-Dk4s0n2000t10_ab',
+    data_path='../slate_data/3dshapes.h5',
+    # data_path='../ball_data/whiteballpush/U-Dk4s0n2000t10_ab',
 
     slate=slate.SLATE.get_default_args(),
 
@@ -232,11 +232,10 @@ def main(argv):
                     'train/itr': global_step
                     }, step=global_step)
 
-            break
-
         t0 = time.time()
         gen_img = model.reconstruct_autoregressive(image[:32])
         lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
+        lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
         vis_recon = utils.visualize(
             train_loader.unnormalize_obs(image), 
             train_loader.unnormalize_obs(recon), 
