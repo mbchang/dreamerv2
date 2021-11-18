@@ -254,7 +254,6 @@ class SLATE(layers.Layer):
     # later replace this with train_args?
     def train_step(self, image):
         # global_step should be the same as self.step
-        t0 = time.time()
 
         tau = utils.cosine_anneal(
             step=self.step.numpy(),
@@ -284,26 +283,25 @@ class SLATE(layers.Layer):
 
         loss = mse + cross_entropy
 
-        _, _, H_enc, W_enc = z_hard.shape
-        attns = overlay_attention(attns, image, H_enc, W_enc)
-
-        if self.step % self.args.log_interval == 0:
-            lgr.info('Train Step: {:3} \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
-                  self.step.numpy(), loss.numpy(), mse.numpy(), time.time()-t0))
-
-            wandb.log({
-                'train/loss': loss.numpy(),
-                'train/cross_entropy': cross_entropy.numpy(),
-                'train/mse': mse.numpy(),
-                'train/tau': tau,
-                'train/lr': self.dvae_optimizer.lr.numpy(),
-                'train/lr_main': self.main_optimizer.lr.numpy(),
-                'train/itr': self.step.numpy()
-                }, step=self.step.numpy())
+        outputs = dict(
+            dvae=dict(
+                recon=recon,
+                z_hard=z_hard),
+            slot_model=dict(
+                attns=attns,
+                ),
+            iterates=dict(
+                tau=tau,
+                lr_warmup_factor=lr_warmup_factor)
+            )
+        metrics = dict(
+            mse=mse,
+            cross_entropy=cross_entropy,
+            loss=loss)
 
         self.step.assign_add(1)
 
-        return recon, attns, tau
+        return loss, outputs, metrics
 
     def train(self):
         self.training = True

@@ -201,7 +201,36 @@ def main(argv):
                 image = image['image']
 
             global_step = epoch * train_epoch_size + batch
-            recon, attns, tau = model.train_step(image)#, args.slate)
+
+
+            t0 = time.time()
+
+            loss, outputs, metrics = model.train_step(image)
+
+            recon = outputs['dvae']['recon']
+            z_hard = outputs['dvae']['z_hard']
+            attns = outputs['slot_model']['attns']
+            tau = outputs['iterates']['tau']
+
+            mse = metrics['mse']
+            cross_entropy = metrics['cross_entropy']
+
+            _, _, H_enc, W_enc = z_hard.shape
+            attns = slate.overlay_attention(attns, image, H_enc, W_enc)
+
+            if global_step % args.slate.log_interval == 0:
+                lgr.info('Train Step: {:3} \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
+                      global_step, loss.numpy(), mse.numpy(), time.time()-t0))
+
+                wandb.log({
+                    'train/loss': loss.numpy(),
+                    'train/cross_entropy': cross_entropy.numpy(),
+                    'train/mse': mse.numpy(),
+                    'train/tau': tau,
+                    'train/lr': model.dvae_optimizer.lr.numpy(),
+                    'train/lr_main': model.main_optimizer.lr.numpy(),
+                    'train/itr': global_step
+                    }, step=global_step)
 
         t0 = time.time()
         gen_img = model.reconstruct_autoregressive(image[:32])
@@ -210,7 +239,8 @@ def main(argv):
             train_loader.unnormalize_obs(image), 
             train_loader.unnormalize_obs(recon), 
             train_loader.unnormalize_obs(gen_img), 
-            attns, N=32)
+            attns, 
+            N=32)
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
         
         if args.eval:
@@ -263,7 +293,8 @@ def main(argv):
                         train_loader.unnormalize_obs(image), 
                         train_loader.unnormalize_obs(recon), 
                         train_loader.unnormalize_obs(gen_img), 
-                        attns, N=32)
+                        attns, 
+                        N=32)
                     writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
 
             else:
