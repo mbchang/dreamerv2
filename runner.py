@@ -536,6 +536,28 @@ def try_on_dmc_manip_bigmodel_after_fix_visualization_11_17_21():
     r.add_flag('args.log_path', ['logs/try_on_dmc_manip_bigmodel_after_fix_visualization'])
     r.generate_commands(args.for_real)
 
+def try_on_dmc_manip_finger_11_17_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('args.data_path', ['../dmc_data/data/t_dmc_finger_turn_easy/B3_T6_20211117181433'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.slate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_on_dmc_manip_finger'])
+    r.generate_commands(args.for_real)
+
+def try_on_dmc_manip_reach_site_11_17_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('args.data_path', ['../dmc_data/data/t_dmc_manip_reach_site/B3_T6_20211117181049'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.slate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_on_dmc_manip_reach_site'])
+    r.generate_commands(args.for_real)
+
 
 if __name__ == '__main__':
     # does_jit_really_make_the_difference_11_11_21()
@@ -565,7 +587,9 @@ if __name__ == '__main__':
     # try_on_balls_data_unnormalized_11_15_21()
     # try_on_dmc_manip_normalized_11_15_21()
     # try_on_dmc_manip_bigmodel_11_15_21()
-    # try_on_shapes3d_again_11_17_21()
-    try_on_balls_data_normalized_after_fix_visualization_11_17_21()
-    try_on_dmc_manip_normalized_after_fix_visualization_11_17_21()
-    try_on_dmc_manip_bigmodel_after_fix_visualization_11_17_21()
+    try_on_shapes3d_again_11_17_21()
+    # try_on_balls_data_normalized_after_fix_visualization_11_17_21()
+    # try_on_dmc_manip_normalized_after_fix_visualization_11_17_21()
+    # try_on_dmc_manip_bigmodel_after_fix_visualization_11_17_21()
+    # try_on_dmc_manip_finger_11_17_21()
+    # try_on_dmc_manip_reach_site_11_17_21()
