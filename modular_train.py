@@ -41,8 +41,8 @@ args = ml_collections.ConfigDict(dict(
 
     checkpoint_path='checkpoint.pt.tar',
     log_path='logs',
-    data_path='../slate_data/3dshapes.h5',
-    # data_path='../ball_data/whiteballpush/U-Dk4s0n2000t10_ab',
+    # data_path='../slate_data/3dshapes.h5',
+    data_path='../ball_data/whiteballpush/U-Dk4s0n2000t10_ab',
 
     slate=slate.SLATE.get_default_args(),
 
@@ -216,7 +216,7 @@ def main(argv):
             cross_entropy = metrics['cross_entropy']
 
             _, _, H_enc, W_enc = z_hard.shape
-            attns = slate.overlay_attention(attns, image, H_enc, W_enc)
+            attns = slate.overlay_attention(attns, train_loader.unnormalize_obs(image), H_enc, W_enc)
 
             if global_step % args.slate.log_interval == 0:
                 lgr.info('Train Step: {:3} \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
@@ -231,6 +231,8 @@ def main(argv):
                     'train/lr_main': model.main_optimizer.lr.numpy(),
                     'train/itr': global_step
                     }, step=global_step)
+
+            break
 
         t0 = time.time()
         gen_img = model.reconstruct_autoregressive(image[:32])
