@@ -147,6 +147,29 @@ def overlay_attention(attns, image, H_enc, W_enc):
 
 class SLATE(layers.Layer):
 
+    # if args.debug:
+    #     args.epochs = 2
+    #     args.slate.log_interval = 8
+
+    #     args.slate.batch_size = 5
+
+    #     args.slate.slot_model.lr_warmup_steps = 3
+
+    #     args.slate.vocab_size = 32
+    #     args.slate.slot_model.d_model = 16
+    #     args.slate.slot_model.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
+
+    #     args.slate.slot_model.slot_attn.num_iterations = 2
+    #     args.slate.slot_model.slot_size = 16
+    #     args.slate.dvae.tau_steps = 3
+
+    #     args.cpu = True
+    #     args.headless = False
+
+    #     prefix = 'db_'
+    # else:
+    #     prefix = ''
+
     @staticmethod
     def get_default_args():
         default_args = ml_collections.ConfigDict(dict(
@@ -175,6 +198,7 @@ class SLATE(layers.Layer):
         self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
 
         self.training = False
+        self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
 
     def call(self, image: tf.Tensor, tau: tf.Tensor, hard: bool):
         """
@@ -229,18 +253,19 @@ class SLATE(layers.Layer):
         return recon_transformer
 
     # later replace this with train_args?
-    def train_step(self, image, global_step):
+    def train_step(self, image):
+        # global_step should be the same as self.step
         t0 = time.time()
 
         tau = utils.cosine_anneal(
-            step=global_step,
+            step=self.step.numpy(),
             start_value=self.args.dvae.tau_start,
             final_value=self.args.dvae.tau_final,
             start_step=0,
             final_step=self.args.dvae.tau_steps)
 
         lr_warmup_factor = utils.linear_warmup(
-            step=global_step,
+            step=self.step.numpy(),
             start_value=0.,
             final_value=1.0,
             start_step=0,
@@ -263,9 +288,9 @@ class SLATE(layers.Layer):
         _, _, H_enc, W_enc = z_hard.shape
         attns = overlay_attention(attns, image, H_enc, W_enc)
 
-        if global_step % self.args.log_interval == 0:
+        if self.step % self.args.log_interval == 0:
             lgr.info('Train Step: {:3} \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
-                  global_step, loss.numpy(), mse.numpy(), time.time()-t0))
+                  self.step.numpy(), loss.numpy(), mse.numpy(), time.time()-t0))
 
             wandb.log({
                 'train/loss': loss.numpy(),
@@ -274,8 +299,10 @@ class SLATE(layers.Layer):
                 'train/tau': tau,
                 'train/lr': self.dvae_optimizer.lr.numpy(),
                 'train/lr_main': self.main_optimizer.lr.numpy(),
-                'train/itr': global_step
-                }, step=global_step)
+                'train/itr': self.step.numpy()
+                }, step=self.step.numpy())
+
+        self.step.assign_add(1)
 
         return recon, attns, tau
 
