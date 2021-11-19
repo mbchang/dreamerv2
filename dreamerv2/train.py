@@ -44,7 +44,13 @@ def add_programmatically_generated_configs(parsed, configs):
     sys.path.append(os.path.join(str(pathlib.Path(__file__).parent), 'sandbox'))
     from sandbox.slot_attention_learners import FactorizedWorldModel
     configs['defaults']['fwm'] = FactorizedWorldModel.get_default_args().to_dict()
-  
+  elif 'slate' in parsed.configs:
+    sys.path.append(str(pathlib.Path(__file__).parent / 'sandbox' / 'tf_slate'))
+    from slate import SLATE
+    if 'debug' in parsed.configs:
+      configs['defaults']['slate'] = SLATE.defaults_debug().to_dict()
+    else:
+      configs['defaults']['slate'] = SLATE.defaults().to_dict()
   configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   return configs
 
@@ -299,5 +305,5 @@ if __name__ == '__main__':
   main()
 
 """
-python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_place_cradle --agent causal
+python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal
 """

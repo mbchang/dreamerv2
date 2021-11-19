@@ -208,3 +208,8 @@ fwm:
     wm_only: True
     wm: fwm
     precision: 32
+
+slate:
+  wm_only: True
+  wm: slate
+  precision: 32

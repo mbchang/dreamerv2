@@ -23,6 +23,9 @@ class CausalAgent(common.Module):
     elif config.wm == 'fwm':
       from sandbox import dreamer_wrapper
       self.wm = dreamer_wrapper.FactorizedWorldModelWrapperForDreamer(config, obs_space, self.tfstep)
+    elif config.wm == 'slate':
+      from sandbox import slate_wrapper
+      self.wm = slate_wrapper.SlateWrapperForDreamer(config, obs_space, self.tfstep)
     else:
       raise NotImplementedError
 
@@ -36,7 +39,7 @@ class CausalAgent(common.Module):
 
   @tf.function
   def policy(self, obs, state=None, mode='train'):
-    if self.config.wm == 'fwm' and self.config.wm_only:
+    if self.config.wm in ['fwm', 'slate'] and self.config.wm_only:
       random_policy = common.RandomAgent({'action': self.act_space})
       return random_policy(obs, state)
     else:
