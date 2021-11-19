@@ -156,16 +156,6 @@ def overlay_attention(attns, image, H_enc, W_enc):
 
 class SLATE(layers.Layer):
 
-    # if args.debug:
-    #     args.epochs = 2
-
-    #     args.cpu = True
-    #     args.headless = False
-
-    #     prefix = 'db_'
-    # else:
-    #     prefix = ''
-
     @staticmethod
     def get_debug_args():
         debug_args = SLATE.get_default_args()

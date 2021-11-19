@@ -59,21 +59,6 @@ def main(argv):
     if args.debug:
         args.epochs = 2
 
-
-
-        # args.slate.log_interval = 8
-
-        # args.slate.batch_size = 5
-
-        # args.slate.slot_model.lr_warmup_steps = 3
-
-        # args.slate.vocab_size = 32
-        # args.slate.slot_model.d_model = 16
-        # args.slate.slot_model.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
-
-        # args.slate.slot_model.slot_attn.num_iterations = 2
-        # args.slate.slot_model.slot_size = 16
-        # args.slate.dvae.tau_steps = 3
         args.slate = slate.SLATE.get_debug_args()
 
         args.cpu = True
