@@ -1254,6 +1254,9 @@ def find_good_hyperparams_for_dmc3_11_7_21():
 
 def find_good_hyperparams_for_dmc4_11_7_21():
     """
+        conclusion: 
+            lr 5e-3 too high
+
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3, 4, 5, 6, 7])
     r.add_flag('configs', ['dmc_vision fwm'])
@@ -1384,9 +1387,9 @@ def can_it_model_the_balls_environment_that_have_reward_11_8_21():
 
           the resetted_states replace the prior rather than the posterior
     """
-    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 0, 0, 1])
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 0, 0, 0])
     r.add_flag('configs', ['dmc_vision fwm'])
-    r.add_flag('task', ['vmballs_simple_box4', 'vmballs_simple_box'])
+    r.add_flag('task', ['vmballs_simple_box4'])
     r.add_flag('agent', ['causal'])
     r.add_flag('prefill', [20000])
     r.add_flag('dataset.length', [3])
@@ -1412,6 +1415,191 @@ def can_it_model_the_balls_environment_that_have_reward_11_8_21():
     ]
     r.add_flag('watch', [' '.join(to_watch)])
     r.generate_commands(args.for_real)
+
+def make_sure_dreamer_can_solve_ball_environments_11_8_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[3])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['vmballs_simple_box4', 'vmballs_simple_box'])
+    r.add_flag('agent', ['causal'])
+
+    r.add_flag('logdir', ['runs/make_sure_dreamer_can_solve_ball_environments'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+def can_dreamer_solve_manip_reach_site_11_8_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_manip_reach_site'])
+    r.add_flag('agent', ['causal'])
+
+    r.add_flag('logdir', ['runs/can_dreamer_solve_manip_reach_site'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+def can_it_model_the_balls_environment_that_have_reward2_11_9_21():
+    """
+        these are the defaults
+          batch_size=16,
+          decay_rate=0.5,
+          decay_steps=10000,
+          learning_rate=5e-4,
+          num_train_steps=500000,
+          warmup_steps=10000,
+          min_lr=1e-4,
+
+          the resetted_states replace the prior rather than the posterior
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 3])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['vmballs_simple_box4', 'vmballs_simple_box'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [32])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+    r.add_flag('fwm.model.encoder_type', ['slim'])
+
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+
+    r.add_flag('logdir', ['runs/can_it_model_the_balls_environment_that_have_reward'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'fwm.optim.learning_rate',
+        'fwm.optim.warmup_steps',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.update_step.temp',
+        'fwm.optim.min_lr',
+        'fwm.model.encoder_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def find_good_hyperparams_for_dmc5_11_7_21():
+    """
+        model dim 128
+
+        if we have space we can try scaling up more 
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3, 4, 5, 6, 7])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_manip_reach_site'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+    r.add_flag('fwm.optim.learning_rate', [1e-3, 5e-4])
+    r.add_flag('fwm.optim.min_lr', [1e-4])
+    r.add_flag('fwm.model.encoder_type', ['default'])
+    r.add_flag('fwm.model.update_step.temp', [0.5])
+    r.add_flag('dataset.batch', [32])
+    r.add_flag('fwm.optim.decay_steps', [10000, 25000])
+    r.add_flag('fwm.model.dim', [128])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_dmc'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'fwm.optim.learning_rate',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.update_step.temp',
+        'fwm.model.dim',
+        'fwm.model.encoder_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def find_good_hyperparams_for_finger_11_7_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3, 4, 5, 6, 7])
+    r.add_flag('configs', ['dmc_vision fwm'])
+    r.add_flag('task', ['dmc_finger_turn_easy'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.length', [3])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('fwm.model.posterior_loss', [True, False])
+    r.add_flag('fwm.optim.learning_rate', [1e-3, 5e-4])
+    r.add_flag('fwm.optim.min_lr', [1e-4])
+    r.add_flag('fwm.model.encoder_type', ['default'])
+    r.add_flag('fwm.model.update_step.temp', [0.5])
+    r.add_flag('dataset.batch', [32])
+    r.add_flag('fwm.optim.decay_steps', [10000, 25000])
+    r.add_flag('fwm.model.dim', [96])
+
+    r.add_flag('logdir', ['runs/find_good_hyperparams_for_finger'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'fwm.optim.learning_rate',
+        'fwm.optim.decay_steps',
+        'fwm.model.posterior_loss',
+        'fwm.model.update_step.temp',
+        'fwm.model.dim',
+        'fwm.model.encoder_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+def can_dreamer_solve_finger_turn_easy_11_8_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_finger_turn_easy'])
+    r.add_flag('agent', ['causal'])
+
+    r.add_flag('logdir', ['runs/can_dreamer_solve_finger_turn_easy'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def generate_data_dmc_manip_reach_site_11_17_21():
+    """
+    CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
+    """
+    pass
+
+def generate_data_dmc_finger_turn_easy_11_17_21():
+    """
+    CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_finger_turn_easy --agent causal --prefill 20000 --cpu=False --headless=True
+    """
+    pass
 
 
 if __name__ == '__main__':
@@ -1449,8 +1637,14 @@ if __name__ == '__main__':
     # find_good_hyperparams_for_dmc4_11_7_21()
     # make_sure_reset_state_when_isfirstTrue_did_not_break_anything_balls_11_8_21()
     # make_sure_reset_state_when_isfirstTrue_did_not_break_anything_fixed_bug_11_8_21()
-    can_it_model_the_balls_environment_that_have_reward_11_8_21()
+    # can_it_model_the_balls_environment_that_have_reward_11_8_21()
+    # make_sure_dreamer_can_solve_ball_environments_11_8_21()
+    # can_dreamer_solve_manip_reach_site_11_8_21()
+    # can_it_model_the_balls_environment_that_have_reward2_11_9_21()
+    # find_good_hyperparams_for_dmc5_11_7_21()
+    # find_good_hyperparams_for_finger_11_7_21()
+    can_dreamer_solve_finger_turn_easy_11_8_21()
 
-
+# CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
 
