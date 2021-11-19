@@ -176,6 +176,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
           posterior_loss=True,  # True for slim
           overshooting_loss=True,
           update_step=sa.SlotAttention.get_default_args(),
+          handle_first=True,
           )),
         sess=ml_collections.ConfigDict(dict(
           num_slots=5,
@@ -241,6 +242,7 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     super().__init__()
     self.posterior_loss = cfg.posterior_loss
     self.overshooting_loss = cfg.overshooting_loss
+    self.handle_first = cfg.handle_first
 
     if cfg.encoder_type == 'default':
       self.encoder = sa.SlotAttentionEncoder(cfg.resolution, cfg.dim)
@@ -396,9 +398,10 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     prior = self.img_step(prev_state, prev_action)
 
     # handle first
-    resetted_states = self.slot_attention.reset(batch_size=prev_state.shape[0])
-    mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
-    prior = mask * resetted_states + (1 - mask) * prior
+    if self.handle_first:
+      resetted_states = self.slot_attention.reset(batch_size=prev_state.shape[0])
+      mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
+      prior = mask * resetted_states + (1 - mask) * prior
 
     # posterior t' to t
     post = self.slot_attention(prior, embed)
