@@ -30,6 +30,7 @@ def create_expname(args):
         'rssm.stoch': 'S',
         'rssm.discrete': 'V',
         'seed': 's',
+        'fwm.model.dim': 'd',
     }
     watcher = watch(args.watch, abbrvs)
     expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'
