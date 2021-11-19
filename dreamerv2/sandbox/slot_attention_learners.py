@@ -249,8 +249,8 @@ class FactorizedWorldModel(layers.Layer, sa.Factorized):
     else:
       raise NotImplementedError
 
-    assert cfg.dim == cfg.update_step.slot_size
-    self.slot_attention = sa.SlotAttention(cfg.update_step)
+    # assert cfg.dim == cfg.update_step.slot_size
+    self.slot_attention = sa.SlotAttention(cfg.dim, cfg.update_step)
 
     if cfg.decoder_type == 'default':
       self.decoder = sa.SlotAttentionDecoder(cfg.dim, cfg.resolution)
