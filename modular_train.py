@@ -137,16 +137,16 @@ def main(argv):
             dataset = databuilder(root=args.data_path, phase='val'), batch_size=args.slate.batch_size)
         train_epoch_size = len(train_loader)
         val_epoch_size = len(val_loader)
-    elif 'ball' in args.data_path:
-        args.eval = False
-        assert not args.eval
-        train_loader = dataloading.WhiteBallDataLoader(h5=h5py.File(f'{args.data_path}.h5', 'r'), batch_size=args.slate.batch_size)
-        if args.debug:
-            train_loader.num_batches = 80
-            train_epoch_size = 80
-        else:
-            train_loader.num_batches = 8000
-            train_epoch_size = 8000
+    # elif 'ball' in args.data_path:
+    #     args.eval = False
+    #     assert not args.eval
+    #     train_loader = dataloading.WhiteBallDataLoader(h5=h5py.File(f'{args.data_path}.h5', 'r'), batch_size=args.slate.batch_size)
+    #     if args.debug:
+    #         train_loader.num_batches = 80
+    #         train_epoch_size = 80
+    #     else:
+    #         train_loader.num_batches = 8000
+    #         train_epoch_size = 8000
     elif 'dmc' in args.data_path:
         args.eval = False
         assert not args.eval

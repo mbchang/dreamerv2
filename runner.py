@@ -76,7 +76,7 @@ class Runner():
                 i = (i + 1) % len(self.gpus)
             j += 1
 
-            time.sleep(1e-3)
+            time.sleep(2)
 
         print('Launched {} jobs'.format(j))
 
@@ -125,7 +125,7 @@ class RunnerWithIDs(Runner):
                         i = (i + 1) % len(self.gpus)
                     j += 1
 
-                    time.sleep(1e-3)
+                    time.sleep(2)
 
             print('Launched {} jobs'.format(j))
 
@@ -559,6 +559,62 @@ def try_on_dmc_manip_reach_site_11_17_21():
     r.generate_commands(args.for_real)
 
 
+
+
+
+
+
+
+
+def try_again_after_fix_moved_mlp_from_embed_tokens_11_18_21():
+    """
+    run on gauss1
+
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('args.data_path', ['../dmc_data/data/t_vmballs_simple_box4/B3_T6_20211118173439'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.eval', [False])
+    r.add_flag('args.slate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_again_after_fix_moved_mlp_from_embed_tokens_balls'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('args.data_path', ['../dmc_data/data/dmc_manip_place_cradle/wmoFalse_20211101153142'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.eval', [False])
+    r.add_flag('args.slate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_again_after_fix_moved_mlp_from_embed_tokens_cradle'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('args.data_path', ['../dmc_data/data/t_dmc_finger_turn_easy/B3_T6_20211118173345'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.eval', [False])
+    r.add_flag('args.slate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_again_after_fix_moved_mlp_from_embed_tokens_finger'])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('args.data_path', ['../dmc_data/data/t_dmc_manip_reach_site/B3_T6_20211118173250'])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.eval', [False])
+    r.add_flag('args.slate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('args.log_path', ['logs/try_again_after_fix_moved_mlp_from_embed_tokens_reachsite'])
+    r.generate_commands(args.for_real)
+
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
     # does_jit_really_make_the_difference_11_11_21()
     # what_if_we_just_jit_the_dvae_11_11_21()
@@ -587,9 +643,10 @@ if __name__ == '__main__':
     # try_on_balls_data_unnormalized_11_15_21()
     # try_on_dmc_manip_normalized_11_15_21()
     # try_on_dmc_manip_bigmodel_11_15_21()
-    try_on_shapes3d_again_11_17_21()
+    # try_on_shapes3d_again_11_17_21()
     # try_on_balls_data_normalized_after_fix_visualization_11_17_21()
     # try_on_dmc_manip_normalized_after_fix_visualization_11_17_21()
     # try_on_dmc_manip_bigmodel_after_fix_visualization_11_17_21()
     # try_on_dmc_manip_finger_11_17_21()
     # try_on_dmc_manip_reach_site_11_17_21()
+    try_again_after_fix_moved_mlp_from_embed_tokens_11_18_21()
