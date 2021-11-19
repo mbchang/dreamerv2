@@ -192,7 +192,7 @@ class TransformerDecoderBlock(tkl.Layer):
 class TransformerDecoder(tkl.Layer):
 
     @staticmethod
-    def get_obs_model_args_debug():
+    def obs_defaults_debug():
         default_args = ml_collections.ConfigDict(dict(
             num_blocks=2,
             num_heads=2,
@@ -201,7 +201,7 @@ class TransformerDecoder(tkl.Layer):
         return default_args
 
     @staticmethod
-    def get_obs_model_args():
+    def obs_defaults():
         default_args = ml_collections.ConfigDict(dict(
             num_blocks=4,
             num_heads=4,
@@ -210,7 +210,7 @@ class TransformerDecoder(tkl.Layer):
         return default_args
 
     @staticmethod
-    def get_dyn_model_args():
+    def dyn_defaults():
         default_args = ml_collections.ConfigDict(dict(
             num_blocks=4,
             num_heads=4,

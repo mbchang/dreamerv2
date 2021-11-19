@@ -44,7 +44,7 @@ args = ml_collections.ConfigDict(dict(
     data_path='../slate_data/3dshapes.h5',
     # data_path='../ball_data/whiteballpush/U-Dk4s0n2000t10_ab',
 
-    slate=slate.SLATE.get_default_args(),
+    slate=slate.SLATE.defaults(),
 
     cpu=False,
     headless=False,
@@ -59,7 +59,7 @@ def main(argv):
     if args.debug:
         args.epochs = 2
 
-        args.slate = slate.SLATE.get_debug_args()
+        args.slate = slate.SLATE.defaults_debug()
 
         args.cpu = True
         args.headless = False

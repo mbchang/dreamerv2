@@ -1,9 +1,6 @@
 from utils import *
-# from dvae import dVAE
 import dvae
-# from slot_attn import SlotAttention
 import slot_attn
-# from transformer import PositionalEncoding, TransformerDecoder
 import transformer
 import utils
 
@@ -18,17 +15,17 @@ import wandb
 class SlotModel(layers.Layer):
 
     @staticmethod
-    def get_debug_args():
-        debug_args = SlotModel.get_default_args()
+    def defaults_debug():
+        debug_args = SlotModel.defaults()
         debug_args.d_model = 16
         debug_args.slot_size = 16
         debug_args.lr_warmup_steps = 3
-        debug_args.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
-        debug_args.slot_attn=slot_attn.SlotAttention.get_debug_args()
+        debug_args.obs_transformer = transformer.TransformerDecoder.obs_defaults_debug()
+        debug_args.slot_attn=slot_attn.SlotAttention.defaults_debug()
         return debug_args
 
     @staticmethod
-    def get_default_args():
+    def defaults():
         default_args = ml_collections.ConfigDict(dict(
             lr=1e-4,
             lr_warmup_steps=30000,
@@ -36,9 +33,9 @@ class SlotModel(layers.Layer):
             d_model=192,
             dropout=0.1,
 
-            obs_transformer=transformer.TransformerDecoder.get_obs_model_args(),
+            obs_transformer=transformer.TransformerDecoder.obs_defaults(),
 
-            slot_attn=slot_attn.SlotAttention.get_default_args(),
+            slot_attn=slot_attn.SlotAttention.defaults(),
             slot_size=192,
             ))
         return default_args
@@ -157,17 +154,17 @@ def overlay_attention(attns, image, H_enc, W_enc):
 class SLATE(layers.Layer):
 
     @staticmethod
-    def get_debug_args():
-        debug_args = SLATE.get_default_args()
+    def defaults_debug():
+        debug_args = SLATE.defaults()
         debug_args.log_interval = 8
         debug_args.batch_size = 5
         debug_args.vocab_size = 32
-        debug_args.dvae = dvae.dVAE.get_debug_args()
-        debug_args.slot_model = SlotModel.get_debug_args()
+        debug_args.dvae = dvae.dVAE.defaults_debug()
+        debug_args.slot_model = SlotModel.defaults_debug()
         return debug_args
 
     @staticmethod
-    def get_default_args():
+    def defaults():
         default_args = ml_collections.ConfigDict(dict(
             log_interval=800,
 
@@ -178,8 +175,8 @@ class SLATE(layers.Layer):
             lr_decay_factor=1.0,
 
             vocab_size=1024,
-            dvae=dvae.dVAE.get_default_args(),
-            slot_model=SlotModel.get_default_args(),
+            dvae=dvae.dVAE.defaults(),
+            slot_model=SlotModel.defaults(),
             ))
         return default_args
 

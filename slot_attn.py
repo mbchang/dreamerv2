@@ -16,13 +16,13 @@ class Factorized(tf.Module):
 class SlotAttention(tkl.Layer, Factorized):
 
     @staticmethod
-    def get_debug_args():
-        debug_args = SlotAttention.get_default_args()
+    def defaults_debug():
+        debug_args = SlotAttention.defaults()
         debug_args.num_iterations = 2
         return debug_args
 
     @staticmethod
-    def get_default_args():
+    def defaults():
         default_args = ml_collections.ConfigDict(dict(
             num_iterations=3,
             num_slots=3,

@@ -8,13 +8,13 @@ import tensorflow.keras.layers as tkl
 class dVAE(tkl.Layer):
 
     @staticmethod
-    def get_debug_args():
-        debug_args = dVAE.get_default_args()
+    def defaults_debug():
+        debug_args = dVAE.defaults()
         debug_args.tau_steps=3
         return debug_args
 
     @staticmethod
-    def get_default_args():
+    def defaults():
         default_args = ml_collections.ConfigDict(dict(
             lr=3e-4,
 
