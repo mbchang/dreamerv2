@@ -18,6 +18,16 @@ import wandb
 class SlotModel(layers.Layer):
 
     @staticmethod
+    def get_debug_args():
+        debug_args = SlotModel.get_default_args()
+        debug_args.d_model = 16
+        debug_args.slot_size = 16
+        debug_args.lr_warmup_steps = 3
+        debug_args.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
+        debug_args.slot_attn=slot_attn.SlotAttention.get_debug_args()
+        return debug_args
+
+    @staticmethod
     def get_default_args():
         default_args = ml_collections.ConfigDict(dict(
             lr=1e-4,
@@ -148,19 +158,6 @@ class SLATE(layers.Layer):
 
     # if args.debug:
     #     args.epochs = 2
-    #     args.slate.log_interval = 8
-
-    #     args.slate.batch_size = 5
-
-    #     args.slate.slot_model.lr_warmup_steps = 3
-
-    #     args.slate.vocab_size = 32
-    #     args.slate.slot_model.d_model = 16
-    #     args.slate.slot_model.obs_transformer = transformer.TransformerDecoder.get_obs_model_args_debug()
-
-    #     args.slate.slot_model.slot_attn.num_iterations = 2
-    #     args.slate.slot_model.slot_size = 16
-    #     args.slate.dvae.tau_steps = 3
 
     #     args.cpu = True
     #     args.headless = False
@@ -168,6 +165,16 @@ class SLATE(layers.Layer):
     #     prefix = 'db_'
     # else:
     #     prefix = ''
+
+    @staticmethod
+    def get_debug_args():
+        debug_args = SLATE.get_default_args()
+        debug_args.log_interval = 8
+        debug_args.batch_size = 5
+        debug_args.vocab_size = 32
+        debug_args.dvae = dvae.dVAE.get_debug_args()
+        debug_args.slot_model = SlotModel.get_debug_args()
+        return debug_args
 
     @staticmethod
     def get_default_args():
