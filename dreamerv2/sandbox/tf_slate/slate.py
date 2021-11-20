@@ -69,7 +69,6 @@ class SlotModel(layers.Layer):
     def embed_tokens(self, tokens):
         emb_input = self.dictionary(tokens)
         emb_input = self.positional_encoder(emb_input, training=self.training)
-        # emb_input = self.token_mlp(self.layer_norm(emb_input))
         return emb_input
 
     def apply_slot_attn(self, emb_input):
@@ -197,8 +196,6 @@ class SLATE(layers.Layer):
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
         attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
 
-        # attns = overlay_attention(attns, image, H_enc, W_enc)
-
         return (
             recon,
             cross_entropy,
@@ -230,11 +227,6 @@ class SLATE(layers.Layer):
         z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=H_enc, w=W_enc), tf.float32)
 
         recon_transformer = self.dvae.decoder(z_gen)
-
-        # attns = overlay_attention(attns, image, H_enc, W_enc)
-
-        # if eval:
-        #     return recon_transformer, attns
 
         return recon_transformer
 
