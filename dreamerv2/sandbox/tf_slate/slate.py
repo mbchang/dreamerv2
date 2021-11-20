@@ -172,4 +172,90 @@ class SLATE(layers.Layer):
 
 
 class DynamicSLATE(SLATE):
-    pass
+
+    def __init__(self, args):
+        layers.Layer.__init__(self)
+        self.args = args
+
+        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
+        self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
+
+        self.slot_model = slot_model.DynamicSlotModel(args.vocab_size, (args.image_size // 4) ** 2, args.slot_model)
+        self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
+
+        self.training = False
+        self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
+
+
+    def train_step(self, data):
+        """
+          reward (B, T)
+          is_first (B, T)
+          is_last (B, T)
+          is_terminal (B, T)
+          image (B, T, H, W, C)
+          orientations (B, T, D)
+          height (B, T)
+          velocity (B, T, V)
+          action (B, T, A)
+        """
+        # global_step should be the same as self.step
+
+        B, T, _ = data['action'].shape
+
+        tau = cosine_anneal(
+            step=self.step.numpy(),
+            start_value=self.args.dvae.tau_start,
+            final_value=self.args.dvae.tau_final,
+            start_step=0,
+            final_step=self.args.dvae.tau_steps)
+
+        lr_warmup_factor = linear_warmup(
+            step=self.step.numpy(),
+            start_value=0.,
+            final_value=1.0,
+            start_step=0,
+            final_step=self.args.slot_model.lr_warmup_steps)
+
+        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
+        self.main_optimizer.lr = f32(self.args.lr_decay_factor * lr_warmup_factor * self.args.slot_model.lr)
+
+        image = rearrange(data['image'], 'b t h w c -> (b t) c h w')
+        recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
+        self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
+
+        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+
+        """
+        b 3
+        t 8
+        z_hard (24, 32, 16, 16)
+        z_transformer_input (24, 257, 33)
+        z_transformer_target (24, 256, 32)
+        """
+
+        attns, cross_entropy, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
+        # NOTE: if we put this inside tf.function then the performance becomes very bad
+        self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
+
+        loss = mse + cross_entropy
+
+        outputs = dict(
+            dvae=dict(
+                recon=recon,
+                z_hard=z_hard),
+            slot_model=dict(
+                attns=attns,
+                ),
+            iterates=dict(
+                tau=tau,
+                lr_warmup_factor=lr_warmup_factor)
+            )
+        metrics = dict(
+            mse=mse,
+            cross_entropy=cross_entropy,
+            loss=loss)
+
+        self.step.assign_add(1)
+
+        return loss, outputs, metrics

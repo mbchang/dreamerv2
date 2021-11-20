@@ -142,10 +142,9 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     # TODO: make is_first flag the first action
 
     # do this for now
-    image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
 
     # train step
-    loss, outputs, mets = self.model.train_step(image)  
+    loss, outputs, mets = self.model.train_step(data)  
     # state is dummy
     state = None
 
