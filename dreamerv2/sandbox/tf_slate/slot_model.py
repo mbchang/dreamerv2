@@ -6,6 +6,20 @@ import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as layers
 
+class OneHotDictionary(layers.Layer):
+    def __init__(self, vocab_size, emb_size):
+        super().__init__()
+        self.dictionary = layers.Embedding(vocab_size, emb_size)
+
+    def call(self, x):
+        """
+        x: B, N, vocab_size
+        """
+        tokens = tf.math.argmax(x, axis=-1)
+        token_embs = self.dictionary(tokens)  # batch_size x N x emb_size
+        return token_embs
+
+
 class SlotModel(layers.Layer):
 
     @staticmethod
@@ -123,17 +137,3 @@ class SlotModel(layers.Layer):
     def eval(self):
         self.training = False
 
-
-
-class OneHotDictionary(layers.Layer):
-    def __init__(self, vocab_size, emb_size):
-        super().__init__()
-        self.dictionary = layers.Embedding(vocab_size, emb_size)
-
-    def call(self, x):
-        """
-        x: B, N, vocab_size
-        """
-        tokens = tf.math.argmax(x, axis=-1)
-        token_embs = self.dictionary(tokens)  # batch_size x N x emb_size
-        return token_embs
