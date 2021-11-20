@@ -1,13 +1,18 @@
 import math
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from einops import rearrange
+from loguru import logger as lgr
+import numpy as np
 import tensorflow as tf
 import tensorflow.keras.layers as tkl
 import tensorflow.keras.activations as tka
 import tensorflow_addons as tfa
+
+import slate
 
 ########################################################################
 ## Training utils
@@ -48,6 +53,15 @@ def cosine_anneal(step, start_value, final_value, start_step, final_step):
     return value
 
 
+def f32(x):
+    return tf.cast(x, tf.float32)
+
+
+########################################################################
+## Visualization utils
+########################################################################
+
+
 def visualize(image, recon_orig, gen, attns, N=8):
     unsqueeze = lambda x: rearrange(x, 'b c h w -> b 1 c h w')
     image, recon_orig, gen = map(unsqueeze, (image[:N], recon_orig[:N], gen[:N]))
@@ -55,8 +69,31 @@ def visualize(image, recon_orig, gen, attns, N=8):
     return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
 
 
-def f32(x):
-    return tf.cast(x, tf.float32)
+def overlay_attention(attns, image, H_enc, W_enc):
+    B, C, H, W = image.shape
+    attns = rearrange(attns, 'b hw k -> b k hw')
+    attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k 1 h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
+    attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
+    return attns
+
+
+def report(image, attns, recon, z_hard, model, preproc, n, prefix, verbose):
+    """
+    Ideally this should just take the data as input only
+    """
+    _, _, H_enc, W_enc = z_hard.shape
+    t0 = time.time()
+    gen_img = model.reconstruct_autoregressive(image[:n])
+    if verbose:
+        lgr.info(f'{prefix}: Autoregressive generation took {time.time() - t0} seconds.')
+        lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
+    vis_recon = visualize(
+        preproc(image), 
+        preproc(recon), 
+        preproc(gen_img), 
+        overlay_attention(attns, preproc(image), H_enc, W_enc), 
+        N=n)
+    return vis_recon
 
 
 ########################################################################
