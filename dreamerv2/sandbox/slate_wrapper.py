@@ -71,7 +71,10 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
       'post_ent': 0,
       
       'slate/loss': loss,
-      'slate/learning_rate': self.model.main_optimizer.lr,
+      'slate/mse': mets['mse'],
+      'slate/cross_entropy': mets['cross_entropy'],
+      'slate/slot_model_lr': self.model.main_optimizer.lr,
+      'slate/dvae_lr': self.model.dvae_optimizer.lr,
       'slate/itr': self.model.step,
     }
 
