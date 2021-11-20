@@ -120,7 +120,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
   def __init__(self, config, obs_space, tfstep):
     self.config = config
     self.defaults = ml_collections.ConfigDict(self.config.dslate)
-    self.model = slate.SLATE(self.defaults)
+    self.model = slate.DynamicSLATE(self.defaults)
 
 
   def train(self, data, state=None):
