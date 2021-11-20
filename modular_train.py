@@ -55,6 +55,20 @@ args = ml_collections.ConfigDict(dict(
 FLAGS = flags.FLAGS
 config_flags.DEFINE_config_dict('args', args)
 
+def visualize(image, attns, recon, z_hard, model, preproc, n):
+    _, _, H_enc, W_enc = z_hard.shape
+    t0 = time.time()
+    gen_img = model.reconstruct_autoregressive(image[:n])
+    lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
+    lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
+    vis_recon = utils.visualize(
+        preproc(image), 
+        preproc(recon), 
+        preproc(gen_img), 
+        slate.overlay_attention(attns, preproc(image), H_enc, W_enc), 
+        N=n)
+    return vis_recon
+
 def main(argv):
     if args.debug:
         args.epochs = 2
@@ -204,8 +218,8 @@ def main(argv):
             mse = metrics['mse']
             cross_entropy = metrics['cross_entropy']
 
-            _, _, H_enc, W_enc = z_hard.shape
-            attns = slate.overlay_attention(attns, train_loader.unnormalize_obs(image), H_enc, W_enc)
+            # _, _, H_enc, W_enc = z_hard.shape
+            # attns = slate.overlay_attention(attns, train_loader.unnormalize_obs(image), H_enc, W_enc)
 
             if global_step % args.slate.log_interval == 0:
                 lgr.info('Train Step: {:3} \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(
@@ -221,16 +235,17 @@ def main(argv):
                     'train/itr': global_step
                     }, step=global_step)
 
-        t0 = time.time()
-        gen_img = model.reconstruct_autoregressive(image[:32])
-        lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
-        lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
-        vis_recon = utils.visualize(
-            train_loader.unnormalize_obs(image), 
-            train_loader.unnormalize_obs(recon), 
-            train_loader.unnormalize_obs(gen_img), 
-            attns, 
-            N=32)
+        # t0 = time.time()
+        # gen_img = model.reconstruct_autoregressive(image[:32])
+        # lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
+        # lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
+        # vis_recon = utils.visualize(
+        #     train_loader.unnormalize_obs(image), 
+        #     train_loader.unnormalize_obs(recon), 
+        #     train_loader.unnormalize_obs(gen_img), 
+        #     attns, 
+        #     N=32)
+        vis_recon = visualize(image, attns, recon, z_hard, model, train_loader.unnormalize_obs, n=32)
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
         
         if args.eval:
