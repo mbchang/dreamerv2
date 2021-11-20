@@ -65,8 +65,9 @@ class SlotModel(layers.Layer):
         emb_input = self.positional_encoder(emb_input, training=self.training)
         return emb_input
 
-    def apply_slot_attn(self, emb_input):
-        slots = self.slot_attn.reset(emb_input.shape[0])
+    def apply_slot_attn(self, emb_input, slots=None):
+        if slots is None:
+            slots = self.slot_attn.reset(emb_input.shape[0])
         slots, attns = self.slot_attn(self.token_mlp(self.layer_norm(emb_input[:, 1:])), slots)
         slots = self.slot_proj(slots)
         return slots, attns
