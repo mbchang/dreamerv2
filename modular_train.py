@@ -251,9 +251,9 @@ def main(argv):
                 if isinstance(image, dict):
                     image = image['image']
 
-                (recon_relax, cross_entropy_relax, mse_relax, attns_relax) = model(image, tf.constant(tau), False)
+                (_, cross_entropy_relax, mse_relax, _, _) = model(image, tf.constant(tau), False)
                 
-                (recon, cross_entropy, mse, attns) = model(image, tf.constant(tau), True)
+                (recon, cross_entropy, mse, attns, z_hard) = model(image, tf.constant(tau), True)
                 
                 val_cross_entropy_relax += cross_entropy_relax.numpy()
                 val_mse_relax += mse_relax.numpy()
@@ -279,16 +279,18 @@ def main(argv):
                 best_epoch = epoch + 1
 
                 # if 50 <= epoch:
-                t0 = time.time()
-                gen_img = model.reconstruct_autoregressive(image)
-                lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
-                lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
-                vis_recon = utils.visualize(
-                    train_loader.unnormalize_obs(image), 
-                    train_loader.unnormalize_obs(recon), 
-                    train_loader.unnormalize_obs(gen_img), 
-                    attns, 
-                    N=32)
+                # t0 = time.time()
+                # gen_img = model.reconstruct_autoregressive(image)
+                # lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
+                # lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
+                # vis_recon = utils.visualize(
+                #     train_loader.unnormalize_obs(image), 
+                #     train_loader.unnormalize_obs(recon), 
+                #     train_loader.unnormalize_obs(gen_img), 
+                #     attns, 
+                #     N=32)
+                vis_recon = visualize(image, attns, recon, z_hard, model, val_loader.unnormalize_obs, 
+                    n=32, prefix='VAL')
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
 
             else:
