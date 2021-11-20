@@ -55,23 +55,6 @@ args = ml_collections.ConfigDict(dict(
 FLAGS = flags.FLAGS
 config_flags.DEFINE_config_dict('args', args)
 
-# def visualize(image, attns, recon, z_hard, model, preproc, n, prefix, verbose):
-#     """
-#     Ideally this should just take the data as input only
-#     """
-#     _, _, H_enc, W_enc = z_hard.shape
-#     t0 = time.time()
-#     gen_img = model.reconstruct_autoregressive(image[:n])
-#     if verbose:
-#         lgr.info(f'{prefix}: Autoregressive generation took {time.time() - t0} seconds.')
-#         lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
-#     vis_recon = utils.visualize(
-#         preproc(image), 
-#         preproc(recon), 
-#         preproc(gen_img), 
-#         utils.overlay_attention(attns, preproc(image), H_enc, W_enc), 
-#         N=n)
-#     return vis_recon
 
 def main(argv):
     if args.debug:
