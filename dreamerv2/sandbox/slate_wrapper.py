@@ -1,4 +1,5 @@
 import datetime
+import einops as eo
 from loguru import logger as lgr
 import ml_collections
 import numpy as np
@@ -12,8 +13,15 @@ import wandb
 import common
 
 from sandbox import causal_agent
-from sandbox import slot_attention_learners
-from sandbox import slot_attention_utils as utils
+# from sandbox import slot_attention_learners
+# from sandbox import slot_attention_utils as utils
+import sandbox.tf_slate.slate as slate
+import sandbox.tf_slate.utils as utils
+from sandbox import normalize as nmlz
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
 class SlateWrapperForDreamer(causal_agent.WorldModel):
@@ -21,23 +29,8 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
   """
   def __init__(self, config, obs_space, tfstep):
     self.config = config
-    self.defaults = ml_collections.ConfigDict(self.config.fwm)
-    self.model = slot_attention_learners.FactorizedWorldModel(self.defaults.model)
-    self.model.register_num_slots(self.defaults.sess.num_slots)
-
-    self.optimizer = tf.keras.optimizers.Adam(self.defaults.optim.learning_rate, epsilon=1e-08)
-
-    self.step = tf.Variable(0, trainable=False, name="fwm_step", dtype=tf.int64)
-    self.min_lr = tf.Variable(self.defaults.optim.min_lr, trainable=False)
-
-  def adjust_lr(self, step):
-    if self.step < self.defaults.optim.warmup_steps:
-      learning_rate = tf.cast(self.defaults.optim.learning_rate, tf.float32)
-    else:
-      learning_rate = self.defaults.optim.learning_rate * (self.defaults.optim.decay_rate ** (
-          tf.cast(self.step-self.defaults.optim.warmup_steps, tf.float32) / tf.cast(self.defaults.optim.decay_steps, tf.float32)))
-    learning_rate = tf.math.maximum(learning_rate, self.min_lr)
-    return learning_rate
+    self.defaults = ml_collections.ConfigDict(self.config.slate)
+    self.model = slate.SLATE(self.defaults)
 
 
   def train(self, data, state=None):
@@ -52,17 +45,20 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
       velocity (B, T, V)
       action (B, T, A)
     """
+    # import ipdb
+    # ipdb.set_trace(context=20)
+
+
     data = self.preprocess(data)
 
     # TODO: make is_first flag the first action
 
-    # adjust learning rate
-    self.optimizer.lr = self.adjust_lr(self.step)
+    # do this for now
+    image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
+    # print(image.shape)
 
     # train step
-    loss, outputs, mets = self.model.train_step(data, self.optimizer)
-
-    self.step.assign_add(1)
+    loss, outputs, mets = self.model.train_step(image)  # note that we may need to take this outside of tf.function though
 
     # state is dummy
     state = None
@@ -73,17 +69,18 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
     # metrics
     metrics = {
       'kl_loss': 0,
-      'image_loss': mets['posterior'],
+      'image_loss': mets['mse'],
       'reward_loss': 0,
       'discount_loss': 0,
-      'model_kl': mets['initial_latent'] + mets['subsequent_latent'],  # are we averaging over time for subsequent latent?
+      'model_kl': mets['cross_entropy'],
       'prior_ent': 0,
       'post_ent': 0,
       
-      'fwm/loss': loss,
-      'fwm/learning_rate': self.optimizer.lr,
-      'fwm/itr': self.step,
+      'slate/loss': loss,
+      'slate/learning_rate': self.model.main_optimizer.lr,
+      'slate/itr': self.model.step,
     }
+
     return state, outputs, metrics
 
   # @tf.function# --> if I turn this on I can't do video.numpy()
@@ -94,17 +91,49 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
 
-    rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
-    video = self.model.visualize(rollout_output)
+    # rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
+    # video = self.model.visualize(rollout_output)
 
-    report[f'openl_{name}'] = video
-    report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
-    report[f'imag_loss_{name}'] = rollout_metrics['imagine']
+
+
+    image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
+
+
+    tau = utils.cosine_anneal(
+        step=self.model.step.numpy(),
+        start_value=self.model.args.dvae.tau_start,
+        final_value=self.model.args.dvae.tau_final,
+        start_step=0,
+        final_step=self.model.args.dvae.tau_steps)
+
+    (recon, cross_entropy, mse, attns, z_hard) = self.model(image, tf.constant(tau), True)  # TODO: need to figure out how to do tau
+    vis_recon = utils.report(image, attns, recon, z_hard, self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.), n=self.config.eval_dataset.batch, prefix='REPORT', verbose=False)  # c (b h) (n w)
+
+    # turn it into t h (b w) c --> t h w c
+
+
+    # (1 () () c)
+
+    # if you can just save this locally that would be great for now
+
+    # TODO: (1) tau (2) import utils (3) save locally (4) do not do tf.function on the wrapper's train_step.
+    # for (1), you should take tau out of the train step then
+    # actually for (1) you could just recompute it actually
+    # so now the question is whether I want to pass in the iterates or not.
+
+    # import ipdb
+    # ipdb.set_trace(context=20)
+
+    report[f'openl_{name}'] = eo.rearrange(vis_recon, 'c h w -> 1 h w c')
+    # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
+    # report[f'imag_loss_{name}'] = rollout_metrics['imagine']
 
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
-    save_path = os.path.join(logdir, f'{self.step.numpy()}')
-    lgr.info(f'save gif to {save_path}')
-    utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
+    save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
+    lgr.info(f'save png to {save_path}')
+    # utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
+    plt.imsave(f'{save_path}.png', eo.rearrange(vis_recon.numpy(), 'c h w -> h w c'))
+
     return report
 
 
