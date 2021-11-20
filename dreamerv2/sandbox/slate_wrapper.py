@@ -57,9 +57,6 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
     # state is dummy
     state = None
 
-    # outputs is dummy
-    outputs = None
-
     # metrics
     metrics = {
       'kl_loss': 0,
@@ -76,7 +73,11 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
       'slate/slot_model_lr': self.model.main_optimizer.lr,
       'slate/dvae_lr': self.model.dvae_optimizer.lr,
       'slate/itr': self.model.step,
+      'slate/tau': outputs['iterates']['tau'],
     }
+
+    # outputs is dummy
+    outputs = None
 
     return state, outputs, metrics
 
