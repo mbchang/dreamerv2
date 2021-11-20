@@ -1,15 +1,10 @@
 from utils import *
-# import dvae
 import slot_attn
 import transformer
 
-# from einops import rearrange, repeat
-# from loguru import logger as lgr
 import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as layers
-# import time
-# import wandb
 
 class SlotModel(layers.Layer):
 
