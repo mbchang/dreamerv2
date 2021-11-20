@@ -1,8 +1,9 @@
 from utils import *
 import dvae
-import slot_attn
-import transformer
-import utils
+# import slot_attn
+import slot_model
+# import transformer
+# import utils
 
 from einops import rearrange, repeat
 from loguru import logger as lgr
@@ -12,121 +13,123 @@ import tensorflow.keras.layers as layers
 import time
 import wandb
 
-class SlotModel(layers.Layer):
 
-    @staticmethod
-    def defaults_debug():
-        debug_args = SlotModel.defaults()
-        debug_args.d_model = 16
-        debug_args.slot_size = 16
-        debug_args.lr_warmup_steps = 3
-        debug_args.obs_transformer = transformer.TransformerDecoder.obs_defaults_debug()
-        debug_args.slot_attn=slot_attn.SlotAttention.defaults_debug()
-        return debug_args
 
-    @staticmethod
-    def defaults():
-        default_args = ml_collections.ConfigDict(dict(
-            lr=1e-4,
-            lr_warmup_steps=30000,
+# class SlotModel(layers.Layer):
 
-            d_model=192,
-            dropout=0.1,
+#     @staticmethod
+#     def defaults_debug():
+#         debug_args = SlotModel.defaults()
+#         debug_args.d_model = 16
+#         debug_args.slot_size = 16
+#         debug_args.lr_warmup_steps = 3
+#         debug_args.obs_transformer = transformer.TransformerDecoder.obs_defaults_debug()
+#         debug_args.slot_attn=slot_attn.SlotAttention.defaults_debug()
+#         return debug_args
 
-            obs_transformer=transformer.TransformerDecoder.obs_defaults(),
+#     @staticmethod
+#     def defaults():
+#         default_args = ml_collections.ConfigDict(dict(
+#             lr=1e-4,
+#             lr_warmup_steps=30000,
 
-            slot_attn=slot_attn.SlotAttention.defaults(),
-            slot_size=192,
-            ))
-        return default_args
+#             d_model=192,
+#             dropout=0.1,
 
-    def __init__(self, vocab_size, num_tokens, args):
-        super().__init__()
+#             obs_transformer=transformer.TransformerDecoder.obs_defaults(),
 
-        self.vocab_size = vocab_size
-        self.d_model = args.d_model
-        self.num_tokens = num_tokens
+#             slot_attn=slot_attn.SlotAttention.defaults(),
+#             slot_size=192,
+#             ))
+#         return default_args
 
-        # obs encoder
-        self.dictionary = OneHotDictionary(self.vocab_size + 1, args.d_model)
-        self.positional_encoder = transformer.PositionalEncoding(1 + self.num_tokens, args.d_model, args.dropout)
-        self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
-        self.token_mlp = tf.keras.Sequential([
-            linear(args.d_model, args.d_model, weight_init='kaiming'),
-            tkl.ReLU(),
-            linear(args.d_model, args.d_model)])
+#     def __init__(self, vocab_size, num_tokens, args):
+#         super().__init__()
 
-        # recurrent: replace this with rssm
-        self.slot_attn = slot_attn.SlotAttention(args.slot_size, args.slot_attn)
-        self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
+#         self.vocab_size = vocab_size
+#         self.d_model = args.d_model
+#         self.num_tokens = num_tokens
 
-        # decoder
-        self.tf_dec = transformer.TransformerDecoder(self.num_tokens, args.d_model, args.obs_transformer)
-        self.out = linear(args.d_model, self.vocab_size, bias=False)
+#         # obs encoder
+#         self.dictionary = OneHotDictionary(self.vocab_size + 1, args.d_model)
+#         self.positional_encoder = transformer.PositionalEncoding(1 + self.num_tokens, args.d_model, args.dropout)
+#         self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
+#         self.token_mlp = tf.keras.Sequential([
+#             linear(args.d_model, args.d_model, weight_init='kaiming'),
+#             tkl.ReLU(),
+#             linear(args.d_model, args.d_model)])
 
-        self.training = False
+#         # recurrent: replace this with rssm
+#         self.slot_attn = slot_attn.SlotAttention(args.slot_size, args.slot_attn)
+#         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
 
-    def embed_tokens(self, tokens):
-        emb_input = self.dictionary(tokens)
-        emb_input = self.positional_encoder(emb_input, training=self.training)
-        return emb_input
+#         # decoder
+#         self.tf_dec = transformer.TransformerDecoder(self.num_tokens, args.d_model, args.obs_transformer)
+#         self.out = linear(args.d_model, self.vocab_size, bias=False)
 
-    def apply_slot_attn(self, emb_input):
-        slots = self.slot_attn.reset(emb_input.shape[0])
-        slots, attns = self.slot_attn(self.token_mlp(self.layer_norm(emb_input[:, 1:])), slots)
-        slots = self.slot_proj(slots)
-        return slots, attns
+#         self.training = False
 
-    def parallel_decode(self, emb_input, slots):
-        decoder_output = self.tf_dec(emb_input[:, :-1], slots)
-        pred = self.out(decoder_output)
-        return pred
+#     def embed_tokens(self, tokens):
+#         emb_input = self.dictionary(tokens)
+#         emb_input = self.positional_encoder(emb_input, training=self.training)
+#         return emb_input
 
-    def autoregressive_decode(self, z_hard, slots, gen_len):
-        B = slots.shape[0]
+#     def apply_slot_attn(self, emb_input):
+#         slots = self.slot_attn.reset(emb_input.shape[0])
+#         slots, attns = self.slot_attn(self.token_mlp(self.layer_norm(emb_input[:, 1:])), slots)
+#         slots = self.slot_proj(slots)
+#         return slots, attns
 
-        # generate image tokens auto-regressively
-        z_gen = tf.zeros(0, dtype=z_hard.dtype)
-        z_transformer_input = tf.concat([
-            tf.ones((B, 1, 1), dtype=z_hard.dtype),
-            tf.zeros((B, 1, self.vocab_size), dtype=z_hard.dtype)
-            ], axis=-1)
-        for t in range(gen_len):
-            decoder_output = self.tf_dec(
-                self.positional_encoder(self.dictionary(z_transformer_input)),
-                slots
-            )
-            z_next = tf.one_hot(tf.math.argmax(self.out(decoder_output)[:, -1:], axis=-1), depth=self.vocab_size)
-            z_gen = z_next if t == 0 else tf.concat((z_gen, z_next), axis=1)
-            z_transformer_input = tf.concat([
-                z_transformer_input,
-                tf.concat([tf.zeros_like(z_next[:, :, :1]), z_next], axis=-1)
-            ], axis=1)
+#     def parallel_decode(self, emb_input, slots):
+#         decoder_output = self.tf_dec(emb_input[:, :-1], slots)
+#         pred = self.out(decoder_output)
+#         return pred
 
-        return z_gen
+#     def autoregressive_decode(self, z_hard, slots, gen_len):
+#         B = slots.shape[0]
 
-    @tf.function
-    def call(self, z_transformer_input, z_transformer_target):
-        B = z_transformer_input.shape[0]
-        emb_input = self.embed_tokens(z_transformer_input)
-        slots, attns = self.apply_slot_attn(emb_input)
-        pred = self.parallel_decode(emb_input, slots)
-        cross_entropy = -tf.reduce_mean(tf.reduce_sum(tf.reshape(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), (B, -1)), axis=-1))
-        return attns, cross_entropy
+#         # generate image tokens auto-regressively
+#         z_gen = tf.zeros(0, dtype=z_hard.dtype)
+#         z_transformer_input = tf.concat([
+#             tf.ones((B, 1, 1), dtype=z_hard.dtype),
+#             tf.zeros((B, 1, self.vocab_size), dtype=z_hard.dtype)
+#             ], axis=-1)
+#         for t in range(gen_len):
+#             decoder_output = self.tf_dec(
+#                 self.positional_encoder(self.dictionary(z_transformer_input)),
+#                 slots
+#             )
+#             z_next = tf.one_hot(tf.math.argmax(self.out(decoder_output)[:, -1:], axis=-1), depth=self.vocab_size)
+#             z_gen = z_next if t == 0 else tf.concat((z_gen, z_next), axis=1)
+#             z_transformer_input = tf.concat([
+#                 z_transformer_input,
+#                 tf.concat([tf.zeros_like(z_next[:, :, :1]), z_next], axis=-1)
+#             ], axis=1)
 
-    @staticmethod
-    @tf.function
-    def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):
-        with tf.GradientTape() as tape:
-            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
-        gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
-        return attns, cross_entropy, gradients
+#         return z_gen
 
-    def train(self):
-        self.training = True
+#     @tf.function
+#     def call(self, z_transformer_input, z_transformer_target):
+#         B = z_transformer_input.shape[0]
+#         emb_input = self.embed_tokens(z_transformer_input)
+#         slots, attns = self.apply_slot_attn(emb_input)
+#         pred = self.parallel_decode(emb_input, slots)
+#         cross_entropy = -tf.reduce_mean(tf.reduce_sum(tf.reshape(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), (B, -1)), axis=-1))
+#         return attns, cross_entropy
 
-    def eval(self):
-        self.training = False
+#     @staticmethod
+#     @tf.function
+#     def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):
+#         with tf.GradientTape() as tape:
+#             attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
+#         gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
+#         return attns, cross_entropy, gradients
+
+#     def train(self):
+#         self.training = True
+
+#     def eval(self):
+#         self.training = False
 
 
 def create_tokens(z_hard):
@@ -151,7 +154,7 @@ class SLATE(layers.Layer):
         debug_args.batch_size = 5
         debug_args.vocab_size = 32
         debug_args.dvae = dvae.dVAE.defaults_debug()
-        debug_args.slot_model = SlotModel.defaults_debug()
+        debug_args.slot_model = slot_model.SlotModel.defaults_debug()
         return debug_args
 
     @staticmethod
@@ -167,7 +170,7 @@ class SLATE(layers.Layer):
 
             vocab_size=1024,
             dvae=dvae.dVAE.defaults(),
-            slot_model=SlotModel.defaults(),
+            slot_model=slot_model.SlotModel.defaults(),
             ))
         return default_args
 
@@ -178,7 +181,7 @@ class SLATE(layers.Layer):
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
-        self.slot_model = SlotModel(args.vocab_size, (args.image_size // 4) ** 2, args.slot_model)
+        self.slot_model = slot_model.SlotModel(args.vocab_size, (args.image_size // 4) ** 2, args.slot_model)
         self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
 
         self.training = False
@@ -234,29 +237,29 @@ class SLATE(layers.Layer):
     def train_step(self, image):
         # global_step should be the same as self.step
 
-        tau = utils.cosine_anneal(
+        tau = cosine_anneal(
             step=self.step.numpy(),
             start_value=self.args.dvae.tau_start,
             final_value=self.args.dvae.tau_final,
             start_step=0,
             final_step=self.args.dvae.tau_steps)
 
-        lr_warmup_factor = utils.linear_warmup(
+        lr_warmup_factor = linear_warmup(
             step=self.step.numpy(),
             start_value=0.,
             final_value=1.0,
             start_step=0,
             final_step=self.args.slot_model.lr_warmup_steps)
 
-        self.dvae_optimizer.lr = utils.f32(self.args.lr_decay_factor * self.args.dvae.lr)
-        self.main_optimizer.lr = utils.f32(self.args.lr_decay_factor * lr_warmup_factor * self.args.slot_model.lr)
+        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
+        self.main_optimizer.lr = f32(self.args.lr_decay_factor * lr_warmup_factor * self.args.slot_model.lr)
 
         recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
 
-        attns, cross_entropy, gradients = SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
+        attns, cross_entropy, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
@@ -291,15 +294,15 @@ class SLATE(layers.Layer):
         self.slot_model.eval()
 
 
-class OneHotDictionary(layers.Layer):
-    def __init__(self, vocab_size, emb_size):
-        super().__init__()
-        self.dictionary = layers.Embedding(vocab_size, emb_size)
+# class OneHotDictionary(layers.Layer):
+#     def __init__(self, vocab_size, emb_size):
+#         super().__init__()
+#         self.dictionary = layers.Embedding(vocab_size, emb_size)
 
-    def call(self, x):
-        """
-        x: B, N, vocab_size
-        """
-        tokens = tf.math.argmax(x, axis=-1)
-        token_embs = self.dictionary(tokens)  # batch_size x N x emb_size
-        return token_embs
+#     def call(self, x):
+#         """
+#         x: B, N, vocab_size
+#         """
+#         tokens = tf.math.argmax(x, axis=-1)
+#         token_embs = self.dictionary(tokens)  # batch_size x N x emb_size
+#         return token_embs
