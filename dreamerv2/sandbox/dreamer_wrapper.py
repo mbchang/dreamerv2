@@ -159,7 +159,7 @@ class FactorizedWorldModelWrapperForDreamer(causal_agent.WorldModel):
     seed_steps = self.config.eval_dataset.seed_steps
 
     rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
-    video = self.model.visualize(rollout_output)
+    video = self.model.visualize(rollout_output) # (10, 512, 384, 3) = t h (b w) c
 
     report[f'openl_{name}'] = video
     report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
