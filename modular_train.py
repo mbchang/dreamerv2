@@ -55,11 +55,11 @@ args = ml_collections.ConfigDict(dict(
 FLAGS = flags.FLAGS
 config_flags.DEFINE_config_dict('args', args)
 
-def visualize(image, attns, recon, z_hard, model, preproc, n):
+def visualize(image, attns, recon, z_hard, model, preproc, n, prefix):
     _, _, H_enc, W_enc = z_hard.shape
     t0 = time.time()
     gen_img = model.reconstruct_autoregressive(image[:n])
-    lgr.info(f'TRAIN: Autoregressive generation took {time.time() - t0} seconds.')
+    lgr.info(f'{prefix}: Autoregressive generation took {time.time() - t0} seconds.')
     lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
     vis_recon = utils.visualize(
         preproc(image), 
@@ -232,7 +232,8 @@ def main(argv):
                     'train/itr': global_step
                     }, step=global_step)
 
-        vis_recon = visualize(image, attns, recon, z_hard, model, train_loader.unnormalize_obs, n=32)
+        vis_recon = visualize(image, attns, recon, z_hard, model, train_loader.unnormalize_obs, 
+            n=32, prefix='TRAIN')
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
         
         if args.eval:
@@ -277,17 +278,18 @@ def main(argv):
                 best_val_loss = val_loss
                 best_epoch = epoch + 1
 
-                if 50 <= epoch:
-                    t0 = time.time()
-                    gen_img = model.reconstruct_autoregressive(image)
-                    lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
-                    vis_recon = utils.visualize(
-                        train_loader.unnormalize_obs(image), 
-                        train_loader.unnormalize_obs(recon), 
-                        train_loader.unnormalize_obs(gen_img), 
-                        attns, 
-                        N=32)
-                    writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
+                # if 50 <= epoch:
+                t0 = time.time()
+                gen_img = model.reconstruct_autoregressive(image)
+                lgr.info(f'VAL: Autoregressive generation took {time.time() - t0} seconds.')
+                lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
+                vis_recon = utils.visualize(
+                    train_loader.unnormalize_obs(image), 
+                    train_loader.unnormalize_obs(recon), 
+                    train_loader.unnormalize_obs(gen_img), 
+                    attns, 
+                    N=32)
+                writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
 
             else:
                 stagnation_counter += 1
