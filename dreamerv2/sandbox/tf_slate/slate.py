@@ -73,7 +73,6 @@ class SLATE(layers.Layer):
 
         B, C, H, W = image.shape
         recon, z_hard, mse = self.dvae(image, tau, hard)
-        # _, _, H_enc, W_enc = z_hard.shape
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
         attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
@@ -112,7 +111,6 @@ class SLATE(layers.Layer):
 
         return recon_transformer
 
-    # later replace this with train_args?
     def train_step(self, image):
         # global_step should be the same as self.step
 
