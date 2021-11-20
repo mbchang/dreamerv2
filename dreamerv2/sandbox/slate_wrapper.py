@@ -13,8 +13,6 @@ import wandb
 import common
 
 from sandbox import causal_agent
-# from sandbox import slot_attention_learners
-# from sandbox import slot_attention_utils as utils
 import sandbox.tf_slate.slate as slate
 import sandbox.tf_slate.utils as utils
 from sandbox import normalize as nmlz
@@ -44,22 +42,18 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
       height (B, T)
       velocity (B, T, V)
       action (B, T, A)
+
+      # note that we may need to take this outside of tf.function though
     """
-    # import ipdb
-    # ipdb.set_trace(context=20)
-
-
     data = self.preprocess(data)
 
     # TODO: make is_first flag the first action
 
     # do this for now
     image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
-    # print(image.shape)
 
     # train step
-    loss, outputs, mets = self.model.train_step(image)  # note that we may need to take this outside of tf.function though
-
+    loss, outputs, mets = self.model.train_step(image)  
     # state is dummy
     state = None
 
@@ -91,14 +85,7 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
 
-    # rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
-    # video = self.model.visualize(rollout_output)
-
-
-
     image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
-
-
     tau = utils.cosine_anneal(
         step=self.model.step.numpy(),
         start_value=self.model.args.dvae.tau_start,
@@ -106,23 +93,8 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
         start_step=0,
         final_step=self.model.args.dvae.tau_steps)
 
-    (recon, cross_entropy, mse, attns, z_hard) = self.model(image, tf.constant(tau), True)  # TODO: need to figure out how to do tau
+    (recon, cross_entropy, mse, attns, z_hard) = self.model(image, tf.constant(tau), True)
     vis_recon = utils.report(image, attns, recon, z_hard, self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.), n=self.config.eval_dataset.batch, prefix='REPORT', verbose=False)  # c (b h) (n w)
-
-    # turn it into t h (b w) c --> t h w c
-
-
-    # (1 () () c)
-
-    # if you can just save this locally that would be great for now
-
-    # TODO: (1) tau (2) import utils (3) save locally (4) do not do tf.function on the wrapper's train_step.
-    # for (1), you should take tau out of the train step then
-    # actually for (1) you could just recompute it actually
-    # so now the question is whether I want to pass in the iterates or not.
-
-    # import ipdb
-    # ipdb.set_trace(context=20)
 
     report[f'openl_{name}'] = eo.rearrange(vis_recon, 'c h w -> 1 h w c')
     # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
