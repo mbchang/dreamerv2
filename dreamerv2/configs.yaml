@@ -213,3 +213,8 @@ slate:
   wm_only: True
   wm: slate
   precision: 32
+
+dslate:
+  wm_only: True
+  wm: dslate
+  precision: 32
