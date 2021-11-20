@@ -234,7 +234,14 @@ class DynamicSLATE(SLATE):
         z_transformer_target (24, 256, 32)
         """
 
-        attns, cross_entropy, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
+
+        attns, cross_entropy, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, 
+            z_transformer_input,
+            z_transformer_target,
+
+            # rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
+            # rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
+            )
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
