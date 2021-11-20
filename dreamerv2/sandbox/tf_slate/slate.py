@@ -170,3 +170,6 @@ class SLATE(layers.Layer):
         self.training = False
         self.slot_model.eval()
 
+
+class DynamicSLATE(SLATE):
+    pass

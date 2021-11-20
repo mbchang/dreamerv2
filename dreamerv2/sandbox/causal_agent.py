@@ -27,8 +27,9 @@ class CausalAgent(common.Module):
       from sandbox import slate_wrapper
       self.wm = slate_wrapper.SlateWrapperForDreamer(config, obs_space, self.tfstep)
     elif config.wm == 'dslate':
-      from sandbox import dynamic_slate_wrapper
-      self.wm = dynamic_slate_wrapper.DynamicSlateWrapperForDreamer(config, obs_space, self.tfstep)
+      # from sandbox import dynamic_slate_wrapper
+      from sandbox import slate_wrapper
+      self.wm = slate_wrapper.DynamicSlateWrapperForDreamer(config, obs_space, self.tfstep)
     else:
       raise NotImplementedError
 

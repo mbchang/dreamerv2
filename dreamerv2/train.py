@@ -53,11 +53,12 @@ def add_programmatically_generated_configs(parsed, configs):
       configs['defaults']['slate'] = SLATE.defaults().to_dict()
   elif 'dslate' in parsed.configs:
     sys.path.append(str(pathlib.Path(__file__).parent / 'sandbox' / 'tf_slate'))
-    from dynamic_slate import SLATE
+    # from dynamic_slate import SLATE
+    from slate import DynamicSLATE
     if 'debug' in parsed.configs:
-      configs['defaults']['dslate'] = SLATE.defaults_debug().to_dict()
+      configs['defaults']['dslate'] = DynamicSLATE.defaults_debug().to_dict()
     else:
-      configs['defaults']['dslate'] = SLATE.defaults().to_dict()
+      configs['defaults']['dslate'] = DynamicSLATE.defaults().to_dict()
   configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   return configs
 
