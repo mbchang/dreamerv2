@@ -12,7 +12,7 @@ import tensorflow.keras.layers as tkl
 import tensorflow.keras.activations as tka
 import tensorflow_addons as tfa
 
-import slate
+# import slate
 
 ########################################################################
 ## Training utils
