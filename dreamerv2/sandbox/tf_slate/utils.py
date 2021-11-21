@@ -62,10 +62,10 @@ def f32(x):
 ########################################################################
 
 
-def visualize(image, recon_orig, gen, attns, N=8):
+def visualize(image, recon_orig, gen, attns):
     unsqueeze = lambda x: rearrange(x, 'b c h w -> b 1 c h w')
-    image, recon_orig, gen = map(unsqueeze, (image[:N], recon_orig[:N], gen[:N]))
-    attns = attns[:N]
+    image, recon_orig, gen = map(unsqueeze, (image, recon_orig, gen))
+    # attns = attns
     return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
 
 
@@ -77,13 +77,13 @@ def overlay_attention(attns, image, H_enc, W_enc):
     return attns
 
 
-def report(image, attns, recon, z_hard, model, preproc, n, prefix, verbose):
+def report(image, attns, recon, z_hard, model, preproc, prefix, verbose):
     """
     Ideally this should just take the data as input only
     """
     _, _, H_enc, W_enc = z_hard.shape
     t0 = time.time()
-    gen_img = model.reconstruct_autoregressive(image[:n])
+    gen_img = model.reconstruct_autoregressive(image)
     if verbose:
         lgr.info(f'{prefix}: Autoregressive generation took {time.time() - t0} seconds.')
         lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
@@ -91,8 +91,7 @@ def report(image, attns, recon, z_hard, model, preproc, n, prefix, verbose):
         preproc(image), 
         preproc(recon), 
         preproc(gen_img), 
-        overlay_attention(attns, preproc(image), H_enc, W_enc), 
-        N=n)
+        overlay_attention(attns, preproc(image), H_enc, W_enc))
     return vis_recon
 
 

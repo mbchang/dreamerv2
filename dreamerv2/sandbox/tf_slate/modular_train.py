@@ -219,8 +219,10 @@ def main(argv):
                     'train/itr': global_step
                     }, step=global_step)
 
-        vis_recon = utils.report(image, attns, recon, z_hard, model, train_loader.unnormalize_obs, 
-            n=32, prefix='TRAIN', verbose=True)
+        # vis_recon = utils.report(image, attns, recon, z_hard, model, train_loader.unnormalize_obs, 
+        #     n=32, prefix='TRAIN', verbose=True)
+        n = 32
+        vis_recon = utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, train_loader.unnormalize_obs, prefix='TRAIN', verbose=True)
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
         
         if args.eval:
@@ -266,8 +268,8 @@ def main(argv):
                 best_epoch = epoch + 1
 
                 # if 50 <= epoch:
-                vis_recon = utils.report(image, attns, recon, z_hard, model, val_loader.unnormalize_obs, 
-                    n=32, prefix='VAL', verbose=True)
+                n = 32
+                vis_recon = utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, val_loader.unnormalize_obs, prefix='VAL', verbose=True)
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
 
             else:
