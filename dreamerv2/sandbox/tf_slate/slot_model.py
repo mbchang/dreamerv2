@@ -150,7 +150,13 @@ class DynamicSlotModel(SlotModel):
         attns_seq = []
         slots = None
         for t in range(T):
-            slots, attns = self.apply_slot_attn(emb_input[:, t], slots)
+
+            slots, attns = self.obs_step(
+                prev_state=slots, 
+                prev_action=None, 
+                embed=emb_input[:, t],
+                is_first=None)
+
             slots_seq.append(slots)
             attns_seq.append(attns)
         slots = eo.rearrange(slots_seq, 't b ... -> b t ...')
@@ -161,5 +167,20 @@ class DynamicSlotModel(SlotModel):
         cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
         return attns, cross_entropy
+
+
+    def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
+        slots = prev_state
+        emb_input = embed
+
+        slots, attns = self.apply_slot_attn(emb_input, slots)
+
+        return slots, attns
+
+
+    def img_step(self, prev_state, prev_action, sample=True):
+        pass
+
+
 
 
