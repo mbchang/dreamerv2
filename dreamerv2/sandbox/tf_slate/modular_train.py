@@ -34,6 +34,10 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 args = ml_collections.ConfigDict(dict(
     seed=0,
     epochs=20,
@@ -220,8 +224,10 @@ def main(argv):
                     }, step=global_step)
 
         n = 32
-        vis_recon = utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, train_loader.unnormalize_obs, prefix='TRAIN', verbose=True)
+        vis_recon = rearrange(utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, val_loader.unnormalize_obs, prefix='TRAIN', verbose=True), 'b n c h w -> c (b h) (n w)')
+
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
+        plt.imsave(f'{log_dir}/train_{epoch+1}.png', rearrange(vis_recon.numpy(), 'c h w -> h w c'))
         
         if args.eval:
             model.eval()
@@ -267,8 +273,10 @@ def main(argv):
 
                 # if 50 <= epoch:
                 n = 32
-                vis_recon = utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, val_loader.unnormalize_obs, prefix='VAL', verbose=True)
+                vis_recon = rearrange(utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, val_loader.unnormalize_obs, prefix='VAL', verbose=True), 'b n c h w -> c (b h) (n w)')
+
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
+                plt.imsave(f'{log_dir}/val_{epoch+1}.png', rearrange(vis_recon.numpy(), 'c h w -> h w c'))
 
             else:
                 stagnation_counter += 1

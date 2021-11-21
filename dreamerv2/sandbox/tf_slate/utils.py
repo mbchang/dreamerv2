@@ -66,7 +66,8 @@ def visualize(image, recon_orig, gen, attns):
     unsqueeze = lambda x: rearrange(x, 'b c h w -> b 1 c h w')
     image, recon_orig, gen = map(unsqueeze, (image, recon_orig, gen))
     # attns = attns
-    return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
+    # return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
+    return tf.concat((image, recon_orig, gen, attns), axis=1)
 
 
 def overlay_attention(attns, image, H_enc, W_enc):
