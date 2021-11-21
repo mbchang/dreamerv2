@@ -141,26 +141,18 @@ class SlotModel(layers.Layer):
 class DynamicSlotModel(SlotModel):
     @tf.function
     def call(self, z_transformer_input, z_transformer_target):
-        B = z_transformer_input.shape[0]
+        B, T, *_ = z_transformer_target.shape
 
-
-
-        emb_input = self.embed_tokens(z_transformer_input)
+        # this requires a flattened input
+        emb_input = bottle(self.embed_tokens)(z_transformer_input)
 
         # reshape
         # for loop
         # reshape
 
+        slots, attns = bottle(self.apply_slot_attn)(emb_input)
 
-
-        slots, attns = self.apply_slot_attn(emb_input)
-
-
-
-        pred = self.parallel_decode(emb_input, slots)
-        # cross_entropy = -tf.reduce_mean(tf.reduce_sum(tf.reshape(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), (B, -1)), axis=-1))
-
-
+        pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
         return attns, cross_entropy

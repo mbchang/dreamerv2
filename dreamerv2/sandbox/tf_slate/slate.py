@@ -186,6 +186,62 @@ class DynamicSLATE(SLATE):
         self.training = False
         self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
 
+    def call(self, image: tf.Tensor, tau: tf.Tensor, hard: bool):
+        """
+        image: batch_size x img_channels x H x W
+        """
+
+        # B, C, H, W = image.shape
+
+        #
+        B, T, *_ = image.shape
+        image = rearrange(image, 'b t h w c -> (b t) c h w')
+        #
+
+        recon, z_hard, mse = self.dvae(image, tau, hard)
+
+        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+
+
+        # import ipdb
+        # ipdb.set_trace(context=20)
+
+
+        #
+        z_transformer_input = rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T)
+        z_transformer_target = rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
+        #
+
+
+
+
+
+
+        attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
+
+
+
+
+
+        # 
+        attns = rearrange(attns, 'b t ... -> (b t) ...')
+        # recon = rearrange(recon, 'b t ... -> (b t) ...')
+        #
+
+
+
+
+
+
+        return (
+            recon,
+            cross_entropy,
+            mse,
+            attns,
+            z_hard
+        )
+
+
 
     def train_step(self, data):
         """
@@ -236,11 +292,11 @@ class DynamicSLATE(SLATE):
 
 
         attns, cross_entropy, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, 
-            z_transformer_input,
-            z_transformer_target,
+            # z_transformer_input,
+            # z_transformer_target,
 
-            # rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
-            # rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
+            rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
+            rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
             )
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))

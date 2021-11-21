@@ -180,7 +180,8 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
 
-    image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
+    image = data['image']
+
     tau = utils.cosine_anneal(
         step=self.model.step.numpy(),
         start_value=self.model.args.dvae.tau_start,
@@ -189,6 +190,11 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
         final_step=self.model.args.dvae.tau_steps)
 
     (recon, cross_entropy, mse, attns, z_hard) = self.model(image, tf.constant(tau), True)
+
+
+    image = eo.rearrange(image, 'b t h w c -> (b t) c h w')
+
+
     vis_recon = utils.report(image, attns, recon, z_hard, self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.), n=self.config.eval_dataset.batch, prefix='REPORT', verbose=False)  # c (b h) (n w)
 
     report[f'openl_{name}'] = eo.rearrange(vis_recon, 'c h w -> 1 h w c')
@@ -213,4 +219,7 @@ python dreamerv2/train.py --configs debug slate --task dmc_cheetah_run --agent c
 11-19-21 11:43am After I added slate defaults and got rid of fwm defaults:
 
 python dreamerv2/train.py --configs debug slate --task dmc_cheetah_run --agent causal --dataset.length 8 --dataset.batch 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit False --steps 125
+
+11-21-21: 9:28am: 
+python dreamerv2/train.py --configs debug dslate --task dmc_manip_lift_large_box --agent causal --dataset.length 8 --dataset.batch 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit False --steps 125
 """

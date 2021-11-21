@@ -118,7 +118,7 @@ def bottle(fn):
     if n_args > 1:
         y = fn(*tuple(flatten(xx) for xx in x))
     else:
-        y = fn(flatten(x))
+        y = fn(flatten(x[0]))
 
     if isinstance(y, tuple):
       return tuple(unflatten(yy) for yy in y)
