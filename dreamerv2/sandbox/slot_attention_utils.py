@@ -44,10 +44,14 @@ def bottle(fn):
 def add_border(video, tau):
   if np.issubdtype(video.dtype, np.floating):
     video = np.clip(255 * video, 0, 255).astype(np.uint8)
-  seed_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='red') for frame in video[:tau]])
-  imag_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='green') for frame in video[tau:]])
-  video = np.concatenate([seed_video, imag_video])
-  return video
+  if tau <= 0:
+    video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='green') for frame in video])
+    return video
+  else:
+    seed_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='red') for frame in video[:tau]])
+    imag_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='green') for frame in video[tau:]])
+    video = np.concatenate([seed_video, imag_video])
+    return video
 
 
 def save_gif(video, fname, fps=3):
