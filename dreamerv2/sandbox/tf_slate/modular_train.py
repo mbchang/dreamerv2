@@ -219,8 +219,6 @@ def main(argv):
                     'train/itr': global_step
                     }, step=global_step)
 
-        # vis_recon = utils.report(image, attns, recon, z_hard, model, train_loader.unnormalize_obs, 
-        #     n=32, prefix='TRAIN', verbose=True)
         n = 32
         vis_recon = utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, train_loader.unnormalize_obs, prefix='TRAIN', verbose=True)
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
