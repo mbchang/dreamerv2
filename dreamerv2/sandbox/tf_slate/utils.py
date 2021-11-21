@@ -62,19 +62,11 @@ def f32(x):
 ########################################################################
 
 
-def visualize(image, recon_orig, gen, attns):
-    unsqueeze = lambda x: rearrange(x, 'b c h w -> b 1 c h w')
-    image, recon_orig, gen = map(unsqueeze, (image, recon_orig, gen))
-    # attns = attns
-    # return rearrange(tf.concat((image, recon_orig, gen, attns), axis=1), 'b n c h w -> c (b h) (n w)')
-    return tf.concat((image, recon_orig, gen, attns), axis=1)
-
-
 def overlay_attention(attns, image, H_enc, W_enc):
-    B, C, H, W = image.shape
+    *_, H, W = image.shape
     attns = rearrange(attns, 'b hw k -> b k hw')
     attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k 1 h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
-    attns = rearrange(image, 'b c h w -> b 1 c h w') * attns + 1. - attns
+    attns = image * attns + 1. - attns
     return attns
 
 
@@ -88,11 +80,12 @@ def report(image, attns, recon, z_hard, model, preproc, prefix, verbose):
     if verbose:
         lgr.info(f'{prefix}: Autoregressive generation took {time.time() - t0} seconds.')
         lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
-    vis_recon = visualize(
-        preproc(image), 
-        preproc(recon), 
-        preproc(gen_img), 
-        overlay_attention(attns, preproc(image), H_enc, W_enc))
+    unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
+    vis_recon = tf.concat((
+        unsqueeze(image), 
+        unsqueeze(recon), 
+        unsqueeze(gen_img), 
+        overlay_attention(attns, unsqueeze(image), H_enc, W_enc)), axis=1)
     return vis_recon
 
 
