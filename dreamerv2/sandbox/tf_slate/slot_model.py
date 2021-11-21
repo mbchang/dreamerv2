@@ -146,11 +146,16 @@ class DynamicSlotModel(SlotModel):
         # this requires a flattened input
         emb_input = bottle(self.embed_tokens)(z_transformer_input)
 
-        # reshape
-        # for loop
-        # reshape
-
-        slots, attns = bottle(self.apply_slot_attn)(emb_input)
+        slots_seq = []
+        attns_seq = []
+        slots = None
+        for t in range(T):
+            slots, attns = self.apply_slot_attn(emb_input[:, t], slots)
+            slots_seq.append(slots)
+            attns_seq.append(attns)
+        slots = eo.rearrange(slots_seq, 't b ... -> b t ...')
+        attns = eo.rearrange(attns_seq, 't b ... -> b t ...')
+        # we should also just have a utility function for this
 
         pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
