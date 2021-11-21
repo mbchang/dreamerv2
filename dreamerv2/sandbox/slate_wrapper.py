@@ -16,6 +16,7 @@ from sandbox import causal_agent
 import sandbox.tf_slate.slate as slate
 import sandbox.tf_slate.utils as utils
 from sandbox import normalize as nmlz
+import sandbox.slot_attention_utils as sa_utils
 
 import matplotlib
 matplotlib.use('Agg')
@@ -191,22 +192,26 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     (recon, cross_entropy, mse, attns, z_hard) = self.model(image, tf.constant(tau), True)
 
-
+    B, T, *_ = image.shape
     image = eo.rearrange(image, 'b t h w c -> (b t) c h w')
 
+    vis_recon = utils.report(
+      image, 
+      attns, 
+      recon, 
+      z_hard, 
+      self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.),prefix='REPORT', verbose=False)  # c (b h) (n w)
 
-    vis_recon = utils.report(image, attns, recon, z_hard, self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.), n=self.config.eval_dataset.batch, prefix='REPORT', verbose=False)  # c (b h) (n w)
+    video = eo.rearrange(vis_recon, '(b t) n c h w -> t (b h) (n w) c', b=B)
 
-    report[f'openl_{name}'] = eo.rearrange(vis_recon, 'c h w -> 1 h w c')
+    report[f'openl_{name}'] = video
     # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
     # report[f'imag_loss_{name}'] = rollout_metrics['imagine']
 
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
     save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
-    lgr.info(f'save png to {save_path}')
-    # utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
-    plt.imsave(f'{save_path}.png', eo.rearrange(vis_recon.numpy(), 'c h w -> h w c'))
-
+    lgr.info(f'save gif to {save_path}')
+    sa_utils.save_gif(sa_utils.add_border(video.numpy(), 0), save_path)
     return report
 
 
