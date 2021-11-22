@@ -6,6 +6,7 @@ from loguru import logger as lgr
 import os
 import pathlib
 import re
+import shutil
 import sys
 import warnings
 
@@ -62,6 +63,36 @@ def add_programmatically_generated_configs(parsed, configs):
   configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   return configs
 
+
+def save_source_code(exproot):
+  code_dir = pathlib.Path(os.path.join(exproot, 'code'))
+  os.makedirs(code_dir, exist_ok=True)
+  root = pathlib.Path('.')
+
+  shutil.copy2(root / 'runner.py', code_dir)
+
+  tail = 'dreamerv2'
+  subroot = root / tail
+  os.makedirs(code_dir / tail, exist_ok=True)
+  for src_file in [x for x in os.listdir(subroot) if '.py' in x or '.yaml' in x]:
+    shutil.copy2(subroot / src_file, code_dir / tail)
+
+  tail = 'dreamerv2/common'
+  shutil.copytree(root / tail, code_dir / tail)
+
+  tail = 'dreamerv2/sandbox'
+  os.makedirs(code_dir / tail, exist_ok=True)
+  subroot = root / tail
+  for src_file in [x for x in os.listdir(subroot) if '.py' in x]:
+    shutil.copy2(subroot / src_file, code_dir / tail)
+
+  tail = 'dreamerv2/sandbox/tf_slate'
+  os.makedirs(code_dir / tail, exist_ok=True)
+  subroot = root / tail
+  for src_file in [x for x in os.listdir(subroot) if '.py' in x]:
+    shutil.copy2(subroot / src_file, code_dir / tail)
+  
+
 def main():
   config = parse_args()
 
@@ -92,6 +123,8 @@ def main():
   config.save(logdir / 'config.yaml')
   lgr.info(f'{config}\n')
   lgr.info(f'Logdir: {logdir}')
+
+  save_source_code(logdir)
 
   import tensorflow as tf
 

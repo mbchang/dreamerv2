@@ -188,12 +188,27 @@ class DynamicSlotModel(SlotModel):
             priors.append(prior)
             posts.append(post)
             attns_seq.append(attns)
-        slots = eo.rearrange(posts, 't b ... -> b t ...')
+
+        priors = eo.rearrange(priors, 't b ... -> b t ...')
+        posts = eo.rearrange(posts, 't b ... -> b t ...')
         attns = eo.rearrange(attns_seq, 't b ... -> b t ...')
         # we should also just have a utility function for this
 
-        pred = bottle(self.parallel_decode)(emb_input, slots)
+
+        # loss for posterior only
+        pred = bottle(self.parallel_decode)(emb_input, posts)
         cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+
+        # # loss for both prior and posterior
+        # slots = eo.rearrange([priors, posts], 'n b ... -> (n b) ...')
+        # emb_input = eo.rearrange([emb_input, emb_input], 'n b ... -> (n b) ...')
+        # z_transformer_target = eo.rearrange([z_transformer_target, z_transformer_target], 'n b ... -> (n b) ...')
+
+        # pred = bottle(self.parallel_decode)(emb_input, slots)
+        # cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+
+
+
 
         return attns, cross_entropy
 
@@ -232,6 +247,15 @@ class DynamicSlotModel(SlotModel):
 
 
 
+"""
+loss for posterior only
+2021-11-21T19:30:57.044026-0800 [121] kl_loss 0 / image_loss 5557.73 / reward_loss 0 / discount_loss 0 / model_kl 990.78 / prior_ent 0 / post_ent 0 / slate/loss 6548.52 / slate/mse 5557.73 / slate/cross_entropy 990.78 / slate/slot_model_lr 1e-4 / slate/dvae_lr 3e-4 / slate/itr 7 / slate/tau 0.1 / fps 0.18
 
+loss for prior and posterior
+2021-11-21T21:40:54.892150-0800 [121] kl_loss 0 / image_loss 5557.73 / reward_loss 0 / discount_loss 0 / model_kl 982.31 / prior_ent 0 / post_ent 0 / slate/loss 6540.05 / slate/mse 5557.73 / slate/cross_entropy 982.31 / slate/slot_model_lr 1e-4 / slate/dvae_lr 3e-4 / slate/itr 7 / slate/tau 0.1 / fps 0.19
+
+
+
+"""
 
 
