@@ -173,6 +173,18 @@ class SLATE(layers.Layer):
 
 class DynamicSLATE(SLATE):
 
+    @staticmethod
+    def defaults_debug():
+        debug_args = SLATE.defaults_debug()
+        debug_args.slot_model = slot_model.DynamicSlotModel.defaults_debug()
+        return debug_args
+
+    @staticmethod
+    def defaults():
+        default_args = SLATE.defaults()
+        default_args.slot_model = slot_model.DynamicSlotModel.defaults()
+        return default_args
+
     def __init__(self, args):
         layers.Layer.__init__(self)
         self.args = args

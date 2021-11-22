@@ -143,13 +143,13 @@ class DynamicSlotModel(SlotModel):
     @staticmethod
     def defaults_debug():
         debug_args = SlotModel.defaults_debug()
-        # debug_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults_debug()
+        debug_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults_debug()
         return debug_args
 
     @staticmethod
     def defaults():
         default_args = SlotModel.defaults()
-        # default_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults()
+        default_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults()
         return default_args
 
 
