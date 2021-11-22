@@ -205,8 +205,9 @@ class DynamicSlotModel(SlotModel):
 
 #         action (3, 9)
 # is_first (3,)
-
-
+        # slots = self.img_step(slots, prev_action)
+        if slots is None:
+            slots = self.slot_attn.reset(emb_input.shape[0])
 
         slots, attns = self.apply_slot_attn(emb_input, slots)
 
@@ -214,7 +215,7 @@ class DynamicSlotModel(SlotModel):
 
 
     def img_step(self, prev_state, prev_action, sample=True):
-        pass
+        return prev_state
 
 
 
