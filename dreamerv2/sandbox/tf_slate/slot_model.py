@@ -173,20 +173,22 @@ class DynamicSlotModel(SlotModel):
         # this requires a flattened input
         emb_input = bottle(self.embed_tokens)(z_transformer_input)
 
-        slots_seq = []
+        priors = []
+        posts = []
         attns_seq = []
-        slots = None
+        post = None
         for t in range(T):
 
-            slots, attns = self.obs_step(
-                prev_state=slots, 
+            prior, post, attns = self.obs_step(
+                prev_state=post, 
                 prev_action=action[:, t], 
                 embed=emb_input[:, t],
                 is_first=is_first[:, t])
 
-            slots_seq.append(slots)
+            priors.append(prior)
+            posts.append(post)
             attns_seq.append(attns)
-        slots = eo.rearrange(slots_seq, 't b ... -> b t ...')
+        slots = eo.rearrange(posts, 't b ... -> b t ...')
         attns = eo.rearrange(attns_seq, 't b ... -> b t ...')
         # we should also just have a utility function for this
 
@@ -197,15 +199,12 @@ class DynamicSlotModel(SlotModel):
 
 
     def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
-        slots = prev_state
-        emb_input = embed
-
-        if slots is None:
-            prior = self.slot_attn.reset(emb_input.shape[0])
+        if prev_state is None:
+            prior = self.slot_attn.reset(embed.shape[0])
         else:
-            prior = self.img_step(slots, prev_action)
-        post, attns = self.apply_slot_attn(emb_input, prior)
-        return post, attns
+            prior = self.img_step(prev_state, prev_action)
+        post, attns = self.apply_slot_attn(embed, prior)
+        return prior, post, attns
 
 
     def img_step(self, prev_state, prev_action, sample=True):
