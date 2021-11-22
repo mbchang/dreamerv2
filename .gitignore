@@ -20,3 +20,5 @@ dreamerv2/sandbox/wandb/
 dreamerv2/.DS_Store
 dreamerv2/sandbox/.DS_Store
 nfs_runs/
+
+.DS_Store
