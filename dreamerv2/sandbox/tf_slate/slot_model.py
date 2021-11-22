@@ -92,16 +92,16 @@ class SlotModel(layers.Layer):
         pred = self.out(decoder_output)
         return pred
 
-    def autoregressive_decode(self, z_hard, slots, gen_len):
+    def autoregressive_decode(self, slots):
         B = slots.shape[0]
 
         # generate image tokens auto-regressively
-        z_gen = tf.zeros(0, dtype=z_hard.dtype)
+        z_gen = tf.zeros(0, dtype=tf.float32)
         z_transformer_input = tf.concat([
-            tf.ones((B, 1, 1), dtype=z_hard.dtype),
-            tf.zeros((B, 1, self.vocab_size), dtype=z_hard.dtype)
+            tf.ones((B, 1, 1), dtype=tf.float32),
+            tf.zeros((B, 1, self.vocab_size), dtype=tf.float32)
             ], axis=-1)
-        for t in range(gen_len):
+        for t in range(self.num_tokens):
             decoder_output = self.tf_dec(
                 self.positional_encoder(self.dictionary(z_transformer_input)),
                 slots
@@ -125,9 +125,9 @@ class SlotModel(layers.Layer):
 
     @staticmethod
     @tf.function
-    def loss_and_grad(slot_model, z_transformer_input, z_transformer_target, action, is_first):
+    def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):
         with tf.GradientTape() as tape:
-            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target, action, is_first)
+            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
         gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
         return attns, cross_entropy, gradients
 
@@ -162,6 +162,14 @@ class DynamicSlotModel(SlotModel):
           ])
         self.dynamics = transformer.TransformerDecoder(args.slot_attn.num_slots, args.d_model, args.dyn_transformer)
 
+    @staticmethod
+    @tf.function
+    def loss_and_grad(slot_model, z_transformer_input, z_transformer_target, action, is_first):
+        with tf.GradientTape() as tape:
+            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target, action, is_first)
+        gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
+        return attns, cross_entropy, gradients
+
 
     @tf.function
     def call(self, z_transformer_input, z_transformer_target, actions, is_first):
@@ -184,13 +192,20 @@ class DynamicSlotModel(SlotModel):
         return attns, cross_entropy
 
 
-      def imagine(self, slots, actions):
+    def imagine(self, slots, actions):
         """
             slots: (b, k, ds)
             actions: (b, t, da)
         """
         bsize = slots.shape[0]
         imag_latent = self.generate(slots, actions)
+        z_gen = utils.bottle(self.slot_model.autoregressive_decode)(slots, gen_len)
+
+        z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=H_enc, w=W_enc), tf.float32)
+        recon_transformer = self.dvae.decoder(z_gen)
+
+
+        # now need to autoregressive decode actually 
         imag_comb, imag_comp, imag_masks = utils.bottle(self.decode)(imag_latent)
         imag_output = dict(
             latent=imag_latent,

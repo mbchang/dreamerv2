@@ -91,7 +91,7 @@ class SLATE(layers.Layer):
         image: batch_size x img_channels x H x W
         """
 
-        gen_len = (image.shape[-1] // 4) ** 2
+        # gen_len = (image.shape[-1] // 4) ** 2
 
         B, C, H, W = image.shape
 
@@ -103,7 +103,7 @@ class SLATE(layers.Layer):
         one_hot_tokens, _ = create_tokens(z_hard)
         emb_input = self.slot_model.embed_tokens(one_hot_tokens)
         slots, attns = self.slot_model.apply_slot_attn(emb_input)
-        z_gen = self.slot_model.autoregressive_decode(z_hard, slots, gen_len)
+        z_gen = self.slot_model.autoregressive_decode(slots)
 
         z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=H_enc, w=W_enc), tf.float32)
 
