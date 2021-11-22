@@ -139,17 +139,36 @@ class SlotModel(layers.Layer):
 
 
 class DynamicSlotModel(SlotModel):
+
+    @staticmethod
+    def defaults_debug():
+        debug_args = SlotModel.defaults_debug()
+        # debug_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults_debug()
+        return debug_args
+
+    @staticmethod
+    def defaults():
+        default_args = SlotModel.defaults()
+        # default_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults()
+        return default_args
+
+
+    def __init__(self, vocab_size, num_tokens, args):
+        super().__init__(vocab_size, num_tokens, args)
+
+        # self.action_encoder = tf.keras.Sequential([
+        #   layers.Dense(args.d_model, activation='relu'),
+        #   layers.Dense(args.d_model)
+        #   ])
+        # self.dynamics = transformer.TransformerDecoder(args.slot_attn.num_slots, args.d_model, args.dyn_transformer)
+
+
     @tf.function
     def call(self, z_transformer_input, z_transformer_target, action, is_first):
+        # TODO: make is_first flag the first action
+        # for now, we will manually ignore the first action
+
         B, T, *_ = z_transformer_target.shape
-
-        # print('action', action.shape)
-        # print('is_first', is_first.shape)
-
-# action (3, 8, 9)
-# is_first (3, 8)
-# action (6, 10, 9)
-# is_first (6, 10)
 
         # this requires a flattened input
         emb_input = bottle(self.embed_tokens)(z_transformer_input)
@@ -187,6 +206,8 @@ class DynamicSlotModel(SlotModel):
 #         action (3, 9)
 # is_first (3,)
 
+
+
         slots, attns = self.apply_slot_attn(emb_input, slots)
 
         return slots, attns
@@ -194,6 +215,25 @@ class DynamicSlotModel(SlotModel):
 
     def img_step(self, prev_state, prev_action, sample=True):
         pass
+
+
+
+
+  # def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
+  #   # prior: t-1 to t'
+  #   prior = self.img_step(prev_state, prev_action)
+
+  #   # handle first
+  #   if self.handle_first:
+  #     resetted_states = self.slot_attention.reset(batch_size=prev_state.shape[0])
+  #     mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
+  #     prior = mask * resetted_states + (1 - mask) * prior
+
+  #   # posterior t' to t
+  #   post = self.slot_attention(prior, embed)
+  #   return post, prior
+
+
 
 
 
