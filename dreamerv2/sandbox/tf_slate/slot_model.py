@@ -156,11 +156,11 @@ class DynamicSlotModel(SlotModel):
     def __init__(self, vocab_size, num_tokens, args):
         super().__init__(vocab_size, num_tokens, args)
 
-        # self.action_encoder = tf.keras.Sequential([
-        #   layers.Dense(args.d_model, activation='relu'),
-        #   layers.Dense(args.d_model)
-        #   ])
-        # self.dynamics = transformer.TransformerDecoder(args.slot_attn.num_slots, args.d_model, args.dyn_transformer)
+        self.action_encoder = tf.keras.Sequential([
+          layers.Dense(args.slot_size, activation='relu'),
+          layers.Dense(args.slot_size)
+          ])
+        self.dynamics = transformer.TransformerDecoder(args.slot_attn.num_slots, args.d_model, args.dyn_transformer)
 
 
     @tf.function
@@ -200,24 +200,19 @@ class DynamicSlotModel(SlotModel):
         slots = prev_state
         emb_input = embed
 
-        # print('action', prev_action.shape)
-        # print('is_first', is_first.shape)
-
-#         action (3, 9)
-# is_first (3,)
-        # slots = self.img_step(slots, prev_action)
         if slots is None:
             slots = self.slot_attn.reset(emb_input.shape[0])
         else:
             slots = self.img_step(slots, prev_action)
-
         slots, attns = self.apply_slot_attn(emb_input, slots)
-
         return slots, attns
 
 
     def img_step(self, prev_state, prev_action, sample=True):
-        return prev_state
+        prev_action = self.action_encoder(prev_action)
+        context = tf.concat([prev_state, rearrange(prev_action, 'b a -> b 1 a')], 1)
+        prior = self.dynamics(prev_state, context)
+        return prior
 
 
 
