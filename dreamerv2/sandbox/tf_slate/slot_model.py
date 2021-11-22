@@ -168,17 +168,10 @@ class DynamicSlotModel(SlotModel):
         # TODO: make is_first flag the first action
         # for now, we will manually ignore the first action
 
-        # B, T, *_ = z_transformer_target.shape
-
         # this requires a flattened input
         emb_input = bottle(self.embed_tokens)(z_transformer_input)
 
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
-
-
-        # loss for posterior only
-        # pred = bottle(self.parallel_decode)(emb_input, posts)
-        # cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
         # loss for both prior and posterior
         slots = eo.rearrange([priors, posts], 'n b ... -> (n b) ...')
