@@ -181,21 +181,32 @@ class DynamicSlotModel(SlotModel):
         pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
-
-
-
         return attns, cross_entropy
 
 
+      def imagine(self, slots, actions):
+        """
+            slots: (b, k, ds)
+            actions: (b, t, da)
+        """
+        bsize = slots.shape[0]
+        imag_latent = self.generate(slots, actions)
+        imag_comb, imag_comp, imag_masks = utils.bottle(self.decode)(imag_latent)
+        imag_output = dict(
+            latent=imag_latent,
+            pred=dict(comb=imag_comb, comp=imag_comp, masks=imag_masks)
+        )
+        return imag_output
+
+
     def filter(self, slots, embeds, actions, is_first):
-        B, T, *_ = actions.shape
-        # actions = self.action_encoder(actions)
+        actions = self.action_encoder(actions)
 
         priors = []
         posts = []
         attns_seq = []
         post = slots
-        for t in range(T):
+        for t in range(actions.shape[1]):
 
             prior, post, attns = self.obs_step(
                 prev_state=post, 
@@ -214,10 +225,14 @@ class DynamicSlotModel(SlotModel):
         return priors, posts, attns
 
 
-
     def generate(self, slots, actions):
-        pass
-
+        actions = self.action_encoder(actions)
+        latents = []
+        for i in range(actions.shape[1]):
+            slots = self.img_step(slots, actions[:, i])
+            latents.append(slots)
+        latents = rearrange(latents, 't b ... -> b t ...')
+        return latents
 
 
     def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
@@ -230,27 +245,11 @@ class DynamicSlotModel(SlotModel):
 
 
     def img_step(self, prev_state, prev_action, sample=True):
-        prev_action = self.action_encoder(prev_action)
+        # prev_action = self.action_encoder(prev_action)
         context = tf.concat([prev_state, rearrange(prev_action, 'b a -> b 1 a')], 1)
         prior = self.dynamics(prev_state, context)
         return prior
 
-
-
-
-  # def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
-  #   # prior: t-1 to t'
-  #   prior = self.img_step(prev_state, prev_action)
-
-  #   # handle first
-  #   if self.handle_first:
-  #     resetted_states = self.slot_attention.reset(batch_size=prev_state.shape[0])
-  #     mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
-  #     prior = mask * resetted_states + (1 - mask) * prior
-
-  #   # posterior t' to t
-  #   post = self.slot_attention(prior, embed)
-  #   return post, prior
 
 
 
