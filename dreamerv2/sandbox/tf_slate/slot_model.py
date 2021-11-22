@@ -164,42 +164,23 @@ class DynamicSlotModel(SlotModel):
 
 
     @tf.function
-    def call(self, z_transformer_input, z_transformer_target, action, is_first):
+    def call(self, z_transformer_input, z_transformer_target, actions, is_first):
         # TODO: make is_first flag the first action
         # for now, we will manually ignore the first action
 
-        B, T, *_ = z_transformer_target.shape
+        # B, T, *_ = z_transformer_target.shape
 
         # this requires a flattened input
         emb_input = bottle(self.embed_tokens)(z_transformer_input)
 
-        priors = []
-        posts = []
-        attns_seq = []
-        post = None
-        for t in range(T):
-
-            prior, post, attns = self.obs_step(
-                prev_state=post, 
-                prev_action=action[:, t], 
-                embed=emb_input[:, t],
-                is_first=is_first[:, t])
-
-            priors.append(prior)
-            posts.append(post)
-            attns_seq.append(attns)
-
-        priors = eo.rearrange(priors, 't b ... -> b t ...')
-        posts = eo.rearrange(posts, 't b ... -> b t ...')
-        attns = eo.rearrange(attns_seq, 't b ... -> b t ...')
-        # we should also just have a utility function for this
+        priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
 
 
         # loss for posterior only
         # pred = bottle(self.parallel_decode)(emb_input, posts)
         # cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
-        # # loss for both prior and posterior
+        # loss for both prior and posterior
         slots = eo.rearrange([priors, posts], 'n b ... -> (n b) ...')
         emb_input = eo.rearrange([emb_input, emb_input], 'n b ... -> (n b) ...')
         z_transformer_target = eo.rearrange([z_transformer_target, z_transformer_target], 'n b ... -> (n b) ...')
@@ -211,6 +192,39 @@ class DynamicSlotModel(SlotModel):
 
 
         return attns, cross_entropy
+
+
+    def filter(self, slots, embeds, actions, is_first):
+        B, T, *_ = actions.shape
+        # actions = self.action_encoder(actions)
+
+        priors = []
+        posts = []
+        attns_seq = []
+        post = slots
+        for t in range(T):
+
+            prior, post, attns = self.obs_step(
+                prev_state=post, 
+                prev_action=actions[:, t], 
+                embed=embeds[:, t],
+                is_first=is_first[:, t])
+
+            priors.append(prior)
+            posts.append(post)
+            attns_seq.append(attns)
+
+        priors = eo.rearrange(priors, 't b ... -> b t ...')
+        posts = eo.rearrange(posts, 't b ... -> b t ...')
+        attns = eo.rearrange(attns_seq, 't b ... -> b t ...')
+        # we should also just have a utility function for this
+        return priors, posts, attns
+
+
+
+    def generate(self, slots, actions):
+        pass
+
 
 
     def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
