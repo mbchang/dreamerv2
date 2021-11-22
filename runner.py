@@ -1651,6 +1651,32 @@ def does_slate_wrapper_work_with_tffunction_in_causal_agent_11_19_21():
     r.generate_commands(args.for_real)
 
 
+def dynamic_slate_post_loss_only_11_21_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_stacker_stack_2', 'dmc_finger_turn_easy', 'dmc_manip_reach_site', 'vmballs_simple_box4', 'dmc_manip_lift_large_box', 'dmc_manip_place_brick'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [10])
+    r.add_flag('dataset.length', [5])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+
+    r.add_flag('logdir', ['runs/dynamic_slate_post_loss_only'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -1694,7 +1720,8 @@ if __name__ == '__main__':
     # find_good_hyperparams_for_finger_11_7_21()
     # can_dreamer_solve_finger_turn_easy_11_8_21()
     # does_slate_wrapper_work_11_19_21()
-    does_slate_wrapper_work_with_tffunction_in_causal_agent_11_19_21()
+    # does_slate_wrapper_work_with_tffunction_in_causal_agent_11_19_21()
+    dynamic_slate_post_loss_only_11_21_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

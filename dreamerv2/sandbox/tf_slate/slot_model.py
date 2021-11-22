@@ -201,11 +201,11 @@ class DynamicSlotModel(SlotModel):
         emb_input = embed
 
         if slots is None:
-            slots = self.slot_attn.reset(emb_input.shape[0])
+            prior = self.slot_attn.reset(emb_input.shape[0])
         else:
-            slots = self.img_step(slots, prev_action)
-        slots, attns = self.apply_slot_attn(emb_input, slots)
-        return slots, attns
+            prior = self.img_step(slots, prev_action)
+        post, attns = self.apply_slot_attn(emb_input, prior)
+        return post, attns
 
 
     def img_step(self, prev_state, prev_action, sample=True):
