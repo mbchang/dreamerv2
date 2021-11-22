@@ -125,9 +125,9 @@ class SlotModel(layers.Layer):
 
     @staticmethod
     @tf.function
-    def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):
+    def loss_and_grad(slot_model, z_transformer_input, z_transformer_target, action, is_first):
         with tf.GradientTape() as tape:
-            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
+            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target, action, is_first)
         gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
         return attns, cross_entropy, gradients
 
@@ -140,8 +140,16 @@ class SlotModel(layers.Layer):
 
 class DynamicSlotModel(SlotModel):
     @tf.function
-    def call(self, z_transformer_input, z_transformer_target):
+    def call(self, z_transformer_input, z_transformer_target, action, is_first):
         B, T, *_ = z_transformer_target.shape
+
+        # print('action', action.shape)
+        # print('is_first', is_first.shape)
+
+# action (3, 8, 9)
+# is_first (3, 8)
+# action (6, 10, 9)
+# is_first (6, 10)
 
         # this requires a flattened input
         emb_input = bottle(self.embed_tokens)(z_transformer_input)
@@ -153,9 +161,9 @@ class DynamicSlotModel(SlotModel):
 
             slots, attns = self.obs_step(
                 prev_state=slots, 
-                prev_action=None, 
+                prev_action=action[:, t], 
                 embed=emb_input[:, t],
-                is_first=None)
+                is_first=is_first[:, t])
 
             slots_seq.append(slots)
             attns_seq.append(attns)
@@ -172,6 +180,12 @@ class DynamicSlotModel(SlotModel):
     def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
         slots = prev_state
         emb_input = embed
+
+        # print('action', prev_action.shape)
+        # print('is_first', is_first.shape)
+
+#         action (3, 9)
+# is_first (3,)
 
         slots, attns = self.apply_slot_attn(emb_input, slots)
 

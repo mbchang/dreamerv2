@@ -190,7 +190,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
         start_step=0,
         final_step=self.model.args.dvae.tau_steps)
 
-    (recon, cross_entropy, mse, attns, z_hard) = self.model(image, tf.constant(tau), True)
+    (recon, cross_entropy, mse, attns, z_hard) = self.model(data, tf.constant(tau), True)
 
     B, T, *_ = image.shape
     image = eo.rearrange(image, 'b t h w c -> (b t) c h w')

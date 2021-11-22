@@ -186,10 +186,13 @@ class DynamicSLATE(SLATE):
         self.training = False
         self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
 
-    def call(self, image: tf.Tensor, tau: tf.Tensor, hard: bool):
+    def call(self, data, tau, hard):
         """
         image: batch_size x img_channels x H x W
         """
+
+        image = data['image']
+
         B, T, *_ = image.shape
         image = rearrange(image, 'b t h w c -> (b t) c h w')
 
@@ -202,7 +205,7 @@ class DynamicSLATE(SLATE):
         z_transformer_target = rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
         #
 
-        attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
+        attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target, data['action'], data['is_first'])
 
         # 
         attns = rearrange(attns, 'b t ... -> (b t) ...')
@@ -259,7 +262,9 @@ class DynamicSLATE(SLATE):
 
         attns, cross_entropy, gradients = slot_model.DynamicSlotModel.loss_and_grad(self.slot_model, 
             rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
-            rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
+            rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T),
+            action=data['action'],
+            is_first=data['is_first']
             # here, add is_first, action
 
             )
