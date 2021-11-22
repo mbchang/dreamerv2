@@ -257,9 +257,11 @@ class DynamicSLATE(SLATE):
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
 
-        attns, cross_entropy, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, 
+        attns, cross_entropy, gradients = slot_model.DynamicSlotModel.loss_and_grad(self.slot_model, 
             rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
             rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
+            # here, add is_first, action
+
             )
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
