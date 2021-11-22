@@ -196,16 +196,16 @@ class DynamicSlotModel(SlotModel):
 
 
         # loss for posterior only
-        pred = bottle(self.parallel_decode)(emb_input, posts)
-        cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+        # pred = bottle(self.parallel_decode)(emb_input, posts)
+        # cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
         # # loss for both prior and posterior
-        # slots = eo.rearrange([priors, posts], 'n b ... -> (n b) ...')
-        # emb_input = eo.rearrange([emb_input, emb_input], 'n b ... -> (n b) ...')
-        # z_transformer_target = eo.rearrange([z_transformer_target, z_transformer_target], 'n b ... -> (n b) ...')
+        slots = eo.rearrange([priors, posts], 'n b ... -> (n b) ...')
+        emb_input = eo.rearrange([emb_input, emb_input], 'n b ... -> (n b) ...')
+        z_transformer_target = eo.rearrange([z_transformer_target, z_transformer_target], 'n b ... -> (n b) ...')
 
-        # pred = bottle(self.parallel_decode)(emb_input, slots)
-        # cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+        pred = bottle(self.parallel_decode)(emb_input, slots)
+        cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
 
 
