@@ -247,15 +247,28 @@ def main(argv):
                 if isinstance(image, dict):
                     image = image['image']
 
-                (_, cross_entropy_relax, mse_relax, _, _) = model(image, tf.constant(tau), False)
+                # (_, cross_entropy_relax, mse_relax, _, _) = model(image, tf.constant(tau), False)
                 
-                (recon, cross_entropy, mse, attns, z_hard) = model(image, tf.constant(tau), True)
+                # (recon, cross_entropy, mse, attns, z_hard) = model(image, tf.constant(tau), True)
+
+                outs_relax, mets_relax = model(image, tf.constant(tau), False)
+                # cross_entropy_relax = mets_relax['cross_entropy']
+                # mse_relax = mets_relax['mse']
                 
-                val_cross_entropy_relax += cross_entropy_relax.numpy()
-                val_mse_relax += mse_relax.numpy()
+                outs, mets = model(image, tf.constant(tau), True)
+                recon = outs['dvae']['recon']
+                # cross_entropy = mets['cross_entropy']
+                # mse = mets['mse']
+                attns = outs['slot_model']['attns']
+                z_hard = outs['dvae']['z_hard']
+
+
                 
-                val_cross_entropy += cross_entropy.numpy()
-                val_mse += mse.numpy()
+                val_cross_entropy_relax += mets_relax['cross_entropy'].numpy()
+                val_mse_relax += mets_relax['mse'].numpy()
+                
+                val_cross_entropy += mets['cross_entropy'].numpy()
+                val_mse += mets['mse'].numpy()
 
             val_cross_entropy_relax /= (val_epoch_size)
             val_mse_relax /= (val_epoch_size)

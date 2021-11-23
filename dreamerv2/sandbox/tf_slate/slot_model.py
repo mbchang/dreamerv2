@@ -125,16 +125,6 @@ class SlotModel(layers.Layer):
         metrics = {'cross_entropy': cross_entropy}
         return outputs, metrics
 
-        # return attns, cross_entropy
-
-    # @staticmethod
-    # @tf.function
-    # def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):
-    #     with tf.GradientTape() as tape:
-    #         attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
-    #     gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
-    #     return attns, cross_entropy, gradients
-
     @staticmethod
     @tf.function
     def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):

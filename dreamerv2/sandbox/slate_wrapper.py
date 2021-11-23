@@ -190,15 +190,15 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
         start_step=0,
         final_step=self.model.args.dvae.tau_steps)
 
-    (recon, cross_entropy, mse, attns, z_hard) = self.model(data, tf.constant(tau), True)
+    outs, mets = self.model(data, tf.constant(tau), True)
 
     B, T, *_ = image.shape
     image = eo.rearrange(image, 'b t h w c -> (b t) c h w')
 
     vis_recon = utils.report(
       image, 
-      attns, 
-      recon, 
+      outs['slot_model']['attns'], 
+      outs['dvae']['recon'], 
       self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.))  # c (b h) (n w)
 
     video = eo.rearrange(vis_recon, '(b t) n c h w -> t (b h) (n w) c', b=B)

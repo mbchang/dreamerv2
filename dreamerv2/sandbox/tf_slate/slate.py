@@ -76,13 +76,18 @@ class SLATE(layers.Layer):
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
         sm_out, sm_mets = self.slot_model(z_transformer_input, z_transformer_target)
 
-        return (
-            dvae_out['recon'],
-            sm_mets['cross_entropy'],
-            dvae_mets['mse'],
-            sm_out['attns'],
-            dvae_out['z_hard']
-        )
+        outputs = dict(dvae=dvae_out, slot_model=sm_out)
+        metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
+
+        return outputs, metrics
+
+        # return (
+        #     dvae_out['recon'],
+        #     sm_mets['cross_entropy'],
+        #     dvae_mets['mse'],
+        #     sm_out['attns'],
+        #     dvae_out['z_hard']
+        # )
 
     def decode(self, z):
         size = int(np.sqrt(self.num_tokens))
@@ -213,14 +218,10 @@ class DynamicSLATE(SLATE):
         sm_out['attns'] = rearrange(sm_out['attns'], 'b t ... -> (b t) ...')
         #
 
-        return (
-            dvae_out['recon'],
-            sm_mets['cross_entropy'],
-            dvae_mets['mse'],
-            sm_out['attns'],
-            dvae_out['z_hard']
-        )
+        outputs = dict(dvae=dvae_out, slot_model=sm_out)
+        metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
 
+        return outputs, metrics
 
     def imagine(self, slots, actions):
         """
