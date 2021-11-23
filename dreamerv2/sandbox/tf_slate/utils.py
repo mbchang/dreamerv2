@@ -75,7 +75,7 @@ def report(image, attns, recon, model, preproc):
     """
     Ideally this should just take the data as input only
     """
-    gen_img = model.reconstruct_autoregressive(image)
+    gen_img, _, _ = model.reconstruct_autoregressive(image)
     unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
     vis_recon = tf.concat((
         unsqueeze(image), 

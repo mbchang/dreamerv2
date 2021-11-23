@@ -71,20 +71,24 @@ class SLATE(layers.Layer):
         """
         image: batch_size x img_channels x H x W
         """
+        dvae_out, dvae_mets = self.dvae(image, tau, hard)
 
-        # B, C, H, W = image.shape
-        recon, z_hard, mse = self.dvae(image, tau, hard)
-
-        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
         attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
 
         return (
-            recon,
+            dvae_out['recon'],
             cross_entropy,
-            mse,
+            dvae_mets['mse'],
             attns,
-            z_hard
+            dvae_out['z_hard']
         )
+
+    def decode(self, z):
+        size = int(np.sqrt(self.num_tokens))
+        z = tf.cast(rearrange(z, 'b (h w) d -> b d h w', h=size, w=size), tf.float32)
+        output = self.dvae.decoder(z)
+        return output
 
     @tf.function
     def reconstruct_autoregressive(self, image: tf.Tensor, eval: bool=False):
@@ -92,21 +96,13 @@ class SLATE(layers.Layer):
         image: batch_size x img_channels x H x W
         """
         z_logits = self.dvae.get_logits(image)
-        # _, _, H_enc, W_enc = z_logits.shape
-
         z_hard = self.dvae.mode(z_logits)
-
         one_hot_tokens, _ = create_tokens(z_hard)
         emb_input = self.slot_model.embed_tokens(one_hot_tokens)
         slots, attns = self.slot_model.apply_slot_attn(emb_input)
         z_gen = self.slot_model.autoregressive_decode(slots)
-
-        size = int(np.sqrt(self.num_tokens))
-        z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=size, w=size), tf.float32)
-
-        recon_transformer = self.dvae.decoder(z_gen)
-
-        return recon_transformer
+        recon_transformer = self.decode(z_gen)
+        return recon_transformer, slots, attns
 
     def train_step(self, image):
         # global_step should be the same as self.step
@@ -128,21 +124,19 @@ class SLATE(layers.Layer):
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
         self.main_optimizer.lr = f32(self.args.lr_decay_factor * lr_warmup_factor * self.args.slot_model.lr)
 
-        recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
+        dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
-        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
         attns, cross_entropy, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
-        loss = mse + cross_entropy
+        loss = dvae_mets['mse'] + cross_entropy
 
         outputs = dict(
-            dvae=dict(
-                recon=recon,
-                z_hard=z_hard),
+            dvae=dvae_out,
             slot_model=dict(
                 attns=attns,
                 ),
@@ -151,7 +145,7 @@ class SLATE(layers.Layer):
                 lr_warmup_factor=lr_warmup_factor)
             )
         metrics = dict(
-            mse=mse,
+            mse=dvae_mets['mse'],
             cross_entropy=cross_entropy,
             loss=loss)
 
@@ -206,9 +200,9 @@ class DynamicSLATE(SLATE):
         B, T, *_ = image.shape
         image = rearrange(image, 'b t h w c -> (b t) c h w')
 
-        recon, z_hard, mse = self.dvae(image, tau, hard)
+        dvae_out, dvae_mets = self.dvae(image, tau, hard)
 
-        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
         #
         z_transformer_input = rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T)
@@ -222,13 +216,39 @@ class DynamicSLATE(SLATE):
         #
 
         return (
-            recon,
+            dvae_out['recon'],
             cross_entropy,
-            mse,
+            dvae_mets['mse'],
             attns,
-            z_hard
+            dvae_out['z_hard']
         )
 
+
+    def imagine(self, slots, actions):
+        """
+            slots: (b, k, ds)
+            actions: (b, t, da)
+        """
+        bsize = slots.shape[0]
+        imag_latent = self.slot_model.generate(slots, actions)
+        z_gen = utils.bottle(self.slot_model.autoregressive_decode)(slots)
+        recon_transformer = self.decode(z_gen)
+        return recon_transformer
+
+    def rollout(self, batch, seed_steps, pred_horizon):
+        obs = batch['image'][:, :seed_steps + pred_horizon]
+        act = batch['action'][:, :seed_steps + pred_horizon]
+        is_first = batch['is_first'][:, :seed_steps + pred_horizon]
+        recon_pred, recon_slots, recon_attns = self.call({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]}, tau, hard)
+        imag_pred, imag_slots, imag_attns = self.imagine(recon_slots[:, -1], act[:, seed_steps:])
+
+        # rollout_ouptut
+        # rollout_metrics
+
+
+        # do reconstruct autoregressgive
+        # then do imagine
+        pass
 
 
     def train_step(self, data):
@@ -265,10 +285,10 @@ class DynamicSLATE(SLATE):
         self.main_optimizer.lr = f32(self.args.lr_decay_factor * lr_warmup_factor * self.args.slot_model.lr)
 
         image = rearrange(data['image'], 'b t h w c -> (b t) c h w')
-        recon, z_hard, mse, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
+        dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
-        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
+        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
         attns, cross_entropy, gradients = slot_model.DynamicSlotModel.loss_and_grad(self.slot_model, 
             rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
@@ -281,12 +301,10 @@ class DynamicSLATE(SLATE):
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
-        loss = mse + cross_entropy
+        loss = dvae_mets['mse'] + cross_entropy
 
         outputs = dict(
-            dvae=dict(
-                recon=recon,
-                z_hard=z_hard),
+            dvae=dvae_out,
             slot_model=dict(
                 attns=attns,
                 ),
@@ -295,7 +313,7 @@ class DynamicSLATE(SLATE):
                 lr_warmup_factor=lr_warmup_factor)
             )
         metrics = dict(
-            mse=mse,
+            mse=dvae_mets['mse'],
             cross_entropy=cross_entropy,
             loss=loss)
 

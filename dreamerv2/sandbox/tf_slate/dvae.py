@@ -87,15 +87,26 @@ class dVAE(tkl.Layer):
         # hard z
         z_hard = self.sample(z_logits, tau, True)
 
-        return recon, z_hard, mse
+        outputs = {'recon': recon,'z_hard': z_hard}
+        metrics = {'mse': mse}
+        return outputs, metrics
+        # return recon, z_hard, mse
+
+    # @staticmethod
+    # @tf.function
+    # def loss_and_grad(dvae, image, tau, hard):
+    #     with tf.GradientTape() as tape:
+    #         recon, z_hard, mse = dvae(image, tau, hard)
+    #     gradients = tape.gradient(mse, dvae.trainable_weights)
+    #     return recon, z_hard, mse, gradients
 
     @staticmethod
     @tf.function
     def loss_and_grad(dvae, image, tau, hard):
         with tf.GradientTape() as tape:
-            recon, z_hard, mse = dvae(image, tau, hard)
-        gradients = tape.gradient(mse, dvae.trainable_weights)
-        return recon, z_hard, mse, gradients
+            outputs, metrics = dvae(image, tau, hard)
+        gradients = tape.gradient(metrics['mse'], dvae.trainable_weights)
+        return outputs, metrics, gradients
 
 
 class PixelShuffle(tkl.Layer):

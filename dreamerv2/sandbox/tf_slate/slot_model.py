@@ -192,29 +192,6 @@ class DynamicSlotModel(SlotModel):
         return attns, cross_entropy
 
 
-    def imagine(self, slots, actions):
-        """
-            slots: (b, k, ds)
-            actions: (b, t, da)
-        """
-        bsize = slots.shape[0]
-        imag_latent = self.generate(slots, actions)
-        z_gen = utils.bottle(self.slot_model.autoregressive_decode)(slots, gen_len)
-
-        size = int(np.sqrt(self.num_tokens))
-        z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=size, w=size), tf.float32)
-        recon_transformer = self.dvae.decoder(z_gen)
-
-
-        # now need to autoregressive decode actually 
-        imag_comb, imag_comp, imag_masks = utils.bottle(self.decode)(imag_latent)
-        imag_output = dict(
-            latent=imag_latent,
-            pred=dict(comb=imag_comb, comp=imag_comp, masks=imag_masks)
-        )
-        return imag_output
-
-
     def filter(self, slots, embeds, actions, is_first):
         actions = self.action_encoder(actions)
 
