@@ -113,27 +113,32 @@ class SLATE(layers.Layer):
         recon_transformer = self.decode(z_gen)
         return recon_transformer, slots, attns
 
-    def train_step(self, image):
-        # global_step should be the same as self.step
-
+    def get_iterates(self, step):
         tau = cosine_anneal(
-            step=self.step.numpy(),
+            step=step,
             start_value=self.args.dvae.tau_start,
             final_value=self.args.dvae.tau_final,
             start_step=0,
             final_step=self.args.dvae.tau_steps)
 
         lr_warmup_factor = linear_warmup(
-            step=self.step.numpy(),
+            step=step,
             start_value=0.,
             final_value=1.0,
             start_step=0,
             final_step=self.args.slot_model.lr_warmup_steps)
 
-        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
-        self.main_optimizer.lr = f32(self.args.lr_decay_factor * lr_warmup_factor * self.args.slot_model.lr)
+        return dict(tau=tau, lr_warmup_factor=lr_warmup_factor)
 
-        dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
+    def train_step(self, image):
+        # global_step should be the same as self.step
+
+        iterates = self.get_iterates(self.step.numpy())
+
+        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
+        self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
+
+        dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
@@ -144,13 +149,7 @@ class SLATE(layers.Layer):
 
         loss = dvae_mets['mse'] + sm_mets['cross_entropy']
 
-        outputs = dict(
-            dvae=dvae_out,
-            slot_model=sm_out,
-            iterates=dict(
-                tau=tau,
-                lr_warmup_factor=lr_warmup_factor)
-            )
+        outputs = dict(dvae=dvae_out, slot_model=sm_out, iterates=iterates)
         metrics = {'loss': loss, **dvae_mets, **sm_mets}
 
         self.step.assign_add(1)
@@ -308,25 +307,13 @@ class DynamicSLATE(SLATE):
 
         B, T, _ = data['action'].shape
 
-        tau = cosine_anneal(
-            step=self.step.numpy(),
-            start_value=self.args.dvae.tau_start,
-            final_value=self.args.dvae.tau_final,
-            start_step=0,
-            final_step=self.args.dvae.tau_steps)
-
-        lr_warmup_factor = linear_warmup(
-            step=self.step.numpy(),
-            start_value=0.,
-            final_value=1.0,
-            start_step=0,
-            final_step=self.args.slot_model.lr_warmup_steps)
+        iterates = self.get_iterates(self.step.numpy())
 
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
-        self.main_optimizer.lr = f32(self.args.lr_decay_factor * lr_warmup_factor * self.args.slot_model.lr)
+        self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
 
         image = rearrange(data['image'], 'b t h w c -> (b t) c h w')
-        dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(tau), self.args.dvae.hard)
+        dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
@@ -342,13 +329,7 @@ class DynamicSLATE(SLATE):
 
         loss = dvae_mets['mse'] + sm_mets['cross_entropy']
 
-        outputs = dict(
-            dvae=dvae_out,
-            slot_model=sm_out,
-            iterates=dict(
-                tau=tau,
-                lr_warmup_factor=lr_warmup_factor)
-            )
+        outputs = dict(dvae=dvae_out, slot_model=sm_out, iterates=iterates)
         metrics = {'loss': loss, **dvae_mets, **sm_mets}
         self.step.assign_add(1)
 

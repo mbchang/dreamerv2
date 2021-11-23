@@ -89,14 +89,9 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
 
-    tau = utils.cosine_anneal(
-        step=self.model.step.numpy(),
-        start_value=self.model.args.dvae.tau_start,
-        final_value=self.model.args.dvae.tau_final,
-        start_step=0,
-        final_step=self.model.args.dvae.tau_steps)
+    iterates = self.model.get_iterates(self.model.step.numpy())
 
-    outs, mets = self.model(data, tf.constant(tau), True)
+    outs, mets = self.model(data, tf.constant(iterates['tau']), True)
 
 
     image = data['image']
