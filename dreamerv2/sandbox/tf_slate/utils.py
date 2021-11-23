@@ -61,29 +61,6 @@ def f32(x):
 ## Visualization utils
 ########################################################################
 
-
-# def overlay_attention(attns, image):
-#     *_, H, W = image.shape
-#     attns = rearrange(attns, 'b hw k -> b k hw')
-#     size = int(np.sqrt(attns.shape[-1]))
-#     attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k 1 h w', h = size, w=size), H // size, axis=-2), W // size, axis=-1)
-#     attns = image * attns + 1. - attns
-#     return attns
-
-
-# def report(image, attns, recon, model, preproc):
-#     """
-#     Ideally this should just take the data as input only
-#     """
-#     gen_img, _, _ = model.reconstruct_autoregressive(image)
-#     unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
-#     vis_recon = tf.concat((
-#         unsqueeze(image), 
-#         unsqueeze(recon), 
-#         unsqueeze(gen_img), 
-#         overlay_attention(attns, unsqueeze(image))), axis=1)
-#     return vis_recon
-
 def hash_sha1(obj):
     return hashlib.sha1(obj).hexdigest()
 
