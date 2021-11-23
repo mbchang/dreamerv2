@@ -279,7 +279,15 @@ class DynamicSLATE(SLATE):
 
     def visualize(self, rollout_output):
         raise NotImplementedError('need to overlay attention, need to compare with ground truth and dvae recon, need to nmlz.uncenter')
-        video = rearrange(rollout_output['video'], 'b t c h w -> t h (b w) c')
+        # video = rearrange(rollout_output['video'], 'b t c h w -> t h (b w) c')
+
+        unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
+        vis_recon = tf.concat((
+            unsqueeze(image), 
+            unsqueeze(recon), 
+            unsqueeze(gen_img), 
+            overlay_attention(attns, unsqueeze(image))), axis=1)
+        
         return video
 
 

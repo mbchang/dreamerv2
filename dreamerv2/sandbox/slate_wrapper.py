@@ -89,7 +89,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
 
-
+    #######################################
     tau = utils.cosine_anneal(
         step=self.model.step.numpy(),
         start_value=self.model.args.dvae.tau_start,
@@ -99,14 +99,12 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     outs, mets = self.model(data, tf.constant(tau), True)
 
-
-
-    #######################################
     image = data['image']
     B, T, *_ = image.shape
     image = eo.rearrange(image, 'b t h w c -> (b t) c h w')
 
-    vis_recon = self.model.visualize(
+    # vis_recon = self.model.visualize(
+    vis_recon = slate.SLATE.visualize(self.model,
       image, 
       outs['slot_model']['attns'], 
       outs['dvae']['recon'], 
@@ -116,7 +114,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     #######################################
     # replace the above with this
 
-    # rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
+    # rollout_output, rollout_metrics = self.model.rollout(data, seed_steps, self.config.eval_dataset.length-seed_steps)
     # video = self.model.visualize(rollout_output) # t h (b w) c
 
 
@@ -134,7 +132,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
     save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
     lgr.info(f'Save gif to {save_path}. Video hash: {utils.hash_10(video)}')
-    sa_utils.save_gif(sa_utils.add_border(video.numpy(), 0), save_path)
+    sa_utils.save_gif(sa_utils.add_border(video.numpy(), seed_steps), save_path)
     return report
 
 
