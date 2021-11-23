@@ -226,7 +226,7 @@ def main(argv):
 
         t0 = time.time()
         n = 32
-        vis_recon = rearrange(utils.report(image[:n], attns[:n], recon[:n], model, val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
+        vis_recon = rearrange(model.visualize(image[:n], attns[:n], recon[:n], val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
         lgr.info(f"TRAIN: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_10(vis_recon)}")
 
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
@@ -290,7 +290,7 @@ def main(argv):
                 # if 50 <= epoch:
                 t0 = time.time()
                 n = 32
-                vis_recon = rearrange(utils.report(image[:n], attns[:n], recon[:n], model, val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
+                vis_recon = rearrange(model.visualize(image[:n], attns[:n], recon[:n], val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
                 lgr.info(f"VAL: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_10(vis_recon)}")
 
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())

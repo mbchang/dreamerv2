@@ -180,7 +180,6 @@ class DynamicSlotModel(SlotModel):
 
         # this requires a flattened input
         emb_input = bottle(self.embed_tokens)(z_transformer_input)
-
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
 
         # loss for both prior and posterior

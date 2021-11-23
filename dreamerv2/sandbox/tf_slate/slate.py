@@ -24,6 +24,15 @@ def create_tokens(z_hard):
     return z_transformer_input, z_transformer_target
 
 
+def overlay_attention(attns, image):
+    *_, H, W = image.shape
+    attns = rearrange(attns, 'b hw k -> b k hw')
+    size = int(np.sqrt(attns.shape[-1]))
+    attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k 1 h w', h = size, w=size), H // size, axis=-2), W // size, axis=-1)
+    attns = image * attns + 1. - attns
+    return attns
+
+
 class SLATE(layers.Layer):
 
     @staticmethod
@@ -144,6 +153,20 @@ class SLATE(layers.Layer):
 
         return loss, outputs, metrics
 
+
+    def visualize(self, image, attns, recon, preproc):
+        """
+        Ideally this should just take the data as input only
+        """
+        gen_img, _, _ = self.reconstruct_autoregressive(image)
+        unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
+        vis_recon = tf.concat((
+            unsqueeze(image), 
+            unsqueeze(recon), 
+            unsqueeze(gen_img), 
+            overlay_attention(attns, unsqueeze(image))), axis=1)
+        return vis_recon
+
     def train(self):
         self.training = True
         self.slot_model.train()
@@ -195,14 +218,9 @@ class DynamicSLATE(SLATE):
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
-        #
-        z_transformer_input = rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T)
-        z_transformer_target = rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
-        #
-
         sm_out, sm_mets = self.slot_model(
-            z_transformer_input, 
-            z_transformer_target, 
+            rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
+            rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T), 
             data['action'], 
             data['is_first'])
 

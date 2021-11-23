@@ -23,95 +23,95 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
-class SlateWrapperForDreamer(causal_agent.WorldModel):
-  """
-  """
-  def __init__(self, config, obs_space, tfstep):
-    self.config = config
-    self.defaults = ml_collections.ConfigDict(self.config.slate)
-    self.model = slate.SLATE(self.defaults)
+# class SlateWrapperForDreamer(causal_agent.WorldModel):
+#   """
+#   """
+#   def __init__(self, config, obs_space, tfstep):
+#     self.config = config
+#     self.defaults = ml_collections.ConfigDict(self.config.slate)
+#     self.model = slate.SLATE(self.defaults)
 
 
-  def train(self, data, state=None):
-    """
-      reward (B, T)
-      is_first (B, T)
-      is_last (B, T)
-      is_terminal (B, T)
-      image (B, T, H, W, C)
-      orientations (B, T, D)
-      height (B, T)
-      velocity (B, T, V)
-      action (B, T, A)
+#   def train(self, data, state=None):
+#     """
+#       reward (B, T)
+#       is_first (B, T)
+#       is_last (B, T)
+#       is_terminal (B, T)
+#       image (B, T, H, W, C)
+#       orientations (B, T, D)
+#       height (B, T)
+#       velocity (B, T, V)
+#       action (B, T, A)
 
-      # note that we may need to take this outside of tf.function though
-    """
-    data = self.preprocess(data)
+#       # note that we may need to take this outside of tf.function though
+#     """
+#     data = self.preprocess(data)
 
-    # TODO: make is_first flag the first action
+#     # TODO: make is_first flag the first action
 
-    # do this for now
-    image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
+#     # do this for now
+#     image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
 
-    # train step
-    loss, outputs, mets = self.model.train_step(image)  
-    # state is dummy
-    state = None
+#     # train step
+#     loss, outputs, mets = self.model.train_step(image)  
+#     # state is dummy
+#     state = None
 
-    # metrics
-    metrics = {
-      'kl_loss': 0,
-      'image_loss': mets['mse'],
-      'reward_loss': 0,
-      'discount_loss': 0,
-      'model_kl': mets['cross_entropy'],
-      'prior_ent': 0,
-      'post_ent': 0,
+#     # metrics
+#     metrics = {
+#       'kl_loss': 0,
+#       'image_loss': mets['mse'],
+#       'reward_loss': 0,
+#       'discount_loss': 0,
+#       'model_kl': mets['cross_entropy'],
+#       'prior_ent': 0,
+#       'post_ent': 0,
       
-      'slate/loss': loss,
-      'slate/mse': mets['mse'],
-      'slate/cross_entropy': mets['cross_entropy'],
-      'slate/slot_model_lr': self.model.main_optimizer.lr,
-      'slate/dvae_lr': self.model.dvae_optimizer.lr,
-      'slate/itr': self.model.step,
-      'slate/tau': outputs['iterates']['tau'],
-    }
+#       'slate/loss': loss,
+#       'slate/mse': mets['mse'],
+#       'slate/cross_entropy': mets['cross_entropy'],
+#       'slate/slot_model_lr': self.model.main_optimizer.lr,
+#       'slate/dvae_lr': self.model.dvae_optimizer.lr,
+#       'slate/itr': self.model.step,
+#       'slate/tau': outputs['iterates']['tau'],
+#     }
 
-    # outputs is dummy
-    outputs = None
+#     # outputs is dummy
+#     outputs = None
 
-    return state, outputs, metrics
+#     return state, outputs, metrics
 
-  # @tf.function# --> if I turn this on I can't do video.numpy()
-  def report(self, data):
-    report = {}
-    data = self.preprocess(data)
+#   # @tf.function# --> if I turn this on I can't do video.numpy()
+#   def report(self, data):
+#     report = {}
+#     data = self.preprocess(data)
 
-    name = 'image'
-    seed_steps = self.config.eval_dataset.seed_steps
+#     name = 'image'
+#     seed_steps = self.config.eval_dataset.seed_steps
 
-    image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
-    tau = utils.cosine_anneal(
-        step=self.model.step.numpy(),
-        start_value=self.model.args.dvae.tau_start,
-        final_value=self.model.args.dvae.tau_final,
-        start_step=0,
-        final_step=self.model.args.dvae.tau_steps)
+#     image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
+#     tau = utils.cosine_anneal(
+#         step=self.model.step.numpy(),
+#         start_value=self.model.args.dvae.tau_start,
+#         final_value=self.model.args.dvae.tau_final,
+#         start_step=0,
+#         final_step=self.model.args.dvae.tau_steps)
 
-    (recon, cross_entropy, mse, attns, z_hard) = self.model(image, tf.constant(tau), True)
-    vis_recon = utils.report(image, attns, recon, z_hard, self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.), n=self.config.eval_dataset.batch, prefix='REPORT', verbose=False)  # c (b h) (n w)
+#     (recon, cross_entropy, mse, attns, z_hard) = self.model(image, tf.constant(tau), True)
+#     vis_recon = self.model.visualize(image, attns, recon, z_hard, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.))  # c (b h) (n w)
 
-    report[f'openl_{name}'] = eo.rearrange(vis_recon, 'c h w -> 1 h w c')
-    # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
-    # report[f'imag_loss_{name}'] = rollout_metrics['imagine']
+#     report[f'openl_{name}'] = eo.rearrange(vis_recon, 'c h w -> 1 h w c')
+#     # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
+#     # report[f'imag_loss_{name}'] = rollout_metrics['imagine']
 
-    logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
-    save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
-    lgr.info(f'save png to {save_path}')
-    # utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
-    plt.imsave(f'{save_path}.png', eo.rearrange(vis_recon.numpy(), 'c h w -> h w c'))
+#     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
+#     save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
+#     lgr.info(f'save png to {save_path}')
+#     # utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
+#     plt.imsave(f'{save_path}.png', eo.rearrange(vis_recon.numpy(), 'c h w -> h w c'))
 
-    return report
+#     return report
 
 
 
@@ -181,7 +181,6 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
 
-    image = data['image']
 
     tau = utils.cosine_anneal(
         step=self.model.step.numpy(),
@@ -192,16 +191,33 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     outs, mets = self.model(data, tf.constant(tau), True)
 
+
+
+    #######################################
+    image = data['image']
     B, T, *_ = image.shape
     image = eo.rearrange(image, 'b t h w c -> (b t) c h w')
 
-    vis_recon = utils.report(
+    vis_recon = self.model.visualize(
       image, 
       outs['slot_model']['attns'], 
       outs['dvae']['recon'], 
-      self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.))  # c (b h) (n w)
+      lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.))  # c (b h) (n w)
 
     video = eo.rearrange(vis_recon, '(b t) n c h w -> t (b h) (n w) c', b=B)
+    #######################################
+    # replace the above with this
+
+    # rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
+    # video = self.model.visualize(rollout_output) # t h (b w) c
+
+
+
+    #######################################
+
+
+
+
 
     report[f'openl_{name}'] = video
     # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
@@ -212,6 +228,32 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     lgr.info(f'Save gif to {save_path}. Video hash: {utils.hash_10(video)}')
     sa_utils.save_gif(sa_utils.add_border(video.numpy(), 0), save_path)
     return report
+
+
+  # # @tf.function# --> if I turn this on I can't do video.numpy()
+  # def report(self, data):
+  #   report = {}
+  #   data = self.preprocess(data)
+
+  #   name = 'image'
+  #   seed_steps = self.config.eval_dataset.seed_steps
+
+  #   rollout_output, rollout_metrics = self.model.rollout(batch=data, seed_steps=seed_steps, pred_horizon=self.config.eval_dataset.length-seed_steps)
+  #   video = self.model.visualize(rollout_output) # (10, 512, 384, 3) = t h (b w) c
+
+  #   report[f'openl_{name}'] = video
+  #   report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
+  #   report[f'imag_loss_{name}'] = rollout_metrics['imagine']
+
+  #   logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
+  #   save_path = os.path.join(logdir, f'{self.step.numpy()}')
+  #   lgr.info(f'save gif to {save_path}')
+  #   utils.save_gif(utils.add_border(video.numpy(), seed_steps), save_path)
+  #   return report
+
+
+
+
 
 
 
