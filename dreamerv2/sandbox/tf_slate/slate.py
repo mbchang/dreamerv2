@@ -240,21 +240,28 @@ class DynamicSLATE(SLATE):
         """
         bsize = slots.shape[0]
         imag_latent = self.slot_model.generate(slots, actions)
-        z_gen = utils.bottle(self.slot_model.autoregressive_decode)(slots)
-        recon_transformer = utils.bottle(self.decode)(z_gen)
+        z_gen = bottle(self.slot_model.autoregressive_decode)(imag_latent)
+        recon_transformer = bottle(self.decode)(z_gen)
         output = {'pred': recon_transformer}
         metrics = {}  # will later have cross entropy and mse
         return output, metrics
 
-    def reconstruct(self):
+    def reconstruct(self, data):
+        """
+            image: TensorShape([6, 5, 64, 64, 3])
+            actions: TensorShape([6, 5, 9])
+            is_first: TensorShape([6,5])
+        """
+        B, T, *_ = data['action'].shape
         image = rearrange(data['image'], 'b t h w c -> (b t) c h w')
         z_logits = self.dvae.get_logits(image)
         z_hard = self.dvae.mode(z_logits)
         one_hot_tokens, _ = create_tokens(z_hard)
-        emb_input = bottle(self.embed_tokens)(z_transformer_input)
-        priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
-        z_gen = utils.bottle(self.slot_model.autoregressive_decode)(slots)
-        recon_transformer = utils.bottle(self.decode)(z_gen)
+
+        emb_input = bottle(self.slot_model.embed_tokens)(rearrange(one_hot_tokens, '(b t) s d -> b t s d', b=B))
+        priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=data['action'], is_first=data['is_first'])
+        z_gen = bottle(self.slot_model.autoregressive_decode)(posts)
+        recon_transformer = bottle(self.decode)(z_gen)
         output = {'pred': recon_transformer, 'slots': posts}
         metrics = {}  # will later have cross entropy and mse
         return output, metrics
@@ -263,17 +270,17 @@ class DynamicSLATE(SLATE):
         obs = batch['image'][:, :seed_steps + pred_horizon]
         act = batch['action'][:, :seed_steps + pred_horizon]
         is_first = batch['is_first'][:, :seed_steps + pred_horizon]
-        recon_output, recon_metrics = self.reconstruct({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]}, tau, hard)  # this could actually be done via parallel decode I suppose
-        imag_output, imag_metrics = self.imagine(recon_output['posts'][:, -1], act[:, seed_steps:])
+        recon_output, recon_metrics = self.reconstruct({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]})  # this could actually be done via parallel decode I suppose
+        imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], act[:, seed_steps:])
+        # output 
+        output = {'video': tf.concat((recon_output['pred'], imag_output['pred']), axis=1)}
+        metrics = {**recon_metrics, **imag_metrics}
+        return output, metrics
 
-        assert False
-        # rollout_ouptut
-        # rollout_metrics
-
-
-        # do reconstruct autoregressgive
-        # then do imagine
-        pass
+    def visualize(self, rollout_output):
+        raise NotImplementedError('need to overlay attention, need to compare with ground truth and dvae recon, need to nmlz.uncenter')
+        video = rearrange(rollout_output['video'], 'b t c h w -> t h (b w) c')
+        return video
 
 
     def train_step(self, data):
