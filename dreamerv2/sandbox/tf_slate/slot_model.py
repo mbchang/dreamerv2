@@ -121,15 +121,27 @@ class SlotModel(layers.Layer):
         slots, attns = self.apply_slot_attn(emb_input)
         pred = self.parallel_decode(emb_input, slots)
         cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
-        return attns, cross_entropy
+        outputs = {'attns': attns}
+        metrics = {'cross_entropy': cross_entropy}
+        return outputs, metrics
+
+        # return attns, cross_entropy
+
+    # @staticmethod
+    # @tf.function
+    # def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):
+    #     with tf.GradientTape() as tape:
+    #         attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
+    #     gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
+    #     return attns, cross_entropy, gradients
 
     @staticmethod
     @tf.function
     def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):
         with tf.GradientTape() as tape:
-            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target)
-        gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
-        return attns, cross_entropy, gradients
+            output, metrics = slot_model(z_transformer_input, z_transformer_target)
+        gradients = tape.gradient(metrics['cross_entropy'], slot_model.trainable_weights)
+        return output, metrics, gradients
 
     def train(self):
         self.training = True
@@ -166,9 +178,9 @@ class DynamicSlotModel(SlotModel):
     @tf.function
     def loss_and_grad(slot_model, z_transformer_input, z_transformer_target, action, is_first):
         with tf.GradientTape() as tape:
-            attns, cross_entropy = slot_model(z_transformer_input, z_transformer_target, action, is_first)
-        gradients = tape.gradient(cross_entropy, slot_model.trainable_weights)
-        return attns, cross_entropy, gradients
+            output, metrics = slot_model(z_transformer_input, z_transformer_target, action, is_first)
+        gradients = tape.gradient(metrics['cross_entropy'], slot_model.trainable_weights)
+        return output, metrics, gradients
 
 
     @tf.function
@@ -189,7 +201,9 @@ class DynamicSlotModel(SlotModel):
         pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
-        return attns, cross_entropy
+        outputs = {'attns': attns}  # should later include pred and slots
+        metrics = {'cross_entropy': cross_entropy}
+        return outputs, metrics
 
 
     def filter(self, slots, embeds, actions, is_first):

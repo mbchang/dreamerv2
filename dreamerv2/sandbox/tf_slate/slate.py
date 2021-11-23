@@ -74,13 +74,13 @@ class SLATE(layers.Layer):
         dvae_out, dvae_mets = self.dvae(image, tau, hard)
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
-        attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target)
+        sm_out, sm_mets = self.slot_model(z_transformer_input, z_transformer_target)
 
         return (
             dvae_out['recon'],
-            cross_entropy,
+            sm_mets['cross_entropy'],
             dvae_mets['mse'],
-            attns,
+            sm_out['attns'],
             dvae_out['z_hard']
         )
 
@@ -129,24 +129,22 @@ class SLATE(layers.Layer):
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
-        attns, cross_entropy, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
+        sm_out, sm_mets, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
-        loss = dvae_mets['mse'] + cross_entropy
+        loss = dvae_mets['mse'] + sm_mets['cross_entropy']
 
         outputs = dict(
             dvae=dvae_out,
-            slot_model=dict(
-                attns=attns,
-                ),
+            slot_model=sm_out,
             iterates=dict(
                 tau=tau,
                 lr_warmup_factor=lr_warmup_factor)
             )
         metrics = dict(
             mse=dvae_mets['mse'],
-            cross_entropy=cross_entropy,
+            cross_entropy=sm_mets['cross_entropy'],
             loss=loss)
 
         self.step.assign_add(1)
@@ -209,17 +207,17 @@ class DynamicSLATE(SLATE):
         z_transformer_target = rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
         #
 
-        attns, cross_entropy = self.slot_model(z_transformer_input, z_transformer_target, data['action'], data['is_first'])
+        sm_out, sm_mets = self.slot_model(z_transformer_input, z_transformer_target, data['action'], data['is_first'])
 
         # 
-        attns = rearrange(attns, 'b t ... -> (b t) ...')
+        sm_out['attns'] = rearrange(sm_out['attns'], 'b t ... -> (b t) ...')
         #
 
         return (
             dvae_out['recon'],
-            cross_entropy,
+            sm_mets['cross_entropy'],
             dvae_mets['mse'],
-            attns,
+            sm_out['attns'],
             dvae_out['z_hard']
         )
 
@@ -290,7 +288,7 @@ class DynamicSLATE(SLATE):
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
-        attns, cross_entropy, gradients = slot_model.DynamicSlotModel.loss_and_grad(self.slot_model, 
+        sm_out, sm_mets, gradients = slot_model.DynamicSlotModel.loss_and_grad(self.slot_model, 
             rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
             rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T),
             action=data['action'],
@@ -301,20 +299,18 @@ class DynamicSLATE(SLATE):
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
-        loss = dvae_mets['mse'] + cross_entropy
+        loss = dvae_mets['mse'] + sm_mets['cross_entropy']
 
         outputs = dict(
             dvae=dvae_out,
-            slot_model=dict(
-                attns=attns,
-                ),
+            slot_model=sm_out,
             iterates=dict(
                 tau=tau,
                 lr_warmup_factor=lr_warmup_factor)
             )
         metrics = dict(
             mse=dvae_mets['mse'],
-            cross_entropy=cross_entropy,
+            cross_entropy=sm_mets['cross_entropy'],
             loss=loss)
 
         self.step.assign_add(1)
