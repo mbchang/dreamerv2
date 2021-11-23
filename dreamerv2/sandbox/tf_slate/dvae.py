@@ -74,31 +74,18 @@ class dVAE(tkl.Layer):
         return z_hard
 
     def call(self, image, tau, hard):
-        B, C, H, W = image.shape
-
         # dvae encode
         z_logits = self.get_logits(image)
         z = self.sample(z_logits, tau, hard)
-
         # dvae recon
         recon = self.decoder(z)
-        mse = tf.math.reduce_sum((image - recon) ** 2) / B
-
+        mse = tf.math.reduce_sum((image - recon) ** 2) / image.shape[0]
         # hard z
         z_hard = self.sample(z_logits, tau, True)
-
+        # ship
         outputs = {'recon': recon,'z_hard': z_hard}
         metrics = {'mse': mse}
         return outputs, metrics
-        # return recon, z_hard, mse
-
-    # @staticmethod
-    # @tf.function
-    # def loss_and_grad(dvae, image, tau, hard):
-    #     with tf.GradientTape() as tape:
-    #         recon, z_hard, mse = dvae(image, tau, hard)
-    #     gradients = tape.gradient(mse, dvae.trainable_weights)
-    #     return recon, z_hard, mse, gradients
 
     @staticmethod
     @tf.function
