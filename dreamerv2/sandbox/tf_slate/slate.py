@@ -65,12 +65,12 @@ class SLATE(layers.Layer):
     def __init__(self, args):
         super().__init__()
         self.args = args
+        self.num_tokens = (args.image_size // 4) ** 2
 
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
-        self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
-
-        self.num_tokens = (args.image_size // 4) ** 2
         self.slot_model = slot_model.SlotModel(args.vocab_size, self.num_tokens, args.slot_model)
+
+        self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
         self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
 
         self.training = False
@@ -241,16 +241,32 @@ class DynamicSLATE(SLATE):
         bsize = slots.shape[0]
         imag_latent = self.slot_model.generate(slots, actions)
         z_gen = utils.bottle(self.slot_model.autoregressive_decode)(slots)
-        recon_transformer = self.decode(z_gen)
-        return recon_transformer
+        recon_transformer = utils.bottle(self.decode)(z_gen)
+        output = {'pred': recon_transformer}
+        metrics = {}  # will later have cross entropy and mse
+        return output, metrics
+
+    def reconstruct(self):
+        image = rearrange(data['image'], 'b t h w c -> (b t) c h w')
+        z_logits = self.dvae.get_logits(image)
+        z_hard = self.dvae.mode(z_logits)
+        one_hot_tokens, _ = create_tokens(z_hard)
+        emb_input = bottle(self.embed_tokens)(z_transformer_input)
+        priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
+        z_gen = utils.bottle(self.slot_model.autoregressive_decode)(slots)
+        recon_transformer = utils.bottle(self.decode)(z_gen)
+        output = {'pred': recon_transformer, 'slots': posts}
+        metrics = {}  # will later have cross entropy and mse
+        return output, metrics
 
     def rollout(self, batch, seed_steps, pred_horizon):
         obs = batch['image'][:, :seed_steps + pred_horizon]
         act = batch['action'][:, :seed_steps + pred_horizon]
         is_first = batch['is_first'][:, :seed_steps + pred_horizon]
         recon_output, recon_metrics = self.reconstruct({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]}, tau, hard)  # this could actually be done via parallel decode I suppose
-        imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], act[:, seed_steps:])
+        imag_output, imag_metrics = self.imagine(recon_output['posts'][:, -1], act[:, seed_steps:])
 
+        assert False
         # rollout_ouptut
         # rollout_metrics
 
