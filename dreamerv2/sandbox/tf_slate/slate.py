@@ -78,16 +78,7 @@ class SLATE(layers.Layer):
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
         metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
-
         return outputs, metrics
-
-        # return (
-        #     dvae_out['recon'],
-        #     sm_mets['cross_entropy'],
-        #     dvae_mets['mse'],
-        #     sm_out['attns'],
-        #     dvae_out['z_hard']
-        # )
 
     def decode(self, z):
         size = int(np.sqrt(self.num_tokens))
