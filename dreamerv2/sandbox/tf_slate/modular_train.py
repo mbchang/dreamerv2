@@ -247,23 +247,10 @@ def main(argv):
                 if isinstance(image, dict):
                     image = image['image']
 
-                # (_, cross_entropy_relax, mse_relax, _, _) = model(image, tf.constant(tau), False)
-                
-                # (recon, cross_entropy, mse, attns, z_hard) = model(image, tf.constant(tau), True)
-
                 outs_relax, mets_relax = model(image, tf.constant(tau), False)
-                # cross_entropy_relax = mets_relax['cross_entropy']
-                # mse_relax = mets_relax['mse']
                 
                 outs, mets = model(image, tf.constant(tau), True)
-                recon = outs['dvae']['recon']
-                # cross_entropy = mets['cross_entropy']
-                # mse = mets['mse']
-                attns = outs['slot_model']['attns']
-                z_hard = outs['dvae']['z_hard']
 
-
-                
                 val_cross_entropy_relax += mets_relax['cross_entropy'].numpy()
                 val_mse_relax += mets_relax['mse'].numpy()
                 
@@ -290,7 +277,7 @@ def main(argv):
                 # if 50 <= epoch:
                 t0 = time.time()
                 n = 32
-                vis_recon = rearrange(model.visualize(image[:n], attns[:n], recon[:n], val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
+                vis_recon = rearrange(model.visualize(image[:n], outs['slot_model']['attns'][:n], outs['dvae']['recon'][:n], val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
                 lgr.info(f"VAL: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_10(vis_recon)}")
 
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())

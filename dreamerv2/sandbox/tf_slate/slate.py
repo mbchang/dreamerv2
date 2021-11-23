@@ -154,6 +154,7 @@ class SLATE(layers.Layer):
         return loss, outputs, metrics
 
 
+    # this should either have the teaching-forcing mode or the autoregressive mode
     def visualize(self, image, attns, recon, preproc):
         """
         Ideally this should just take the data as input only
@@ -247,8 +248,8 @@ class DynamicSLATE(SLATE):
         obs = batch['image'][:, :seed_steps + pred_horizon]
         act = batch['action'][:, :seed_steps + pred_horizon]
         is_first = batch['is_first'][:, :seed_steps + pred_horizon]
-        recon_pred, recon_slots, recon_attns = self.call({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]}, tau, hard)
-        imag_pred, imag_slots, imag_attns = self.imagine(recon_slots[:, -1], act[:, seed_steps:])
+        recon_output, recon_metrics = self.reconstruct({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]}, tau, hard)  # this could actually be done via parallel decode I suppose
+        imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], act[:, seed_steps:])
 
         # rollout_ouptut
         # rollout_metrics
