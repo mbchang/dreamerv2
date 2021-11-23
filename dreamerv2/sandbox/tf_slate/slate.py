@@ -155,11 +155,8 @@ class SLATE(layers.Layer):
 
 
     # this should either have the teaching-forcing mode or the autoregressive mode
-    def visualize(self, image, attns, recon, preproc):
-        """
-        Ideally this should just take the data as input only
-        """
-        gen_img, _, _ = self.reconstruct_autoregressive(image)
+    @staticmethod
+    def visualize(image, attns, recon, gen_img, preproc):
         unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
         vis_recon = tf.concat((
             unsqueeze(image), 
@@ -183,12 +180,14 @@ class DynamicSLATE(SLATE):
     def defaults_debug():
         debug_args = SLATE.defaults_debug()
         debug_args.slot_model = slot_model.DynamicSlotModel.defaults_debug()
+        debug_args.vis_rollout = False
         return debug_args
 
     @staticmethod
     def defaults():
         default_args = SLATE.defaults()
         default_args.slot_model = slot_model.DynamicSlotModel.defaults()
+        default_args.vis_rollout = False
         return default_args
 
     def __init__(self, args):
@@ -262,7 +261,7 @@ class DynamicSLATE(SLATE):
         priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=data['action'], is_first=data['is_first'])
         z_gen = bottle(self.slot_model.autoregressive_decode)(posts)
         recon_transformer = bottle(self.decode)(z_gen)
-        output = {'pred': recon_transformer, 'slots': posts}
+        output = {'pred': recon_transformer, 'slots': posts, 'attns': attns}
         metrics = {}  # will later have cross entropy and mse
         return output, metrics
 

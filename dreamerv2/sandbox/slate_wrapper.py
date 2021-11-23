@@ -89,7 +89,6 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     name = 'image'
     seed_steps = self.config.eval_dataset.seed_steps
 
-    #######################################
     tau = utils.cosine_anneal(
         step=self.model.step.numpy(),
         start_value=self.model.args.dvae.tau_start,
@@ -99,25 +98,44 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     outs, mets = self.model(data, tf.constant(tau), True)
 
+
     image = data['image']
     B, T, *_ = image.shape
     image = eo.rearrange(image, 'b t h w c -> (b t) c h w')
 
-    # vis_recon = self.model.visualize(
-    vis_recon = slate.SLATE.visualize(self.model,
+    if not self.config.dslate.vis_rollout:
+      rollout, _, _ = slate.SLATE.reconstruct_autoregressive(self.model, image)
+    else:
+      # data['image']: TensorShape([6, 10, 64, 64, 3])
+      # outs['dvae']['recon']: TensorShape([60, 3, 64, 64])
+      # outs['slot_model']['attns']: TensorShape([60, 256, 5])
+      # rollout_output['video']: TensorShape([6, 10, 3, 64, 64])
+      rollout_output, rollout_metrics = self.model.rollout(data, seed_steps, self.config.eval_dataset.length-seed_steps)
+      rollout = eo.rearrange(rollout_output['video'], 'b t c h w -> (b t) c h w')
+
+    vis_recon = slate.SLATE.visualize(
       image, 
       outs['slot_model']['attns'], 
       outs['dvae']['recon'], 
+      rollout,
       lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.))  # c (b h) (n w)
-
     video = eo.rearrange(vis_recon, '(b t) n c h w -> t (b h) (n w) c', b=B)
-    #######################################
-    # replace the above with this
 
-    # rollout_output, rollout_metrics = self.model.rollout(data, seed_steps, self.config.eval_dataset.length-seed_steps)
-    # video = self.model.visualize(rollout_output) # t h (b w) c
+    """
+    ok what do we want to see?
+    first column: ground truth
+    second column: dvae reconstruction
+    third column: 
+      reconstruct: autoregressive decode
+      imagine: autoregressive decode
+    attentions:
+      reconstruct: yes
+      imagine: no for now
 
-
+    primitives we need:
+    - encode
+    - autoregressive decode
+    """
 
     #######################################
 
@@ -131,8 +149,10 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
     save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
-    lgr.info(f'Save gif to {save_path}. Video hash: {utils.hash_10(video)}')
+    lgr.info(f'Save gif to {save_path}. Video hash: {utils.hash_sha1(video)}')
+    # lgr.info(f'Save gif to {save_path}. Video hash: {utils.hash_50(video)}')
     sa_utils.save_gif(sa_utils.add_border(video.numpy(), seed_steps), save_path)
+    np.save(f'vis_rollout-{self.config.dslate.vis_rollout}.npy', video.numpy())
     return report
 
 

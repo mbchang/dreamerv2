@@ -226,8 +226,9 @@ def main(argv):
 
         t0 = time.time()
         n = 32
-        vis_recon = rearrange(model.visualize(image[:n], attns[:n], recon[:n], val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
-        lgr.info(f"TRAIN: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_10(vis_recon)}")
+        gen_img, _, _ = model.reconstruct_autoregressive(image[:n])
+        vis_recon = rearrange(slate.SLATE.visualize(image[:n], attns[:n], recon[:n], gen_img, val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
+        lgr.info(f"TRAIN: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_sha1(vis_recon)}")
 
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
         plt.imsave(f'{log_dir}/train_{epoch+1}.png', rearrange(vis_recon.numpy(), 'c h w -> h w c'))
@@ -277,8 +278,9 @@ def main(argv):
                 # if 50 <= epoch:
                 t0 = time.time()
                 n = 32
-                vis_recon = rearrange(model.visualize(image[:n], outs['slot_model']['attns'][:n], outs['dvae']['recon'][:n], val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
-                lgr.info(f"VAL: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_10(vis_recon)}")
+                gen_img, _, _ = model.reconstruct_autoregressive(image[:n])
+                vis_recon = rearrange(slate.SLATE.visualize(image[:n], outs['slot_model']['attns'][:n], outs['dvae']['recon'][:n], gen_img, val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
+                lgr.info(f"VAL: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_sha1(vis_recon)}")
 
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
                 plt.imsave(f'{log_dir}/val_{epoch+1}.png', rearrange(vis_recon.numpy(), 'c h w -> h w c'))

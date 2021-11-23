@@ -84,9 +84,8 @@ def f32(x):
 #         overlay_attention(attns, unsqueeze(image))), axis=1)
 #     return vis_recon
 
-def hash_10(obj):
-    return hashlib.shake_128(str(obj).encode('utf-8')).hexdigest(10)
-
+def hash_sha1(obj):
+    return hashlib.sha1(obj).hexdigest()
 
 ########################################################################
 ## Algorithm utils
