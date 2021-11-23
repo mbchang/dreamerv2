@@ -15,7 +15,10 @@ def create_expname(args):
     abbrvs = {
         'task': '',
         'precision': 'p',
+
         'fwm.optim.learning_rate': 'flr',
+        'dslate.slot_model.lr': 'flr',
+
         'fwm.optim.warmup_steps': 'fws',
         'fwm.optim.decay_steps': 'fds',
         'fwm.optim.min_lr': 'fmlr',
@@ -24,7 +27,10 @@ def create_expname(args):
         'wm_only': 'wmo',
         'dataset.batch': 'B',
         'dataset.length': 'T',
+
         'fwm.model.update_step.temp': 'tp',
+        'dslate.slot_model.slot_attn.temp': 'tp',
+
         'eval_dataset.length': 'eT',
         'eval_dataset.seed_steps': 'ss',
         'rssm.stoch': 'S',
@@ -34,6 +40,7 @@ def create_expname(args):
 
         'slate.slot_model.slot_attn.num_slots': 'k',
         'dslate.slot_model.slot_attn.num_slots': 'k',
+
     }
     watcher = watch(args.watch, abbrvs)
     expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'

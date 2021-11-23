@@ -27,7 +27,8 @@ class SlotAttention(tkl.Layer, Factorized):
             num_iterations=3,
             num_slots=3,
             num_slot_heads=1,
-            epsilon=1e-8
+            epsilon=1e-8,
+            temp=1.0
             ))
         return default_args
     
@@ -39,6 +40,7 @@ class SlotAttention(tkl.Layer, Factorized):
         self.slot_size = slot_size
         self.epsilon = cfg.epsilon
         self.num_heads = cfg.num_slot_heads
+        self.temp = cfg.temp
 
         self.norm_inputs = tkl.LayerNormalization(epsilon=1e-5)
         self.norm_slots = tkl.LayerNormalization(epsilon=1e-5)
@@ -73,7 +75,7 @@ class SlotAttention(tkl.Layer, Factorized):
         k = eo.rearrange(self.project_k(inputs), 'b t (head d) -> b head t d', head=self.num_heads)
         v = eo.rearrange(self.project_v(inputs), 'b t (head d) -> b head t d', head=self.num_heads)
 
-        k = ((self.slot_size // self.num_heads) ** (-0.5)) * k
+        k = ((self.slot_size // self.num_heads) ** (-0.5) / self.temp) * k
         
         # Multiple rounds of attention.
         for _ in range(self.num_iterations):
