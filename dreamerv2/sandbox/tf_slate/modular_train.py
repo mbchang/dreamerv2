@@ -19,6 +19,7 @@ import utils
 from absl import app
 from absl import flags
 from einops import rearrange
+import hashlib
 import h5py
 from loguru import logger as lgr
 import ml_collections
@@ -223,8 +224,10 @@ def main(argv):
                     'train/itr': global_step
                     }, step=global_step)
 
+        t0 = time.time()
         n = 32
-        vis_recon = rearrange(utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, val_loader.unnormalize_obs, prefix='TRAIN', verbose=True), 'b n c h w -> c (b h) (n w)')
+        vis_recon = rearrange(utils.report(image[:n], attns[:n], recon[:n], model, val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
+        lgr.info(f"TRAIN: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_10(vis_recon)}")
 
         writer.add_image('TRAIN_recon/epoch={:03}'.format(epoch+1), vis_recon.numpy())
         plt.imsave(f'{log_dir}/train_{epoch+1}.png', rearrange(vis_recon.numpy(), 'c h w -> h w c'))
@@ -272,8 +275,10 @@ def main(argv):
                 best_epoch = epoch + 1
 
                 # if 50 <= epoch:
+                t0 = time.time()
                 n = 32
-                vis_recon = rearrange(utils.report(image[:n], attns[:n], recon[:n], z_hard[:n], model, val_loader.unnormalize_obs, prefix='VAL', verbose=True), 'b n c h w -> c (b h) (n w)')
+                vis_recon = rearrange(utils.report(image[:n], attns[:n], recon[:n], model, val_loader.unnormalize_obs), 'b n c h w -> c (b h) (n w)')
+                lgr.info(f"VAL: Autoregressive generation took {time.time() - t0} seconds. Image hash: {utils.hash_10(vis_recon)}")
 
                 writer.add_image('VAL_recon/epoch={:03}'.format(epoch + 1), vis_recon.numpy())
                 plt.imsave(f'{log_dir}/val_{epoch+1}.png', rearrange(vis_recon.numpy(), 'c h w -> h w c'))

@@ -70,7 +70,7 @@ class SlotModel(layers.Layer):
         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
 
         # decoder
-        self.tf_dec = transformer.TransformerDecoder(self.num_tokens, args.d_model, args.obs_transformer)
+        self.tf_dec = transformer.TransformerDecoder(args.d_model, args.obs_transformer)
         self.out = linear(args.d_model, self.vocab_size, bias=False)
 
         self.training = False
@@ -160,7 +160,7 @@ class DynamicSlotModel(SlotModel):
           layers.Dense(args.slot_size, activation='relu'),
           layers.Dense(args.slot_size)
           ])
-        self.dynamics = transformer.TransformerDecoder(args.slot_attn.num_slots, args.d_model, args.dyn_transformer)
+        self.dynamics = transformer.TransformerDecoder(args.d_model, args.dyn_transformer)
 
     @staticmethod
     @tf.function

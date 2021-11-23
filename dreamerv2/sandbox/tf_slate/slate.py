@@ -189,7 +189,8 @@ class DynamicSLATE(SLATE):
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
-        self.slot_model = slot_model.DynamicSlotModel(args.vocab_size, (args.image_size // 4) ** 2, args.slot_model)
+        self.num_tokens = (args.image_size // 4) ** 2
+        self.slot_model = slot_model.DynamicSlotModel(args.vocab_size, self.num_tokens, args.slot_model)
         self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
 
         self.training = False

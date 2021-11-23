@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from einops import rearrange
+import hashlib
 from loguru import logger as lgr
 import numpy as np
 import tensorflow as tf
@@ -12,7 +13,6 @@ import tensorflow.keras.layers as tkl
 import tensorflow.keras.activations as tka
 import tensorflow_addons as tfa
 
-# import slate
 
 ########################################################################
 ## Training utils
@@ -62,7 +62,7 @@ def f32(x):
 ########################################################################
 
 
-def overlay_attention(attns, image, H_enc, W_enc):
+def overlay_attention(attns, image):
     *_, H, W = image.shape
     attns = rearrange(attns, 'b hw k -> b k hw')
     size = int(np.sqrt(attns.shape[-1]))
@@ -71,26 +71,21 @@ def overlay_attention(attns, image, H_enc, W_enc):
     return attns
 
 
-def report(image, attns, recon, z_hard, model, preproc, prefix, verbose):
+def report(image, attns, recon, model, preproc):
     """
     Ideally this should just take the data as input only
     """
-    _, _, H_enc, W_enc = z_hard.shape
-    t0 = time.time()
     gen_img = model.reconstruct_autoregressive(image)
-    if verbose:
-        lgr.info(f'{prefix}: Autoregressive generation took {time.time() - t0} seconds.')
-        # lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
     unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
     vis_recon = tf.concat((
         unsqueeze(image), 
         unsqueeze(recon), 
         unsqueeze(gen_img), 
-        overlay_attention(attns, unsqueeze(image), H_enc, W_enc)), axis=1)
-    if verbose:
-        import hashlib
-        lgr.info(f"hash image: {hashlib.shake_128(str(vis_recon).encode('utf-8')).hexdigest(10)}")
+        overlay_attention(attns, unsqueeze(image))), axis=1)
     return vis_recon
+
+def hash_10(obj):
+    return hashlib.shake_128(str(obj).encode('utf-8')).hexdigest(10)
 
 
 ########################################################################

@@ -138,7 +138,7 @@ class TransformerEncoder(nn.Module):
 
 class TransformerDecoderBlock(tkl.Layer):
     
-    def __init__(self, max_len, d_model, num_heads, dropout=0., gain=1., is_first=False):
+    def __init__(self, d_model, num_heads, dropout=0., gain=1., is_first=False):
         super().__init__()
         
         self.is_first = is_first
@@ -227,7 +227,7 @@ class TransformerDecoder(tkl.Layer):
             ))
         return default_args
     
-    def __init__(self, max_len, d_model, cfg):
+    def __init__(self, d_model, cfg):
         super().__init__()
 
         num_blocks = cfg.num_blocks
@@ -236,7 +236,7 @@ class TransformerDecoder(tkl.Layer):
 
         if num_blocks > 0:
             gain = (3 * num_blocks) ** (-0.5)
-            self.blocks = [TransformerDecoderBlock(max_len, d_model, num_heads, dropout, gain, is_first=True)] + [TransformerDecoderBlock(max_len, d_model, num_heads, dropout, gain, is_first=False) for _ in range(num_blocks - 1)]
+            self.blocks = [TransformerDecoderBlock(d_model, num_heads, dropout, gain, is_first=True)] + [TransformerDecoderBlock(d_model, num_heads, dropout, gain, is_first=False) for _ in range(num_blocks - 1)]
         else:
             self.blocks = []
         

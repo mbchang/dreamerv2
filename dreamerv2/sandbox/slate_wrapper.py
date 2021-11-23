@@ -199,8 +199,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
       image, 
       attns, 
       recon, 
-      z_hard, 
-      self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.),prefix='REPORT', verbose=False)  # c (b h) (n w)
+      self.model, lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.))  # c (b h) (n w)
 
     video = eo.rearrange(vis_recon, '(b t) n c h w -> t (b h) (n w) c', b=B)
 
@@ -210,7 +209,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
     save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
-    lgr.info(f'save gif to {save_path}')
+    lgr.info(f'Save gif to {save_path}. Video hash: {utils.hash_10(video)}')
     sa_utils.save_gif(sa_utils.add_border(video.numpy(), 0), save_path)
     return report
 
