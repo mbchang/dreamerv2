@@ -95,14 +95,18 @@ class SLATE(layers.Layer):
         output = self.dvae.decoder(z)
         return output
 
+    def image_to_argmax_tokens(self, image):
+        z_logits = self.dvae.get_logits(image)
+        z_hard = self.dvae.mode(z_logits)
+        one_hot_tokens, _ = create_tokens(z_hard)
+        return one_hot_tokens
+
     @tf.function
     def reconstruct_autoregressive(self, image: tf.Tensor, eval: bool=False):
         """
         image: batch_size x img_channels x H x W
         """
-        z_logits = self.dvae.get_logits(image)
-        z_hard = self.dvae.mode(z_logits)
-        one_hot_tokens, _ = create_tokens(z_hard)
+        one_hot_tokens = self.image_to_argmax_tokens(image)
         emb_input = self.slot_model.embed_tokens(one_hot_tokens)
         slots, attns = self.slot_model.apply_slot_attn(emb_input)
         z_gen = self.slot_model.autoregressive_decode(slots)
@@ -253,9 +257,7 @@ class DynamicSLATE(SLATE):
         """
         B, T, *_ = data['action'].shape
         image = rearrange(data['image'], 'b t h w c -> (b t) c h w')
-        z_logits = self.dvae.get_logits(image)
-        z_hard = self.dvae.mode(z_logits)
-        one_hot_tokens, _ = create_tokens(z_hard)
+        one_hot_tokens = self.image_to_argmax_tokens(image)
 
         emb_input = bottle(self.slot_model.embed_tokens)(rearrange(one_hot_tokens, '(b t) s d -> b t s d', b=B))
         priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=data['action'], is_first=data['is_first'])
