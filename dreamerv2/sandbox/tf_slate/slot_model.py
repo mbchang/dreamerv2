@@ -201,7 +201,8 @@ class DynamicSlotModel(SlotModel):
         imag_latent = self.generate(slots, actions)
         z_gen = utils.bottle(self.slot_model.autoregressive_decode)(slots, gen_len)
 
-        z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=H_enc, w=W_enc), tf.float32)
+        size = int(np.sqrt(self.num_tokens))
+        z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=size, w=size), tf.float32)
         recon_transformer = self.dvae.decoder(z_gen)
 
 

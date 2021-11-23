@@ -60,7 +60,8 @@ class SLATE(layers.Layer):
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
-        self.slot_model = slot_model.SlotModel(args.vocab_size, (args.image_size // 4) ** 2, args.slot_model)
+        self.num_tokens = (args.image_size // 4) ** 2
+        self.slot_model = slot_model.SlotModel(args.vocab_size, self.num_tokens, args.slot_model)
         self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
 
         self.training = False
@@ -71,7 +72,7 @@ class SLATE(layers.Layer):
         image: batch_size x img_channels x H x W
         """
 
-        B, C, H, W = image.shape
+        # B, C, H, W = image.shape
         recon, z_hard, mse = self.dvae(image, tau, hard)
 
         z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(z_hard))
@@ -90,13 +91,8 @@ class SLATE(layers.Layer):
         """
         image: batch_size x img_channels x H x W
         """
-
-        # gen_len = (image.shape[-1] // 4) ** 2
-
-        B, C, H, W = image.shape
-
         z_logits = self.dvae.get_logits(image)
-        _, _, H_enc, W_enc = z_logits.shape
+        # _, _, H_enc, W_enc = z_logits.shape
 
         z_hard = self.dvae.mode(z_logits)
 
@@ -105,7 +101,8 @@ class SLATE(layers.Layer):
         slots, attns = self.slot_model.apply_slot_attn(emb_input)
         z_gen = self.slot_model.autoregressive_decode(slots)
 
-        z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=H_enc, w=W_enc), tf.float32)
+        size = int(np.sqrt(self.num_tokens))
+        z_gen = tf.cast(rearrange(z_gen, 'b (h w) d -> b d h w', h=size, w=size), tf.float32)
 
         recon_transformer = self.dvae.decoder(z_gen)
 

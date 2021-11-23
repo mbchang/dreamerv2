@@ -65,7 +65,8 @@ def f32(x):
 def overlay_attention(attns, image, H_enc, W_enc):
     *_, H, W = image.shape
     attns = rearrange(attns, 'b hw k -> b k hw')
-    attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k 1 h w', h = H_enc, w=W_enc), H // H_enc, axis=-2), W // W_enc, axis=-1)
+    size = int(np.sqrt(attns.shape[-1]))
+    attns = tf.repeat(tf.repeat(rearrange(attns, 'b k (h w) -> b k 1 h w', h = size, w=size), H // size, axis=-2), W // size, axis=-1)
     attns = image * attns + 1. - attns
     return attns
 
@@ -79,13 +80,16 @@ def report(image, attns, recon, z_hard, model, preproc, prefix, verbose):
     gen_img = model.reconstruct_autoregressive(image)
     if verbose:
         lgr.info(f'{prefix}: Autoregressive generation took {time.time() - t0} seconds.')
-        lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
+        # lgr.info(f'Mean: {np.mean(gen_img[0, :, :16, :16])} Std: {np.std(gen_img[0, :, :16, :16])}')
     unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
     vis_recon = tf.concat((
         unsqueeze(image), 
         unsqueeze(recon), 
         unsqueeze(gen_img), 
         overlay_attention(attns, unsqueeze(image), H_enc, W_enc)), axis=1)
+    if verbose:
+        import hashlib
+        lgr.info(f"hash image: {hashlib.shake_128(str(vis_recon).encode('utf-8')).hexdigest(10)}")
     return vis_recon
 
 
