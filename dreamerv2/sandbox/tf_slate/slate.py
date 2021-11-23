@@ -78,7 +78,6 @@ class SLATE(layers.Layer):
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
         metrics = {**dvae_mets, **sm_mets}
-        # metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
         return outputs, metrics
 
     def decode(self, z):
@@ -139,10 +138,6 @@ class SLATE(layers.Layer):
                 tau=tau,
                 lr_warmup_factor=lr_warmup_factor)
             )
-        # metrics = dict(
-        #     mse=dvae_mets['mse'],
-        #     cross_entropy=sm_mets['cross_entropy'],
-        #     loss=loss)
         metrics = {'loss': loss, **dvae_mets, **sm_mets}
 
         self.step.assign_add(1)
@@ -217,8 +212,6 @@ class DynamicSLATE(SLATE):
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
         metrics = {**dvae_mets, **sm_mets}
-        # metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
-
         return outputs, metrics
 
     def imagine(self, slots, actions):
@@ -292,8 +285,6 @@ class DynamicSLATE(SLATE):
             rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T),
             action=data['action'],
             is_first=data['is_first']
-            # here, add is_first, action
-
             )
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
@@ -308,11 +299,6 @@ class DynamicSLATE(SLATE):
                 lr_warmup_factor=lr_warmup_factor)
             )
         metrics = {'loss': loss, **dvae_mets, **sm_mets}
-        # metrics = dict(
-        #     mse=dvae_mets['mse'],
-        #     cross_entropy=sm_mets['cross_entropy'],
-        #     loss=loss)
-
         self.step.assign_add(1)
 
         return loss, outputs, metrics
