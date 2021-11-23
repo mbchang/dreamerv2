@@ -77,7 +77,8 @@ class SLATE(layers.Layer):
         sm_out, sm_mets = self.slot_model(z_transformer_input, z_transformer_target)
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
-        metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
+        metrics = {**dvae_mets, **sm_mets}
+        # metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
         return outputs, metrics
 
     def decode(self, z):
@@ -138,10 +139,11 @@ class SLATE(layers.Layer):
                 tau=tau,
                 lr_warmup_factor=lr_warmup_factor)
             )
-        metrics = dict(
-            mse=dvae_mets['mse'],
-            cross_entropy=sm_mets['cross_entropy'],
-            loss=loss)
+        # metrics = dict(
+        #     mse=dvae_mets['mse'],
+        #     cross_entropy=sm_mets['cross_entropy'],
+        #     loss=loss)
+        metrics = {'loss': loss, **dvae_mets, **sm_mets}
 
         self.step.assign_add(1)
 
@@ -203,14 +205,19 @@ class DynamicSLATE(SLATE):
         z_transformer_target = rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T)
         #
 
-        sm_out, sm_mets = self.slot_model(z_transformer_input, z_transformer_target, data['action'], data['is_first'])
+        sm_out, sm_mets = self.slot_model(
+            z_transformer_input, 
+            z_transformer_target, 
+            data['action'], 
+            data['is_first'])
 
         # 
         sm_out['attns'] = rearrange(sm_out['attns'], 'b t ... -> (b t) ...')
         #
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
-        metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
+        metrics = {**dvae_mets, **sm_mets}
+        # metrics = dict(mse=dvae_mets['mse'], cross_entropy=sm_mets['cross_entropy'])
 
         return outputs, metrics
 
@@ -300,10 +307,11 @@ class DynamicSLATE(SLATE):
                 tau=tau,
                 lr_warmup_factor=lr_warmup_factor)
             )
-        metrics = dict(
-            mse=dvae_mets['mse'],
-            cross_entropy=sm_mets['cross_entropy'],
-            loss=loss)
+        metrics = {'loss': loss, **dvae_mets, **sm_mets}
+        # metrics = dict(
+        #     mse=dvae_mets['mse'],
+        #     cross_entropy=sm_mets['cross_entropy'],
+        #     loss=loss)
 
         self.step.assign_add(1)
 
