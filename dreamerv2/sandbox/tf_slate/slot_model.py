@@ -224,9 +224,8 @@ class DynamicSlotModel(SlotModel):
             posts.append(post)
             attns_seq.append(attns)
 
-        priors = eo.rearrange(priors, 't b ... -> b t ...')
-        posts = eo.rearrange(posts, 't b ... -> b t ...')
-        attns = eo.rearrange(attns_seq, 't b ... -> b t ...')
+        swap = lambda x: eo.rearrange(x, 't b ... -> b t ...')
+        priors, posts, attns = map(swap, [priors, posts, attns_seq])
         # we should also just have a utility function for this
         return priors, posts, attns
 
