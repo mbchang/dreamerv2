@@ -183,14 +183,14 @@ class DynamicSLATE(SLATE):
     def defaults_debug():
         debug_args = SLATE.defaults_debug()
         debug_args.slot_model = slot_model.DynamicSlotModel.defaults_debug()
-        debug_args.vis_rollout = False
+        debug_args.vis_rollout = True
         return debug_args
 
     @staticmethod
     def defaults():
         default_args = SLATE.defaults()
         default_args.slot_model = slot_model.DynamicSlotModel.defaults()
-        default_args.vis_rollout = False
+        default_args.vis_rollout = True
         return default_args
 
     def __init__(self, args):
@@ -277,19 +277,6 @@ class DynamicSLATE(SLATE):
         metrics = {**recon_metrics, **imag_metrics}
         return output, metrics
 
-    def visualize(self, rollout_output):
-        raise NotImplementedError('need to overlay attention, need to compare with ground truth and dvae recon, need to nmlz.uncenter')
-        # video = rearrange(rollout_output['video'], 'b t c h w -> t h (b w) c')
-
-        unsqueeze = lambda x: rearrange(preproc(x), 'b c h w -> b 1 c h w')
-        vis_recon = tf.concat((
-            unsqueeze(image), 
-            unsqueeze(recon), 
-            unsqueeze(gen_img), 
-            overlay_attention(attns, unsqueeze(image))), axis=1)
-        
-        return video
-
 
     def train_step(self, data):
         """
@@ -327,7 +314,7 @@ class DynamicSLATE(SLATE):
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
-        loss = dvae_mets['mse'] + sm_mets['cross_entropy']
+        loss = dvae_mets['mse'] + sm_mets['cross_entropy'] + sm_mets['consistency']
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out, iterates=iterates)
         metrics = {'loss': loss, **dvae_mets, **sm_mets}

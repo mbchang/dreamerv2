@@ -52,6 +52,7 @@ class SlotModel(layers.Layer):
     def __init__(self, vocab_size, num_tokens, args):
         super().__init__()
 
+        self.args = args
         self.vocab_size = vocab_size
         self.d_model = args.d_model
         self.num_tokens = num_tokens
@@ -146,12 +147,14 @@ class DynamicSlotModel(SlotModel):
     def defaults_debug():
         debug_args = SlotModel.defaults_debug()
         debug_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults_debug()
+        debug_args.consistency_loss = True
         return debug_args
 
     @staticmethod
     def defaults():
         default_args = SlotModel.defaults()
         default_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults()
+        default_args.consistency_loss = True
         return default_args
 
 
@@ -169,7 +172,8 @@ class DynamicSlotModel(SlotModel):
     def loss_and_grad(slot_model, z_transformer_input, z_transformer_target, action, is_first):
         with tf.GradientTape() as tape:
             output, metrics = slot_model(z_transformer_input, z_transformer_target, action, is_first)
-        gradients = tape.gradient(metrics['cross_entropy'], slot_model.trainable_weights)
+            loss = metrics['cross_entropy'] + metrics['consistency']
+        gradients = tape.gradient(loss, slot_model.trainable_weights)
         return output, metrics, gradients
 
 
@@ -182,16 +186,23 @@ class DynamicSlotModel(SlotModel):
         emb_input = bottle(self.embed_tokens)(z_transformer_input)
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
 
+        # latent loss
+        if self.args.consistency_loss:
+            consistency = tf.reduce_mean(eo.reduce((priors - posts)**2, 'b t k d -> b t', 'sum'))
+        else:
+            consistency = tf.cast(tf.convert_to_tensor(0), priors.dtype)
+
         # loss for both prior and posterior
-        slots = eo.rearrange([priors, posts], 'n b ... -> (n b) ...')
-        emb_input = eo.rearrange([emb_input, emb_input], 'n b ... -> (n b) ...')
-        z_transformer_target = eo.rearrange([z_transformer_target, z_transformer_target], 'n b ... -> (n b) ...')
+        concat = lambda x: eo.rearrange(x, 'n b ... -> (n b) ...')
+        slots = concat([priors, posts])
+        emb_input = concat([emb_input, emb_input])
+        z_transformer_target = concat([z_transformer_target, z_transformer_target])
 
         pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
         outputs = {'attns': attns}  # should later include pred and slots
-        metrics = {'cross_entropy': cross_entropy}
+        metrics = {'cross_entropy': cross_entropy, 'consistency': consistency}
         return outputs, metrics
 
 
