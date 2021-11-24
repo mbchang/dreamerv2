@@ -173,10 +173,10 @@ class SLATE(layers.Layer):
     def loss_and_grad(self, image, tau, hard):
         with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
             outputs, metrics = self(image, tau, hard)
-            loss = metrics['mse'] + metrics['cross_entropy']
+            loss = metrics['dvae/loss'] + metrics['sm/loss']
 
-        dvae_grads = dvae_tape.gradient(metrics['mse'], self.dvae.trainable_weights)
-        sm_grads = sm_tape.gradient(metrics['cross_entropy'], self.slot_model.trainable_weights)
+        dvae_grads = dvae_tape.gradient(loss, self.dvae.trainable_weights)
+        sm_grads = sm_tape.gradient(loss, self.slot_model.trainable_weights)
 
         metrics = {'loss': loss, **metrics}
         gradients = {'dvae': dvae_grads, 'slot_model': sm_grads}
