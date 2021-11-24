@@ -251,7 +251,6 @@ class DynamicSlotModel(SlotModel):
 
 
     def img_step(self, prev_state, prev_action, sample=True):
-        # prev_action = self.action_encoder(prev_action)
         context = tf.concat([prev_state, rearrange(prev_action, 'b a -> b 1 a')], 1)
         prior = self.dynamics(prev_state, context)
         return prior

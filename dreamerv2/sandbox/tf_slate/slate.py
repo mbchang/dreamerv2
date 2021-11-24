@@ -145,8 +145,6 @@ class SLATE(layers.Layer):
         return dict(tau=tau, lr_warmup_factor=lr_warmup_factor)
 
     def train_step(self, image):
-        # global_step should be the same as self.step
-
         iterates = self.get_iterates(self.step.numpy())
 
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
@@ -161,7 +159,7 @@ class SLATE(layers.Layer):
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
-        loss = dvae_loss + sm_loss#dvae_mets['mse'] + sm_mets['cross_entropy']
+        loss = dvae_loss + sm_loss
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out, iterates=iterates)
         metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
@@ -174,19 +172,15 @@ class SLATE(layers.Layer):
     def loss_and_grad(self, image, tau, hard):
         with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
             loss, outputs, metrics = self(image, tau, hard)
-            # loss = metrics['dvae']['dvae/loss'] + metrics['slot_model']['sm/loss']
 
         dvae_grads = dvae_tape.gradient(loss, self.dvae.trainable_weights)
         sm_grads = sm_tape.gradient(loss, self.slot_model.trainable_weights)
 
-        # metrics = {'loss': loss, **metrics}
         gradients = {'dvae': dvae_grads, 'slot_model': sm_grads}
         return loss, outputs, metrics, gradients
 
 
     def monolithic_train_step(self, image):
-        # global_step should be the same as self.step
-
         iterates = self.get_iterates(self.step.numpy())
 
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
@@ -198,7 +192,6 @@ class SLATE(layers.Layer):
         self.main_optimizer.apply_gradients(zip(gradients['slot_model'], self.slot_model.trainable_weights))
 
         outputs = {'iterates': iterates, **outputs}
-        # loss = metrics['loss']
 
         self.step.assign_add(1)
 
@@ -363,13 +356,9 @@ class DynamicSLATE(SLATE):
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
-        # change this to a tf.reduce_sum
-        #       loss_value = tf.reduce_sum(list(metrics.values()))
-        # loss = dvae_mets['mse'] + sm_mets['cross_entropy'] + sm_mets['consistency']
         loss = dvae_loss + sm_loss
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out, iterates=iterates)
-        # metrics = {'loss': loss, **dvae_mets, **sm_mets}
         metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
         self.step.assign_add(1)
 
