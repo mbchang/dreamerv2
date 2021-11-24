@@ -60,21 +60,21 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     # metrics
     metrics = {
       'kl_loss': 0,
-      'image_loss': mets['mse'],
+      'image_loss': mets['dvae']['mse'],
       'reward_loss': 0,
       'discount_loss': 0,
-      'model_kl': mets['cross_entropy'],
+      'model_kl': mets['slot_model']['cross_entropy'],
       'prior_ent': 0,
       'post_ent': 0,
       
       'slate/loss': loss,
-      'slate/mse': mets['mse'],
-      'slate/cross_entropy': mets['cross_entropy'],
+      'slate/mse': mets['dvae']['mse'],
+      'slate/cross_entropy': mets['slot_model']['cross_entropy'],
       'slate/slot_model_lr': self.model.main_optimizer.lr,
       'slate/dvae_lr': self.model.dvae_optimizer.lr,
       'slate/itr': self.model.step,
       'slate/tau': outputs['iterates']['tau'],
-      'slate/consistency': mets['consistency']
+      'slate/consistency': mets['slot_model']['consistency']
     }
 
     # outputs is dummy

@@ -212,8 +212,8 @@ def main(argv):
             attns = outputs['slot_model']['attns']
             tau = outputs['iterates']['tau']
 
-            mse = metrics['mse']
-            cross_entropy = metrics['cross_entropy']
+            mse = metrics['dvae']['mse']
+            cross_entropy = metrics['slot_model']['cross_entropy']
 
             if global_step % args.slate.log_interval == 0:
                 lgr.info('Train Step: {:3} \t Loss: {:F} \t MSE: {:F} \t Time: {:F}'.format(

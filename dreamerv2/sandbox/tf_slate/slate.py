@@ -99,7 +99,8 @@ class SLATE(layers.Layer):
         sm_out, sm_mets = self.slot_model(z_input, z_target)
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
-        metrics = {**dvae_mets, **sm_mets}
+        # metrics = {**dvae_mets, **sm_mets}
+        metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
         return outputs, metrics
 
     def decode(self, z):
@@ -163,7 +164,8 @@ class SLATE(layers.Layer):
         loss = dvae_mets['mse'] + sm_mets['cross_entropy']
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out, iterates=iterates)
-        metrics = {'loss': loss, **dvae_mets, **sm_mets}
+        # metrics = {'loss': loss, **dvae_mets, **sm_mets}
+        metrics = dict(loss=loss, dvae=dvae_mets, slot_model=sm_mets)
 
         self.step.assign_add(1)
 
@@ -279,7 +281,8 @@ class DynamicSLATE(SLATE):
         #
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
-        metrics = {**dvae_mets, **sm_mets}
+        # metrics = {**dvae_mets, **sm_mets}
+        metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
         return outputs, metrics
 
     def imagine(self, slots, actions):
@@ -365,10 +368,13 @@ class DynamicSLATE(SLATE):
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
+        # change this to a tf.reduce_sum
+        #       loss_value = tf.reduce_sum(list(metrics.values()))
         loss = dvae_mets['mse'] + sm_mets['cross_entropy'] + sm_mets['consistency']
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out, iterates=iterates)
-        metrics = {'loss': loss, **dvae_mets, **sm_mets}
+        # metrics = {'loss': loss, **dvae_mets, **sm_mets}
+        metrics = dict(loss=loss, dvae=dvae_mets, slot_model=sm_mets)
         self.step.assign_add(1)
 
         return loss, outputs, metrics
