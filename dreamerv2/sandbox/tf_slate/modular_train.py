@@ -257,11 +257,11 @@ def main(argv):
                 
                 outs, mets = model(image, tf.constant(tau), True)
 
-                val_cross_entropy_relax += mets_relax['cross_entropy'].numpy()
-                val_mse_relax += mets_relax['mse'].numpy()
+                val_cross_entropy_relax += mets_relax['slot_model']['cross_entropy'].numpy()
+                val_mse_relax += mets_relax['dvae']['mse'].numpy()
                 
-                val_cross_entropy += mets['cross_entropy'].numpy()
-                val_mse += mets['mse'].numpy()
+                val_cross_entropy += mets['slot_model']['cross_entropy'].numpy()
+                val_mse += mets['dvae']['mse'].numpy()
 
             val_cross_entropy_relax /= (val_epoch_size)
             val_mse_relax /= (val_epoch_size)

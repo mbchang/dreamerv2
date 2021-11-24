@@ -87,12 +87,12 @@ class dVAE(tkl.Layer):
         metrics = {'mse': mse, 'dvae/loss': mse}
         return outputs, metrics
 
-    @staticmethod
+    # @staticmethod
     @tf.function
-    def loss_and_grad(dvae, image, tau, hard):
+    def loss_and_grad(self, image, tau, hard):
         with tf.GradientTape() as tape:
-            outputs, metrics = dvae(image, tau, hard)
-        gradients = tape.gradient(metrics['dvae/loss'], dvae.trainable_weights)
+            outputs, metrics = self(image, tau, hard)
+        gradients = tape.gradient(metrics['dvae/loss'], self.trainable_weights)
         return outputs, metrics, gradients
 
 

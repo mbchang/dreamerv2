@@ -151,12 +151,12 @@ class SLATE(layers.Layer):
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
         self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
 
-        dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(iterates['tau']), self.args.dvae.hard)
+        dvae_out, dvae_mets, gradients = self.dvae.loss_and_grad(image, tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
         z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
-        sm_out, sm_mets, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_input, z_target)
+        sm_out, sm_mets, gradients = self.slot_model.loss_and_grad(z_input, z_target)
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
@@ -258,28 +258,16 @@ class DynamicSLATE(SLATE):
         """
         image: batch_size x img_channels x H x W
         """
-
-        # image = data['image']
         B, T, *_ = data['action'].shape
         permute = lambda x: rearrange(x, '... h w c -> ... c h w')
         flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
         unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=B)
 
-        # image = rearrange(image, 'b t h w c -> (b t) c h w')
-
         dvae_out, dvae_mets = self.dvae(flatten(permute(data['image'])), tau, hard)
-
         z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        sm_out, sm_mets = self.slot_model(unflatten(z_input), unflatten(z_target), data['action'], data['is_first'])
 
-        sm_out, sm_mets = self.slot_model(
-            unflatten(z_input),#, '(b t) ... -> b t ...', b=B, t=T), 
-            unflatten(z_target),#, '(b t) ... -> b t ...', b=B, t=T), 
-            data['action'], 
-            data['is_first'])
-
-        # 
-        sm_out['attns'] = flatten(sm_out['attns'])#, 'b t ... -> (b t) ...')
-        #
+        sm_out['attns'] = flatten(sm_out['attns'])
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
         metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
@@ -309,9 +297,8 @@ class DynamicSLATE(SLATE):
         flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
         unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=B)
 
-        image = flatten(permute(data['image']))#rearrange(data['image'], 'b t h w c -> (b t) c h w')
+        image = flatten(permute(data['image']))
         one_hot_tokens = unflatten(self.image_to_argmax_tokens(image))
-
         emb_input = bottle(self.slot_model.embed_tokens)(one_hot_tokens)
         priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=data['action'], is_first=data['is_first'])
         z_gen = bottle(self.slot_model.autoregressive_decode)(posts)
@@ -360,15 +347,14 @@ class DynamicSLATE(SLATE):
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
         self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
 
-        # image = rearrange(data['image'], 'b t h w c -> (b t) c h w')
-        dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, flatten(permute(data['image'])), tf.constant(iterates['tau']), self.args.dvae.hard)
+        dvae_out, dvae_mets, gradients = self.dvae.loss_and_grad(flatten(permute(data['image'])), tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
         z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
         sm_out, sm_mets, gradients = slot_model.DynamicSlotModel.loss_and_grad(self.slot_model, 
-            unflatten(z_input),#, '(b t) ... -> b t ...', b=B, t=T), 
-            unflatten(z_target),#, '(b t) ... -> b t ...', b=B, t=T),
+            unflatten(z_input),
+            unflatten(z_target),
             action=data['action'],
             is_first=data['is_first']
             )
