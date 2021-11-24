@@ -200,7 +200,10 @@ def main(argv):
 
             t0 = time.time()
 
-            loss, outputs, metrics = model.train_step(image)
+            if args.slate.mono_train:
+                loss, outputs, metrics = model.monolithic_train_step(image)
+            else:
+                loss, outputs, metrics = model.train_step(image)
 
             recon = outputs['dvae']['recon']
             z_hard = outputs['dvae']['z_hard']

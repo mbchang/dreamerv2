@@ -59,6 +59,9 @@ class SLATE(layers.Layer):
             vocab_size=1024,
             dvae=dvae.dVAE.defaults(),
             slot_model=slot_model.SlotModel.defaults(),
+
+            mono_train=True,
+            # clip=1.0,
             ))
         return default_args
 
@@ -70,11 +73,21 @@ class SLATE(layers.Layer):
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
         self.slot_model = slot_model.SlotModel(args.vocab_size, self.num_tokens, args.slot_model)
 
-        self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
-        self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
+        self.configure_optimizers(self.args)
 
         self.training = False
         self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
+
+    def configure_optimizers(self, args):
+        self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
+        self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
+        # if self.args.mono_train:
+        #     # initialize with fake input
+        #     self(tf.random.uniform((1, 3, 64, 64)), tf.constant(1.0), True)  
+        #     self.optimizer = tfa.optimizers.MultiOptimizer([
+        #         (self.dvae_optimizer, self.dvae),
+        #         (self.main_optimizer, self.slot_model)
+        #     ])#, clipvalue=args.clip)
 
     def call(self, image: tf.Tensor, tau: tf.Tensor, hard: bool):
         """
@@ -155,6 +168,41 @@ class SLATE(layers.Layer):
         self.step.assign_add(1)
 
         return loss, outputs, metrics
+
+
+    def loss_and_grad(self, image, tau, hard):
+        with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
+            outputs, metrics = self(image, tau, hard)
+            loss = metrics['mse'] + metrics['cross_entropy']
+
+        dvae_grads = dvae_tape.gradient(metrics['mse'], self.dvae.trainable_weights)
+        sm_grads = sm_tape.gradient(metrics['cross_entropy'], self.slot_model.trainable_weights)
+
+        metrics = {'loss': loss, **metrics}
+        gradients = {'dvae': dvae_grads, 'slot_model': sm_grads}
+        return outputs, metrics, gradients
+
+
+    def monolithic_train_step(self, image):
+        # global_step should be the same as self.step
+
+        iterates = self.get_iterates(self.step.numpy())
+
+        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
+        self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
+
+        outputs, metrics, gradients = self.loss_and_grad(image, tf.constant(iterates['tau']), self.args.dvae.hard)
+
+        self.dvae_optimizer.apply_gradients(zip(gradients['dvae'], self.dvae.trainable_weights))
+        self.main_optimizer.apply_gradients(zip(gradients['slot_model'], self.slot_model.trainable_weights))
+
+        outputs = {'iterates': iterates, **outputs}
+        loss = metrics['loss']
+
+        self.step.assign_add(1)
+
+        return loss, outputs, metrics
+
 
 
     # this should either have the teaching-forcing mode or the autoregressive mode
