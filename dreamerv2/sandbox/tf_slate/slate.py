@@ -13,15 +13,15 @@ import wandb
 
 def create_tokens(z_hard):
     # target tokens for transformer
-    z_transformer_target = rearrange(z_hard, 'b c h w -> b (h w) c')
+    z_target = rearrange(z_hard, 'b c h w -> b (h w) c')
 
     # add BOS token
-    B, zhw, zc = z_transformer_target.shape
-    z_transformer_input = tf.concat([tf.zeros((B, zhw, 1)), z_transformer_target], axis=-1)
-    z_transformer_input = tf.concat([
+    B, zhw, zc = z_target.shape
+    z_input = tf.concat([tf.zeros((B, zhw, 1)), z_target], axis=-1)
+    z_input = tf.concat([
         tf.concat([tf.ones((B, 1, 1)), tf.zeros((B, 1, zc))], axis=-1),
-         z_transformer_input], axis=-2)
-    return z_transformer_input, z_transformer_target
+         z_input], axis=-2)
+    return z_input, z_target
 
 
 def overlay_attention(attns, image):
@@ -82,8 +82,8 @@ class SLATE(layers.Layer):
         """
         dvae_out, dvae_mets = self.dvae(image, tau, hard)
 
-        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
-        sm_out, sm_mets = self.slot_model(z_transformer_input, z_transformer_target)
+        z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        sm_out, sm_mets = self.slot_model(z_input, z_target)
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
         metrics = {**dvae_mets, **sm_mets}
@@ -141,9 +141,9 @@ class SLATE(layers.Layer):
         dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
-        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
-        sm_out, sm_mets, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_transformer_input, z_transformer_target)
+        sm_out, sm_mets, gradients = slot_model.SlotModel.loss_and_grad(self.slot_model, z_input, z_target)
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))
 
@@ -219,11 +219,11 @@ class DynamicSLATE(SLATE):
 
         dvae_out, dvae_mets = self.dvae(image, tau, hard)
 
-        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
         sm_out, sm_mets = self.slot_model(
-            rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
-            rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T), 
+            rearrange(z_input, '(b t) ... -> b t ...', b=B, t=T), 
+            rearrange(z_target, '(b t) ... -> b t ...', b=B, t=T), 
             data['action'], 
             data['is_first'])
 
@@ -303,11 +303,11 @@ class DynamicSLATE(SLATE):
         dvae_out, dvae_mets, gradients = dvae.dVAE.loss_and_grad(self.dvae, image, tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
-        z_transformer_input, z_transformer_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
         sm_out, sm_mets, gradients = slot_model.DynamicSlotModel.loss_and_grad(self.slot_model, 
-            rearrange(z_transformer_input, '(b t) ... -> b t ...', b=B, t=T), 
-            rearrange(z_transformer_target, '(b t) ... -> b t ...', b=B, t=T),
+            rearrange(z_input, '(b t) ... -> b t ...', b=B, t=T), 
+            rearrange(z_target, '(b t) ... -> b t ...', b=B, t=T),
             action=data['action'],
             is_first=data['is_first']
             )

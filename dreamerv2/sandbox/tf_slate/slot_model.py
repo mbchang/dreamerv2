@@ -98,39 +98,39 @@ class SlotModel(layers.Layer):
 
         # generate image tokens auto-regressively
         z_gen = tf.zeros(0, dtype=tf.float32)
-        z_transformer_input = tf.concat([
+        z_input = tf.concat([
             tf.ones((B, 1, 1), dtype=tf.float32),
             tf.zeros((B, 1, self.vocab_size), dtype=tf.float32)
             ], axis=-1)
         for t in range(self.num_tokens):
             decoder_output = self.tf_dec(
-                self.positional_encoder(self.dictionary(z_transformer_input)),
+                self.positional_encoder(self.dictionary(z_input)),
                 slots
             )
             z_next = tf.one_hot(tf.math.argmax(self.out(decoder_output)[:, -1:], axis=-1), depth=self.vocab_size)
             z_gen = z_next if t == 0 else tf.concat((z_gen, z_next), axis=1)
-            z_transformer_input = tf.concat([
-                z_transformer_input,
+            z_input = tf.concat([
+                z_input,
                 tf.concat([tf.zeros_like(z_next[:, :, :1]), z_next], axis=-1)
             ], axis=1)
 
         return z_gen
 
     @tf.function
-    def call(self, z_transformer_input, z_transformer_target):
-        emb_input = self.embed_tokens(z_transformer_input)
+    def call(self, z_input, z_target):
+        emb_input = self.embed_tokens(z_input)
         slots, attns = self.apply_slot_attn(emb_input)
         pred = self.parallel_decode(emb_input, slots)
-        cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+        cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
         outputs = {'attns': attns}
         metrics = {'cross_entropy': cross_entropy}
         return outputs, metrics
 
     @staticmethod
     @tf.function
-    def loss_and_grad(slot_model, z_transformer_input, z_transformer_target):
+    def loss_and_grad(slot_model, z_input, z_target):
         with tf.GradientTape() as tape:
-            output, metrics = slot_model(z_transformer_input, z_transformer_target)
+            output, metrics = slot_model(z_input, z_target)
         gradients = tape.gradient(metrics['cross_entropy'], slot_model.trainable_weights)
         return output, metrics, gradients
 
@@ -169,21 +169,20 @@ class DynamicSlotModel(SlotModel):
 
     @staticmethod
     @tf.function
-    def loss_and_grad(slot_model, z_transformer_input, z_transformer_target, action, is_first):
+    def loss_and_grad(slot_model, z_input, z_target, action, is_first):
         with tf.GradientTape() as tape:
-            output, metrics = slot_model(z_transformer_input, z_transformer_target, action, is_first)
-            loss = metrics['cross_entropy'] + metrics['consistency']
-        gradients = tape.gradient(loss, slot_model.trainable_weights)
+            output, metrics = slot_model(z_input, z_target, action, is_first)
+        gradients = tape.gradient(metrics['loss'], slot_model.trainable_weights)
         return output, metrics, gradients
 
 
     @tf.function
-    def call(self, z_transformer_input, z_transformer_target, actions, is_first):
+    def call(self, z_input, z_target, actions, is_first):
         # TODO: make is_first flag the first action
         # for now, we will manually ignore the first action
 
         # this requires a flattened input
-        emb_input = bottle(self.embed_tokens)(z_transformer_input)
+        emb_input = bottle(self.embed_tokens)(z_input)
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
 
         # latent loss
@@ -196,13 +195,13 @@ class DynamicSlotModel(SlotModel):
         concat = lambda x: eo.rearrange(x, 'n b ... -> (n b) ...')
         slots = concat([priors, posts])
         emb_input = concat([emb_input, emb_input])
-        z_transformer_target = concat([z_transformer_target, z_transformer_target])
+        z_target = concat([z_target, z_target])
 
         pred = bottle(self.parallel_decode)(emb_input, slots)
-        cross_entropy = -tf.reduce_mean(eo.reduce(z_transformer_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+        cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
         outputs = {'attns': attns}  # should later include pred and slots
-        metrics = {'cross_entropy': cross_entropy, 'consistency': consistency}
+        metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'loss': cross_entropy+consistency}
         return outputs, metrics
 
 

@@ -84,7 +84,7 @@ class dVAE(tkl.Layer):
         z_hard = self.sample(z_logits, tau, True)
         # ship
         outputs = {'recon': recon,'z_hard': z_hard}
-        metrics = {'mse': mse}
+        metrics = {'mse': mse, 'loss': mse}
         return outputs, metrics
 
     @staticmethod
@@ -92,7 +92,7 @@ class dVAE(tkl.Layer):
     def loss_and_grad(dvae, image, tau, hard):
         with tf.GradientTape() as tape:
             outputs, metrics = dvae(image, tau, hard)
-        gradients = tape.gradient(metrics['mse'], dvae.trainable_weights)
+        gradients = tape.gradient(metrics['loss'], dvae.trainable_weights)
         return outputs, metrics, gradients
 
 
