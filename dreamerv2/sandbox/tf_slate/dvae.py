@@ -85,15 +85,15 @@ class dVAE(tkl.Layer):
         # ship
         outputs = {'recon': recon,'z_hard': z_hard}
         metrics = {'mse': mse, 'dvae/loss': mse}
-        return outputs, metrics
+        loss = mse
+        return loss, outputs, metrics
 
-    # @staticmethod
     @tf.function
     def loss_and_grad(self, image, tau, hard):
         with tf.GradientTape() as tape:
-            outputs, metrics = self(image, tau, hard)
-        gradients = tape.gradient(metrics['dvae/loss'], self.trainable_weights)
-        return outputs, metrics, gradients
+            loss, outputs, metrics = self(image, tau, hard)
+        gradients = tape.gradient(loss, self.trainable_weights)
+        return loss, outputs, metrics, gradients
 
 
 class PixelShuffle(tkl.Layer):

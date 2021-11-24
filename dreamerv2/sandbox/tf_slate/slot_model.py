@@ -123,16 +123,16 @@ class SlotModel(layers.Layer):
         pred = self.parallel_decode(emb_input, slots)
         cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
         outputs = {'attns': attns}
-        metrics = {'cross_entropy': cross_entropy, 'sm/loss': cross_entropy}
-        return outputs, metrics
+        metrics = {'cross_entropy': cross_entropy}
+        loss = cross_entropy
+        return loss, outputs, metrics
 
-    # @staticmethod
     @tf.function
     def loss_and_grad(self, z_input, z_target):
         with tf.GradientTape() as tape:
-            output, metrics = self(z_input, z_target)
-        gradients = tape.gradient(metrics['sm/loss'], self.trainable_weights)
-        return output, metrics, gradients
+            loss, output, metrics = self(z_input, z_target)
+        gradients = tape.gradient(loss, self.trainable_weights)
+        return loss, output, metrics, gradients
 
     def train(self):
         self.training = True
@@ -171,9 +171,9 @@ class DynamicSlotModel(SlotModel):
     @tf.function
     def loss_and_grad(slot_model, z_input, z_target, action, is_first):
         with tf.GradientTape() as tape:
-            output, metrics = slot_model(z_input, z_target, action, is_first)
-        gradients = tape.gradient(metrics['sm/loss'], slot_model.trainable_weights)
-        return output, metrics, gradients
+            loss, output, metrics = slot_model(z_input, z_target, action, is_first)
+        gradients = tape.gradient(loss, slot_model.trainable_weights)
+        return loss, output, metrics, gradients
 
 
     @tf.function
@@ -201,8 +201,9 @@ class DynamicSlotModel(SlotModel):
         cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
         outputs = {'attns': attns}  # should later include pred and slots
-        metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'sm/loss': cross_entropy+consistency}
-        return outputs, metrics
+        metrics = {'cross_entropy': cross_entropy, 'consistency': consistency}
+        loss = cross_entropy + consistency
+        return loss, outputs, metrics
 
 
     def filter(self, slots, embeds, actions, is_first):

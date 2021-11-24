@@ -253,9 +253,9 @@ def main(argv):
                 if isinstance(image, dict):
                     image = image['image']
 
-                outs_relax, mets_relax = model(image, tf.constant(tau), False)
+                _, outs_relax, mets_relax = model(image, tf.constant(tau), False)
                 
-                outs, mets = model(image, tf.constant(tau), True)
+                _, outs, mets = model(image, tf.constant(tau), True)
 
                 val_cross_entropy_relax += mets_relax['slot_model']['cross_entropy'].numpy()
                 val_mse_relax += mets_relax['dvae']['mse'].numpy()

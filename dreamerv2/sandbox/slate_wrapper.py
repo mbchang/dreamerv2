@@ -92,7 +92,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     iterates = self.model.get_iterates(self.model.step.numpy())
 
-    outs, mets = self.model(data, tf.constant(iterates['tau']), True)
+    loss, outs, mets = self.model(data, tf.constant(iterates['tau']), True)
 
 
     image = data['image']
