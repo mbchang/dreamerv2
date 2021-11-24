@@ -187,7 +187,7 @@ class DynamicSlotModel(SlotModel):
 
         # latent loss
         if self.args.consistency_loss:
-            consistency = tf.reduce_mean(eo.reduce((priors - posts)**2, 'b t k d -> b t', 'sum'))
+            consistency = tf.reduce_mean(eo.reduce((priors - posts)**2, 'b t k d -> b t k', 'sum'))
         else:
             consistency = tf.cast(tf.convert_to_tensor(0), priors.dtype)
 
