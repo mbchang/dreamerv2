@@ -60,7 +60,7 @@ class SLATE(layers.Layer):
             dvae=dvae.dVAE.defaults(),
             slot_model=slot_model.SlotModel.defaults(),
 
-            mono_train=True,
+            mono_train=False,
             # clip=1.0,
             ))
         return default_args
@@ -318,10 +318,14 @@ class DynamicSLATE(SLATE):
         act = batch['action'][:, :seed_steps + pred_horizon]
         is_first = batch['is_first'][:, :seed_steps + pred_horizon]
         recon_output, recon_metrics = self.reconstruct({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]})  # this could actually be done via parallel decode I suppose
-        imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], act[:, seed_steps:])
-        # output 
-        output = {'video': tf.concat((recon_output['pred'], imag_output['pred']), axis=1)}
-        metrics = {**recon_metrics, **imag_metrics}
+        if pred_horizon > 0:
+            imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], act[:, seed_steps:])
+            # output 
+            output = {'video': tf.concat((recon_output['pred'], imag_output['pred']), axis=1)}
+            metrics = {**recon_metrics, **imag_metrics}
+        else:
+            output = {'video': recon_output['pred']}
+            metrics = recon_metrics
         return output, metrics
 
 

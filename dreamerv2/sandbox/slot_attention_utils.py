@@ -45,8 +45,11 @@ def add_border(video, tau):
   if np.issubdtype(video.dtype, np.floating):
     video = np.clip(255 * video, 0, 255).astype(np.uint8)
   if tau <= 0:
-    video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='green') for frame in video])
-    return video
+    imag_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='green') for frame in video])
+    return imag_video
+  elif tau >= len(video):
+    seed_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='red') for frame in video[:tau]])
+    return seed_video
   else:
     seed_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='red') for frame in video[:tau]])
     imag_video = np.stack([ImageOps.expand(Image.fromarray(frame), border=10, fill='green') for frame in video[tau:]])
