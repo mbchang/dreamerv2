@@ -40,9 +40,9 @@ class Runner():
     def append_flags_to_command(self, command, flag_dict):
         for flag_name, flag_value in flag_dict.items():
             if type(flag_value) == bool:
-                if flag_value == True:
-                    command += f' --{flag_name}'
-                # command += f' --{flag_name}={flag_value}'
+                # if flag_value == True:
+                #     command += f' --{flag_name}'
+                command += f' --{flag_name}={flag_value}'
             elif type(flag_value) == list:
                 command += f" --{flag_name} {' '.join(element for element in flag_value)}"
             else:
@@ -628,7 +628,27 @@ def try_again_after_fix_moved_mlp_from_embed_tokens_11_18_21():
 
 
 
+def does_jitted_monolithic_train_affect_performance_11_23_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.eval', [False])
+    r.add_flag('args.slate.mono_train', [True, False])
+    r.add_flag('args.log_path', ['logs/does_jitted_monolithic_train_affect_performance'])
+    r.generate_commands(args.for_real)
 
+def no_jit_11_23_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1])
+    r.add_flag('args.jit', [False])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.eval', [False])
+    r.add_flag('args.slate.mono_train', [True, False])
+    r.add_flag('args.log_path', ['logs/no_jit_11_23_21'])
+    r.generate_commands(args.for_real)
 
 
 
@@ -669,4 +689,7 @@ if __name__ == '__main__':
     # try_on_dmc_manip_bigmodel_after_fix_visualization_11_17_21()
     # try_on_dmc_manip_finger_11_17_21()
     # try_on_dmc_manip_reach_site_11_17_21()
-    try_again_after_fix_moved_mlp_from_embed_tokens_11_18_21()
+    # try_again_after_fix_moved_mlp_from_embed_tokens_11_18_21()
+    # does_jitted_monolithic_train_affect_performance_11_23_21()
+    # does_jitted_monolithic_train_affect_performance_debug_11_23_21()
+    no_jit_11_23_21()

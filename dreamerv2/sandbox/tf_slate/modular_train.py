@@ -89,6 +89,8 @@ def main(argv):
         exp_name = f'{prefix}'
         if args.jit:
             exp_name += 'jit_'
+        if args.slate.mono_train:
+            exp_name += 'mt_'
         exp_name += f'{datetime.now():%Y%m%d%H%M%S}'
         exp_dir = pathlib.Path(os.path.join(data_name, exp_name))
         return exp_dir
