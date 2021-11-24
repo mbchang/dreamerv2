@@ -1730,6 +1730,39 @@ def does_raising_temp_enable_better_temporal_consistency_in_attn_11_23_21():
     r.generate_commands(args.for_real)
 
 
+def visrollout_and_consistency_loss_11_23_21():
+    """
+        does consistency loss help with temporal consistency?
+
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1, 2, 3])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    # r.add_flag('task', ['dmc_finger_turn_easy', 'mballs_whiteball_push'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [10])
+    r.add_flag('dataset.length', [5])
+    r.add_flag('eval_dataset.length', [10])
+    r.add_flag('eval_dataset.seed_steps', [3])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True, False])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0, 2.0])
+
+    r.add_flag('logdir', ['runs/visrollout_and_consistency_loss'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.consistency_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -1777,7 +1810,8 @@ if __name__ == '__main__':
     # does_slate_wrapper_work_with_tffunction_in_causal_agent_11_19_21()
     # dynamic_slate_post_loss_only_11_21_21()
     # dynamic_slate_prior_and_post_loss_11_21_21()
-    does_raising_temp_enable_better_temporal_consistency_in_attn_11_23_21()
+    # does_raising_temp_enable_better_temporal_consistency_in_attn_11_23_21()
+    visrollout_and_consistency_loss_11_23_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
