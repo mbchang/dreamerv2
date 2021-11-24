@@ -167,12 +167,12 @@ class DynamicSlotModel(SlotModel):
           ])
         self.dynamics = transformer.TransformerDecoder(args.d_model, args.dyn_transformer)
 
-    @staticmethod
+    # @staticmethod
     @tf.function
-    def loss_and_grad(slot_model, z_input, z_target, action, is_first):
+    def loss_and_grad(self, z_input, z_target, action, is_first):
         with tf.GradientTape() as tape:
-            loss, output, metrics = slot_model(z_input, z_target, action, is_first)
-        gradients = tape.gradient(loss, slot_model.trainable_weights)
+            loss, output, metrics = self(z_input, z_target, action, is_first)
+        gradients = tape.gradient(loss, self.trainable_weights)
         return loss, output, metrics, gradients
 
 

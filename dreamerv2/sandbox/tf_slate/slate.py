@@ -60,7 +60,7 @@ class SLATE(layers.Layer):
             dvae=dvae.dVAE.defaults(),
             slot_model=slot_model.SlotModel.defaults(),
 
-            mono_train=True,
+            mono_train=False,
             # clip=1.0,
             ))
         return default_args
@@ -347,7 +347,7 @@ class DynamicSLATE(SLATE):
 
         z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
 
-        sm_loss, sm_out, sm_mets, gradients = slot_model.DynamicSlotModel.loss_and_grad(self.slot_model, 
+        sm_loss, sm_out, sm_mets, gradients = self.slot_model.loss_and_grad(
             unflatten(z_input),
             unflatten(z_target),
             action=data['action'],
