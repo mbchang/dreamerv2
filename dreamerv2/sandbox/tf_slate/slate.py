@@ -169,7 +169,7 @@ class SLATE(layers.Layer):
 
         return loss, outputs, metrics
 
-
+    @tf.function
     def loss_and_grad(self, image, tau, hard):
         with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
             outputs, metrics = self(image, tau, hard)
@@ -202,7 +202,6 @@ class SLATE(layers.Layer):
         self.step.assign_add(1)
 
         return loss, outputs, metrics
-
 
 
     # this should either have the teaching-forcing mode or the autoregressive mode
