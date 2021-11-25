@@ -116,12 +116,17 @@ class SlotModel(layers.Layer):
 
         return z_gen
 
+    @staticmethod
+    def cross_entropy_loss(pred, target):
+        return -tf.reduce_mean(eo.reduce(target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+
     @tf.function
     def call(self, z_input, z_target):
         emb_input = self.embed_tokens(z_input)
         slots, attns = self.apply_slot_attn(emb_input)
         pred = self.parallel_decode(emb_input, slots)
-        cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+        # cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+        cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
         outputs = {'attns': attns}
         metrics = {'cross_entropy': cross_entropy}
         loss = cross_entropy
@@ -198,7 +203,8 @@ class DynamicSlotModel(SlotModel):
         z_target = concat([z_target, z_target])
 
         pred = bottle(self.parallel_decode)(emb_input, slots)
-        cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+        # cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
+        cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
 
         outputs = {'attns': attns}  # should later include pred and slots
         metrics = {'cross_entropy': cross_entropy, 'consistency': consistency}

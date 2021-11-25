@@ -252,10 +252,9 @@ class DynamicSLATE(SLATE):
         """
         image: batch_size x img_channels x H x W
         """
-        B, T, *_ = data['action'].shape
         permute = lambda x: rearrange(x, '... h w c -> ... c h w')
         flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
-        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=B)
+        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
 
         dvae_loss, dvae_out, dvae_mets = self.dvae(flatten(permute(data['image'])), tau, hard)
         z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
@@ -273,7 +272,6 @@ class DynamicSLATE(SLATE):
             slots: (b, k, ds)
             actions: (b, t, da)
         """
-        bsize = slots.shape[0]
         imag_latent = self.slot_model.generate(slots, actions)
         z_gen = bottle(self.slot_model.autoregressive_decode)(imag_latent)
         recon_transformer = bottle(self.decode)(z_gen)
@@ -287,10 +285,9 @@ class DynamicSLATE(SLATE):
             actions: TensorShape([6, 5, 9])
             is_first: TensorShape([6,5])
         """
-        B, T, *_ = data['action'].shape
         permute = lambda x: rearrange(x, '... h w c -> ... c h w')
         flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
-        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=B)
+        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
 
         image = flatten(permute(data['image']))
         one_hot_tokens = unflatten(self.image_to_argmax_tokens(image))
@@ -330,12 +327,9 @@ class DynamicSLATE(SLATE):
           velocity (B, T, V)
           action (B, T, A)
         """
-        # global_step should be the same as self.step
-
-        B, T, _ = data['action'].shape
         permute = lambda x: rearrange(x, '... h w c -> ... c h w')
         flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
-        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=B)
+        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
 
         iterates = self.get_iterates(self.step.numpy())
 
