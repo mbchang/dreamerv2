@@ -22,6 +22,92 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+class SlateWrapperForDreamer(causal_agent.WorldModel):
+  """
+  """
+  def __init__(self, config, obs_space, tfstep):
+    self.config = config
+    self.defaults = ml_collections.ConfigDict(self.config.slate)
+    self.model = slate.SLATE(self.defaults)
+
+
+  def train(self, data, state=None):
+    """
+      reward (B, T)
+      is_first (B, T)
+      is_last (B, T)
+      is_terminal (B, T)
+      image (B, T, H, W, C)
+      orientations (B, T, D)
+      height (B, T)
+      velocity (B, T, V)
+      action (B, T, A)
+    """
+    data = self.preprocess(data)
+
+    image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
+    loss, outputs, mets = self.model.train_step(image)
+    # state is dummy
+    state = None
+
+    # metrics
+    metrics = {
+      'kl_loss': 0,
+      'image_loss': mets['dvae']['mse'],
+      'reward_loss': 0,
+      'discount_loss': 0,
+      'model_kl': mets['slot_model']['cross_entropy'],
+      'prior_ent': 0,
+      'post_ent': 0,
+      
+      'slate/loss': loss,
+      'slate/mse': mets['dvae']['mse'],
+      'slate/cross_entropy': mets['slot_model']['cross_entropy'],
+      'slate/slot_model_lr': self.model.main_optimizer.lr,
+      'slate/dvae_lr': self.model.dvae_optimizer.lr,
+      'slate/itr': self.model.step,
+      'slate/tau': outputs['iterates']['tau'],
+    }
+
+    # outputs is dummy
+    outputs = None
+
+    return state, outputs, metrics
+
+  def report(self, data):
+    report = {}
+    data = self.preprocess(data)
+
+    name = 'image'
+    seed_steps = self.config.eval_dataset.seed_steps
+
+    iterates = self.model.get_iterates(self.model.step.numpy())
+
+    image = eo.rearrange(data['image'], 'b t h w c -> (b t) c h w')
+    loss, outs, mets = self.model(image, tf.constant(iterates['tau']), True)
+
+    gen_img, _, _ = self.model.reconstruct_autoregressive(image)
+
+    vis_recon = slate.SLATE.visualize(
+      image, 
+      outs['slot_model']['attns'], 
+      outs['dvae']['recon'], 
+      gen_img,
+      lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.))  # c (b h) (n w)
+    video = eo.rearrange(vis_recon, '(b t) n c h w -> t (b h) (n w) c', b=data['action'].shape[0])
+
+    report[f'openl_{name}'] = video
+    # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
+    # report[f'imag_loss_{name}'] = rollout_metrics['imagine']
+
+    logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
+    save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
+    lgr.info(f'Save png to {save_path}. Video hash: {utils.hash_sha1(video)}')
+    plt.imsave(f'{save_path}.png', video[0].numpy())  # first timestep #eo.rearrange())#, 't h w c -> (t h) w c'))
+    return report
+
+
+
 
 class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
   """
@@ -148,7 +234,6 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     lgr.info(f'Save gif to {save_path}. Video hash: {utils.hash_sha1(video)}')
     # lgr.info(f'Save gif to {save_path}. Video hash: {utils.hash_50(video)}')
     sa_utils.save_gif(sa_utils.add_border(video.numpy(), seed_steps), save_path)
-    np.save(f'vis_rollout-{self.config.dslate.vis_rollout}.npy', video.numpy())
     return report
 
 

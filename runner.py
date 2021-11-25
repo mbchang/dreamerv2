@@ -1795,6 +1795,40 @@ def visrollout_and_consistency_loss_t2_11_24_21():
     r.add_flag('watch', [' '.join(to_watch)])
     r.generate_commands(args.for_real)
 
+def check_that_autoregressive_works_for_static_11_24_21():
+    """
+        making the maxlen of replay dataset.length will hopefully ensure examples within a batch are not correlated
+
+        the goal here is to check whether static still works
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[3, 3, 3, 0, 1, 2])
+    r.add_flag('configs', ['dmc_vision slate'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('replay.minlen', [2])
+    r.add_flag('replay.maxlen', [2])
+    r.add_flag('dataset.batch', [16, 32])
+    r.add_flag('dataset.length', [2])
+    r.add_flag('eval_dataset.length', [2])
+    r.add_flag('eval_dataset.seed_steps', [2])
+
+    r.add_flag('slate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('slate.slot_model.slot_attn.temp', [0.5, 1.0, 2.0])
+
+    r.add_flag('logdir', ['runs/check_that_autoregressive_works_for_static'])
+    to_watch = [
+        'replay.minlen',
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'slate.slot_model.slot_attn.num_slots',
+        'slate.slot_model.slot_attn.temp',
+        'slate.slot_model.lr',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 
 if __name__ == '__main__':
@@ -1845,7 +1879,8 @@ if __name__ == '__main__':
     # dynamic_slate_prior_and_post_loss_11_21_21()
     # does_raising_temp_enable_better_temporal_consistency_in_attn_11_23_21()
     # visrollout_and_consistency_loss_11_23_21()
-    visrollout_and_consistency_loss_t2_11_24_21()
+    # visrollout_and_consistency_loss_t2_11_24_21()
+    check_that_autoregressive_works_for_static_11_24_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

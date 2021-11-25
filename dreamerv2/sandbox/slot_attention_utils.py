@@ -62,7 +62,7 @@ def save_gif(video, fname, fps=3):
   video: (T, H, W, C)
   """
   clip = ImageSequenceClip(list(video), fps=fps)
-  clip.write_gif(f'{fname}.gif', fps=fps)
+  clip.write_gif(f'{fname}.gif', fps=fps, logger=None)
 
 
 # def normalize(x):

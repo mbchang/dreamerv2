@@ -18,6 +18,7 @@ def create_expname(args):
 
         'fwm.optim.learning_rate': 'flr',
         'dslate.slot_model.lr': 'flr',
+        'slate.slot_model.lr': 'flr',
 
         'fwm.optim.warmup_steps': 'fws',
         'fwm.optim.decay_steps': 'fds',
@@ -30,6 +31,7 @@ def create_expname(args):
 
         'fwm.model.update_step.temp': 'tp',
         'dslate.slot_model.slot_attn.temp': 'tp',
+        'slate.slot_model.slot_attn.temp': 'tp',
 
         'eval_dataset.length': 'eT',
         'eval_dataset.seed_steps': 'ss',
@@ -42,6 +44,9 @@ def create_expname(args):
         'dslate.slot_model.slot_attn.num_slots': 'k',
 
         'dslate.slot_model.consistency_loss': 'cl',
+
+        'replay.minlen': 'rmnl',
+        'replay.maxlen': 'rmxl',
     }
     watcher = watch(args.watch, abbrvs)
     expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'
