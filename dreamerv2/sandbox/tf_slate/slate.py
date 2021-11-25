@@ -302,13 +302,47 @@ class DynamicSLATE(SLATE):
         metrics = {}  # will later have cross entropy and mse
         return output, metrics
 
+    # def rollout(self, batch, seed_steps, pred_horizon):
+    #     cap = lambda x: x[:, :seed_steps + pred_horizon]
+    #     cap_seed = lambda x: x[:, :seed_steps]
+    #     obs, act, is_first = map(cap, [obs, act, is_first])
+    #     obs_seed, act_seed, is_first_seed = map(cap_seed, [obs, act, is_first])
+
+    #     obs = batch['image'][:, :seed_steps + pred_horizon]
+    #     act = batch['action'][:, :seed_steps + pred_horizon]
+    #     is_first = batch['is_first'][:, :seed_steps + pred_horizon]
+    #     recon_output, recon_metrics = self.reconstruct({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]})  # this could actually be done via parallel decode I suppose
+    #     if pred_horizon > 0:
+    #         imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], act[:, seed_steps:])
+    #         # output 
+    #         output = {'video': tf.concat((recon_output['pred'], imag_output['pred']), axis=1)}
+    #         metrics = {**recon_metrics, **imag_metrics}
+    #     else:
+    #         output = {'video': recon_output['pred']}
+    #         metrics = recon_metrics
+    #     return output, metrics
+
+
+
     def rollout(self, batch, seed_steps, pred_horizon):
-        obs = batch['image'][:, :seed_steps + pred_horizon]
-        act = batch['action'][:, :seed_steps + pred_horizon]
-        is_first = batch['is_first'][:, :seed_steps + pred_horizon]
-        recon_output, recon_metrics = self.reconstruct({'image': obs[:, :seed_steps], 'action': act[:, :seed_steps], 'is_first': is_first[:, :seed_steps]})  # this could actually be done via parallel decode I suppose
+        cap = lambda x: x[:, :seed_steps + pred_horizon]
+        cap_seed = lambda x: x[:, :seed_steps]
+
+
+        # obs, act, is_first = map(cap, [batch['image'], batch['action'], batch['is_first']])
+        # obs_seed, act_seed, is_first_seed = map(cap_seed, [obs, act, is_first])
+        # import ipdb
+        # ipdb.set_trace(context=20)
+        batch_horizon = tf.nest.map_structure(cap, batch)
+        batch_seed = tf.nest.map_structure(cap_seed, batch)
+
+
+        # obs = batch['image'][:, :seed_steps + pred_horizon]
+        # act = batch['action'][:, :seed_steps + pred_horizon]
+        # is_first = batch['is_first'][:, :seed_steps + pred_horizon]
+        recon_output, recon_metrics = self.reconstruct(batch_seed)  # this could actually be done via parallel decode I suppose
         if pred_horizon > 0:
-            imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], act[:, seed_steps:])
+            imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], batch_horizon['action'][:, seed_steps:])
             # output 
             output = {'video': tf.concat((recon_output['pred'], imag_output['pred']), axis=1)}
             metrics = {**recon_metrics, **imag_metrics}
