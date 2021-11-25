@@ -31,6 +31,17 @@ class SlotAttention(tkl.Layer, Factorized):
             temp=1.0
             ))
         return default_args
+
+    @staticmethod
+    def dyn_defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            num_iterations=3,
+            num_slots=3,
+            num_slot_heads=1,
+            epsilon=1e-8,
+            temp=0.5
+            ))
+        return default_args
     
     def __init__(self, slot_size, cfg):
         super().__init__()
