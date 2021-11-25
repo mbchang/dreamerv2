@@ -96,7 +96,7 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
       lambda x: tf.clip_by_value(nmlz.uncenter(x), 0., 1.))  # c (b h) (n w)
     video = eo.rearrange(vis_recon, '(b t) n c h w -> t (b h) (n w) c', b=data['action'].shape[0])
 
-    report[f'openl_{name}'] = video
+    report[f'openl_{name}'] = eo.rearrange(video, 't h w c -> 1 (t h) w c')
     # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
     # report[f'imag_loss_{name}'] = rollout_metrics['imagine']
 
