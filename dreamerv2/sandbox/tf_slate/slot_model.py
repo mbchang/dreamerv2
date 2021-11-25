@@ -125,7 +125,6 @@ class SlotModel(layers.Layer):
         emb_input = self.embed_tokens(z_input)
         slots, attns = self.apply_slot_attn(emb_input)
         pred = self.parallel_decode(emb_input, slots)
-        # cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
         cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
         outputs = {'attns': attns}
         metrics = {'cross_entropy': cross_entropy}
@@ -172,7 +171,6 @@ class DynamicSlotModel(SlotModel):
           ])
         self.dynamics = transformer.TransformerDecoder(args.d_model, args.dyn_transformer)
 
-    # @staticmethod
     @tf.function
     def loss_and_grad(self, z_input, z_target, action, is_first):
         with tf.GradientTape() as tape:
@@ -186,7 +184,6 @@ class DynamicSlotModel(SlotModel):
         # TODO: make is_first flag the first action
         # for now, we will manually ignore the first action
 
-        # this requires a flattened input
         emb_input = bottle(self.embed_tokens)(z_input)
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
 
@@ -203,7 +200,6 @@ class DynamicSlotModel(SlotModel):
         z_target = concat([z_target, z_target])
 
         pred = bottle(self.parallel_decode)(emb_input, slots)
-        # cross_entropy = -tf.reduce_mean(eo.reduce(z_target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
         cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
 
         outputs = {'attns': attns}  # should later include pred and slots
@@ -243,7 +239,7 @@ class DynamicSlotModel(SlotModel):
         for i in range(actions.shape[1]):
             slots = self.img_step(slots, actions[:, i])
             latents.append(slots)
-        latents = rearrange(latents, 't b ... -> b t ...')
+        latents = eo.rearrange(latents, 't b ... -> b t ...')
         return latents
 
 
