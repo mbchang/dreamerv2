@@ -29,6 +29,7 @@ class Runner():
         self.gpus = gpus
         self.command = command
         self.flags = {}
+        self.i = 0
 
     def add_flag(self, flag_name, flag_values=''):
         self.flags[flag_name] = flag_values
@@ -62,10 +63,10 @@ class Runner():
         return command
 
     def generate_commands(self, execute=False):
-        i = 0
+        # i = 0
         j = 0
         for flag_dict in product_dict(**self.flags):
-            command = self.command_prefix(i)
+            command = self.command_prefix(self.i)
             command = self.append_flags_to_command(command, flag_dict)
             command = self.command_suffix(command)
 
@@ -73,7 +74,7 @@ class Runner():
             if execute:
                 os.system(command)
             if len(self.gpus) > 0:
-                i = (i + 1) % len(self.gpus)
+                self.i = (self.i + 1) % len(self.gpus)
             j += 1
 
             time.sleep(1)
@@ -100,11 +101,11 @@ class RunnerWithIDs(Runner):
         if 'seed' not in self.flags:
             Runner.generate_commands(self, execute)
         else:
-            i = 0
+            # i = 0
             j = 0
 
             for flag_dict in self.product_dict(**self.flags):
-                command = self.command_prefix(i)
+                command = self.command_prefix(self.i)
                 command = self.append_flags_to_command(command, flag_dict)
 
                 # add exp_id: one exp_id for each flag_dict.
@@ -122,7 +123,7 @@ class RunnerWithIDs(Runner):
                     if execute:
                         os.system(seeded_command)
                     if len(self.gpus) > 0:
-                        i = (i + 1) % len(self.gpus)
+                        self.i = (self.i + 1) % len(self.gpus)
                     j += 1
 
                     time.sleep(1)
@@ -2003,6 +2004,126 @@ def can_it_reconstruct_for_only_two_balls_grace_11_24_21():
     r.generate_commands(args.for_real)
 
 
+
+def balls_stress_test_length_11_25_21():
+    """
+        let's now see if it still works if we increase the length
+        grace
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3,4,5,6,7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [0.5, 1.0])
+    r.add_flag('dslate.slot_model.lr', [1e-4, 3e-4, 5e-4])
+
+    r.add_flag('logdir', ['runs/balls_stress_test_length'])
+    to_watch = [
+        'replay.minlen',
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.consistency_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [3,4,5]
+    for t in lengths:
+        r.add_flag('replay.minlen', [t])
+        r.add_flag('replay.maxlen', [t])
+        r.add_flag('dataset.length', [t])
+        r.add_flag('eval_dataset.length', [t])
+        r.add_flag('eval_dataset.seed_steps', [t])
+
+        r.generate_commands(args.for_real)
+
+
+def do_the_hyperparameters_work_for_other_tasks_11_25_21():
+    """
+        gauss1
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1,2,3])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_finger_turn_easy', 'dmc_manip_reach_site', 'dmc_manip_place_cradle', 'dmc_stacker_stack_2'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [0.5, 1.0])
+    r.add_flag('dslate.slot_model.lr', [5e-4])
+
+    r.add_flag('logdir', ['runs/do_the_hyperparameters_work_for_other_tasks'])
+    to_watch = [
+        'replay.minlen',
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.consistency_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [2]
+    for t in lengths:
+        r.add_flag('replay.minlen', [t])
+        r.add_flag('replay.maxlen', [t])
+        r.add_flag('dataset.length', [t])
+        r.add_flag('eval_dataset.length', [t])
+        r.add_flag('eval_dataset.seed_steps', [t])
+
+        r.generate_commands(args.for_real)
+
+
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1,2,3])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_finger_turn_easy', 'dmc_manip_reach_site', 'dmc_manip_place_cradle', 'dmc_stacker_stack_2'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [0.5])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+
+    r.add_flag('logdir', ['runs/do_the_hyperparameters_work_for_other_tasks'])
+    to_watch = [
+        'replay.minlen',
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.consistency_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [2]
+    for t in lengths:
+        r.add_flag('replay.minlen', [t])
+        r.add_flag('replay.maxlen', [t])
+        r.add_flag('dataset.length', [t])
+        r.add_flag('eval_dataset.length', [t])
+        r.add_flag('eval_dataset.seed_steps', [t])
+
+        r.generate_commands(args.for_real)
+
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -2055,7 +2176,9 @@ if __name__ == '__main__':
     # check_that_autoregressive_works_for_static_11_24_21()
     # dslate_t2_replaymaxlen2_11_24_21()
     # can_it_reconstruct_for_only_two_balls_11_24_21()
-    can_it_reconstruct_for_only_two_balls_grace_11_24_21()
+    # can_it_reconstruct_for_only_two_balls_grace_11_24_21()
+    # balls_stress_test_length_11_25_21()
+    do_the_hyperparameters_work_for_other_tasks_11_25_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
