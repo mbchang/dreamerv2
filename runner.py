@@ -76,7 +76,7 @@ class Runner():
                 i = (i + 1) % len(self.gpus)
             j += 1
 
-            time.sleep(1e-3)
+            time.sleep(1)
 
         print('Launched {} jobs'.format(j))
 
@@ -125,7 +125,7 @@ class RunnerWithIDs(Runner):
                         i = (i + 1) % len(self.gpus)
                     j += 1
 
-                    time.sleep(1e-3)
+                    time.sleep(1)
 
             print('Launched {} jobs'.format(j))
 
@@ -1830,6 +1830,178 @@ def check_that_autoregressive_works_for_static_11_24_21():
     r.generate_commands(args.for_real)
 
 
+def dslate_t2_replaymaxlen2_11_24_21():
+    """
+        see if having replaymaxlen2 will improve diversity within a batch
+    """
+    # r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1, 2])
+    # r.add_flag('configs', ['dmc_vision dslate'])
+    # r.add_flag('task', ['mballs_whiteball_push'])
+    # r.add_flag('agent', ['causal'])
+    # r.add_flag('prefill', [20000])
+    # r.add_flag('replay.minlen', [2])
+    # r.add_flag('replay.maxlen', [2])
+    # r.add_flag('dataset.batch', [16])
+    # r.add_flag('dataset.length', [2])
+    # r.add_flag('eval_dataset.length', [2])
+    # r.add_flag('eval_dataset.seed_steps', [2])
+
+    # r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    # r.add_flag('dslate.slot_model.consistency_loss', [True])
+    # r.add_flag('dslate.slot_model.slot_attn.temp', [0.5, 1.0, 2.0])
+
+    # r.add_flag('logdir', ['runs/dslate_t2_replaymaxlen2'])
+    # to_watch = [
+    #     'replay.minlen',
+    #     'replay.maxlen',
+    #     'dataset.batch',
+    #     'dataset.length',
+    #     'dslate.slot_model.slot_attn.num_slots',
+    #     'dslate.slot_model.slot_attn.temp',
+    #     'dslate.slot_model.lr',
+    #     'dslate.slot_model.consistency_loss',
+    # ]
+    # r.add_flag('watch', [' '.join(to_watch)])
+    # r.generate_commands(args.for_real)
+
+    # r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1, 2, 3, 3, 3])
+    # r.add_flag('configs', ['dmc_vision dslate'])
+    # r.add_flag('task', ['mballs_whiteball_push'])
+    # r.add_flag('agent', ['causal'])
+    # r.add_flag('prefill', [20000])
+    # r.add_flag('replay.minlen', [2])
+    # r.add_flag('replay.maxlen', [2])
+    # r.add_flag('dataset.batch', [16])
+    # r.add_flag('dataset.length', [2])
+    # r.add_flag('eval_dataset.length', [2])
+    # r.add_flag('eval_dataset.seed_steps', [2])
+
+    # r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    # r.add_flag('dslate.slot_model.consistency_loss', [True])
+    # r.add_flag('dslate.slot_model.slot_attn.temp', [0.5, 1.0, 2.0])
+    # r.add_flag('dslate.slot_model.lr', [5e-5, 5e-4])
+
+    # r.add_flag('logdir', ['runs/dslate_t2_replaymaxlen2'])
+    # to_watch = [
+    #     'replay.minlen',
+    #     'replay.maxlen',
+    #     'dataset.batch',
+    #     'dataset.length',
+    #     'dslate.slot_model.slot_attn.num_slots',
+    #     'dslate.slot_model.slot_attn.temp',
+    #     'dslate.slot_model.lr',
+    #     'dslate.slot_model.consistency_loss',
+    # ]
+    # r.add_flag('watch', [' '.join(to_watch)])
+    # r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1, 2])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('replay.minlen', [2])
+    r.add_flag('replay.maxlen', [2])
+    r.add_flag('dataset.batch', [16])
+    r.add_flag('dataset.length', [2])
+    r.add_flag('eval_dataset.length', [2])
+    r.add_flag('eval_dataset.seed_steps', [2])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [0.1])
+    r.add_flag('dslate.slot_model.lr', [5e-5, 1e-4, 5e-4])
+
+    r.add_flag('logdir', ['runs/dslate_t2_replaymaxlen2'])
+    to_watch = [
+        'replay.minlen',
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.consistency_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+
+def can_it_reconstruct_for_only_two_balls_11_24_21():
+    """
+        try doing this on geb instead
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('replay.minlen', [2])
+    r.add_flag('replay.maxlen', [2])
+    r.add_flag('dataset.length', [2])
+    r.add_flag('eval_dataset.length', [2])
+    r.add_flag('eval_dataset.seed_steps', [2])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [0.5, 1.0, 2.0])
+    r.add_flag('dslate.slot_model.lr', [1e-4, 5e-4])
+
+    r.add_flag('logdir', ['runs/can_it_reconstruct_for_only_two_balls'])
+    to_watch = [
+        'replay.minlen',
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.consistency_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+
+def can_it_reconstruct_for_only_two_balls_grace_11_24_21():
+    """
+        try doing this
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3, 4, 5, 6, 7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box', 'dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('replay.minlen', [2])
+    r.add_flag('replay.maxlen', [2])
+    r.add_flag('dataset.length', [2])
+    r.add_flag('eval_dataset.length', [2])
+    r.add_flag('eval_dataset.seed_steps', [2])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [0.1, 0.5, 1.0, 2.0])
+    r.add_flag('dslate.slot_model.lr', [5e-5, 1e-4, 5e-4])
+
+    r.add_flag('logdir', ['runs/can_it_reconstruct_for_only_two_balls_grace'])
+    to_watch = [
+        'replay.minlen',
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.consistency_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -1880,7 +2052,10 @@ if __name__ == '__main__':
     # does_raising_temp_enable_better_temporal_consistency_in_attn_11_23_21()
     # visrollout_and_consistency_loss_11_23_21()
     # visrollout_and_consistency_loss_t2_11_24_21()
-    check_that_autoregressive_works_for_static_11_24_21()
+    # check_that_autoregressive_works_for_static_11_24_21()
+    # dslate_t2_replaymaxlen2_11_24_21()
+    # can_it_reconstruct_for_only_two_balls_11_24_21()
+    can_it_reconstruct_for_only_two_balls_grace_11_24_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
