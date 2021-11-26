@@ -2123,6 +2123,48 @@ def do_the_hyperparameters_work_for_other_tasks_11_25_21():
         r.generate_commands(args.for_real)
 
 
+def balls_stress_test_length_try2_11_25_21():
+    """
+        let's now see if it still works if we increase the length
+        grace
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3,4,5,6,7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['mballs_whiteball_push'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [0.5, 1.0])
+    r.add_flag('dslate.slot_model.lr', [1e-4, 3e-4, 5e-4, 7e-4])
+
+    r.add_flag('logdir', ['runs/balls_stress_test_length_try2'])
+    to_watch = [
+        'replay.minlen',
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.consistency_loss',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [3]
+    for t in lengths:
+        r.add_flag('replay.minlen', [t])
+        r.add_flag('replay.maxlen', [t])
+        r.add_flag('dataset.length', [t])
+        r.add_flag('eval_dataset.length', [t])
+        r.add_flag('eval_dataset.seed_steps', [t])
+
+        r.generate_commands(args.for_real)
+
+
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -2178,7 +2220,8 @@ if __name__ == '__main__':
     # can_it_reconstruct_for_only_two_balls_11_24_21()
     # can_it_reconstruct_for_only_two_balls_grace_11_24_21()
     # balls_stress_test_length_11_25_21()
-    do_the_hyperparameters_work_for_other_tasks_11_25_21()
+    # do_the_hyperparameters_work_for_other_tasks_11_25_21()
+    balls_stress_test_length_try2_11_25_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
