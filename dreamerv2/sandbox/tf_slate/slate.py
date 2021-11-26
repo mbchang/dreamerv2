@@ -248,6 +248,20 @@ class DynamicSLATE(SLATE):
         self.training = False
         self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
 
+    def get_iterates(self, step):
+        iterates = SLATE.get_iterates(self, step)
+
+        lr_decay_factor = cosine_anneal(
+            step=step,
+            start_value=1.0,
+            final_value=self.args.slot_model.min_lr_factor,
+            start_step=self.args.slot_model.lr_warmup_steps,
+            final_step=self.args.slot_model.lr_warmup_steps + self.args.slot_model.decay_steps)
+        # print('min_lr_factor', self.args.slot_model.min_lr_factor, 'start_step', self.args.slot_model.lr_warmup_steps, 'final_step', self.args.slot_model.lr_warmup_steps + self.args.slot_model.decay_steps)
+        # print('step', step, 'lr_decay_factor', lr_decay_factor)
+
+        return {**iterates, **dict(lr_decay_factor=lr_decay_factor)}
+
     def call(self, data, tau, hard):
         """
         image: batch_size x img_channels x H x W
@@ -334,7 +348,8 @@ class DynamicSLATE(SLATE):
         iterates = self.get_iterates(self.step.numpy())
 
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
-        self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
+        # self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
+        self.main_optimizer.lr = f32(iterates['lr_decay_factor'] * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
 
         dvae_loss, dvae_out, dvae_mets, gradients = self.dvae.loss_and_grad(flatten(permute(data['image'])), tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))

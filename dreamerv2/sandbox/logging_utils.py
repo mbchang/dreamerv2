@@ -47,6 +47,8 @@ def create_expname(args):
 
         'replay.minlen': 'rmnl',
         'replay.maxlen': 'rmxl',
+
+        'dslate.slot_model.decay_steps': 'ds',
     }
     watcher = watch(args.watch, abbrvs)
     expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'
