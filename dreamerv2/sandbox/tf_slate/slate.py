@@ -257,8 +257,6 @@ class DynamicSLATE(SLATE):
             final_value=self.args.slot_model.min_lr_factor,
             start_step=self.args.slot_model.lr_warmup_steps,
             final_step=self.args.slot_model.lr_warmup_steps + self.args.slot_model.decay_steps)
-        # print('min_lr_factor', self.args.slot_model.min_lr_factor, 'start_step', self.args.slot_model.lr_warmup_steps, 'final_step', self.args.slot_model.lr_warmup_steps + self.args.slot_model.decay_steps)
-        # print('step', step, 'lr_decay_factor', lr_decay_factor)
 
         return {**iterates, **dict(lr_decay_factor=lr_decay_factor)}
 
