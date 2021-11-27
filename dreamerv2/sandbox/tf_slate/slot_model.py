@@ -152,7 +152,7 @@ class DynamicSlotModel(SlotModel):
         debug_args = SlotModel.defaults_debug()
         debug_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults_debug()
         debug_args.consistency_loss = True
-        debug_args.lr = 5e-4
+        debug_args.lr = 3e-4
         debug_args.min_lr_factor = 0.2
         debug_args.decay_steps = 15
         return debug_args
@@ -163,7 +163,7 @@ class DynamicSlotModel(SlotModel):
         default_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults()
         default_args.slot_attn = slot_attn.SlotAttention.dyn_defaults()
         default_args.consistency_loss = True
-        default_args.lr = 5e-4
+        default_args.lr = 3e-4
         default_args.min_lr_factor = 0.2
         default_args.decay_steps = 30000
         return default_args
