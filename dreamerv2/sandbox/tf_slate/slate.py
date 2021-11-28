@@ -288,28 +288,7 @@ class DynamicSLATE(SLATE):
         z_gen = bottle(self.slot_model.autoregressive_decode)(imag_latent)
         recon_transformer = bottle(self.decode)(z_gen)
         output = {'pred': recon_transformer, 'z_gen': z_gen}
-        # metrics = {}  # will later have cross entropy and mse
         return output
-
-    # def reconstruct(self, data):
-    #     """
-    #         image: TensorShape([6, 5, 64, 64, 3])
-    #         actions: TensorShape([6, 5, 9])
-    #         is_first: TensorShape([6,5])
-    #     """
-    #     permute = lambda x: rearrange(x, '... h w c -> ... c h w')
-    #     flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
-    #     unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
-
-    #     image = flatten(permute(data['image']))
-    #     one_hot_tokens = unflatten(self.image_to_argmax_tokens(image))
-    #     emb_input = bottle(self.slot_model.embed_tokens)(one_hot_tokens)
-    #     priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=data['action'], is_first=data['is_first'])
-    #     z_gen = bottle(self.slot_model.autoregressive_decode)(posts)
-    #     recon_transformer = bottle(self.decode)(z_gen)
-    #     output = {'pred': recon_transformer, 'slots': posts, 'attns': attns}
-    #     metrics = {}  # will later have cross entropy and mse
-    #     return output, metrics
 
     def reconstruct(self, z_input, actions, is_first):
         """
@@ -317,18 +296,11 @@ class DynamicSLATE(SLATE):
             actions: TensorShape([6, 5, 9])
             is_first: TensorShape([6,5])
         """
-        # permute = lambda x: rearrange(x, '... h w c -> ... c h w')
-        # flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
-        # unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
-
-        # image = flatten(permute(data['image']))
-        # one_hot_tokens = unflatten(self.image_to_argmax_tokens(image))
         emb_input = bottle(self.slot_model.embed_tokens)(z_input)
         priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
         z_gen = bottle(self.slot_model.autoregressive_decode)(posts)
         recon_transformer = bottle(self.decode)(z_gen)
         output = {'pred': recon_transformer, 'slots': posts, 'attns': attns, 'z_gen': z_gen}
-        # metrics = {}  # will later have cross entropy and mse
         return output
 
     def rollout(self, batch, seed_steps, pred_horizon):
