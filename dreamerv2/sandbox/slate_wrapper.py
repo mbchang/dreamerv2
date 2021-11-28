@@ -235,8 +235,8 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
 
     report[f'openl_{name}'] = video
-    # report[f'recon_loss_{name}'] = rollout_metrics['reconstruct']
-    # report[f'imag_loss_{name}'] = rollout_metrics['imagine']
+    report[f'recon_loss_{name}'] = rollout_metrics['recon']
+    report[f'imag_loss_{name}'] = rollout_metrics['imag']
 
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
     save_path = os.path.join(logdir, f'{self.model.step.numpy()}')

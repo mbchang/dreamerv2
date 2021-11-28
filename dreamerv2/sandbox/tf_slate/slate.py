@@ -311,17 +311,19 @@ class DynamicSLATE(SLATE):
         flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
         unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=batch['action'].shape[0])
 
-        image = flatten(permute(batch_seed['image']))
+        image = flatten(permute(batch['image']))
         z_input, z_target = map(unflatten, self.image_to_argmax_tokens(image))
 
-        recon_output = self.reconstruct(z_input, batch_seed['action'], batch_seed['is_first'])
+        recon_output = self.reconstruct(z_input[:, :seed_steps], batch_seed['action'], batch_seed['is_first'])
+        recon_ce = slot_model.SlotModel.cross_entropy_loss(recon_output['z_gen'], z_target[:, :seed_steps])
         if pred_horizon > 0:
             imag_output = self.imagine(recon_output['slots'][:, -1], batch_horizon['action'][:, seed_steps:])
+            imag_ce = slot_model.SlotModel.cross_entropy_loss(imag_output['z_gen'], z_target[:, seed_steps:])
             output = {'video': tf.concat((recon_output['pred'], imag_output['pred']), axis=1)}
-            metrics = {}
+            metrics = {'recon': recon_ce, 'imag': imag_ce}
         else:
             output = {'video': recon_output['pred']}
-            metrics = {}
+            metrics = {'recon': recon_ce}
         return output, metrics
 
 

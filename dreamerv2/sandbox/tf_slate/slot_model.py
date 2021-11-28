@@ -265,6 +265,8 @@ class DynamicSlotModel(SlotModel):
         return prior
 
 
+    # or maybe I can put imagine and reconstruct here, and then in slate I just have one rollout function that just decodes everything all at once? 
+
 
 
 """
