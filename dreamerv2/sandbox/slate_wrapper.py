@@ -117,6 +117,14 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     self.defaults = ml_collections.ConfigDict(self.config.dslate)
     self.model = slate.DynamicSLATE(self.defaults)
 
+  def log_weights(self, step):
+    import time
+    t0 = time.time()
+    for v in self.model.dvae.variables:
+      tf.summary.histogram(f'dvae/{v.name}', v.value(), step=step.value)
+    for v in self.model.slot_model.variables:
+      tf.summary.histogram(f'slot_model/{v.name}', v.value(), step=step.value)
+    lgr.info(f'Writing histogram took {time.time()-t0} seconds.')
 
   def train(self, data, state=None):
     """
