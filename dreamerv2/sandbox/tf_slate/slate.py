@@ -112,15 +112,15 @@ class SLATE(layers.Layer):
     def image_to_argmax_tokens(self, image):
         z_logits = self.dvae.get_logits(image)
         z_hard = self.dvae.mode(z_logits)
-        one_hot_tokens, _ = create_tokens(z_hard)
-        return one_hot_tokens
+        z_input, z_target = create_tokens(z_hard)
+        return z_input, z_target
 
     @tf.function
     def reconstruct_autoregressive(self, image: tf.Tensor, eval: bool=False):
         """
         image: batch_size x img_channels x H x W
         """
-        one_hot_tokens = self.image_to_argmax_tokens(image)
+        one_hot_tokens, _ = self.image_to_argmax_tokens(image)
         emb_input = self.slot_model.embed_tokens(one_hot_tokens)
         slots, attns = self.slot_model.apply_slot_attn(emb_input)
         z_gen = self.slot_model.autoregressive_decode(slots)
@@ -287,43 +287,69 @@ class DynamicSLATE(SLATE):
         imag_latent = self.slot_model.generate(slots, actions)
         z_gen = bottle(self.slot_model.autoregressive_decode)(imag_latent)
         recon_transformer = bottle(self.decode)(z_gen)
-        output = {'pred': recon_transformer}
-        metrics = {}  # will later have cross entropy and mse
-        return output, metrics
+        output = {'pred': recon_transformer, 'z_gen': z_gen}
+        # metrics = {}  # will later have cross entropy and mse
+        return output
 
-    def reconstruct(self, data):
+    # def reconstruct(self, data):
+    #     """
+    #         image: TensorShape([6, 5, 64, 64, 3])
+    #         actions: TensorShape([6, 5, 9])
+    #         is_first: TensorShape([6,5])
+    #     """
+    #     permute = lambda x: rearrange(x, '... h w c -> ... c h w')
+    #     flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
+    #     unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
+
+    #     image = flatten(permute(data['image']))
+    #     one_hot_tokens = unflatten(self.image_to_argmax_tokens(image))
+    #     emb_input = bottle(self.slot_model.embed_tokens)(one_hot_tokens)
+    #     priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=data['action'], is_first=data['is_first'])
+    #     z_gen = bottle(self.slot_model.autoregressive_decode)(posts)
+    #     recon_transformer = bottle(self.decode)(z_gen)
+    #     output = {'pred': recon_transformer, 'slots': posts, 'attns': attns}
+    #     metrics = {}  # will later have cross entropy and mse
+    #     return output, metrics
+
+    def reconstruct(self, z_input, actions, is_first):
         """
             image: TensorShape([6, 5, 64, 64, 3])
             actions: TensorShape([6, 5, 9])
             is_first: TensorShape([6,5])
         """
-        permute = lambda x: rearrange(x, '... h w c -> ... c h w')
-        flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
-        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
+        # permute = lambda x: rearrange(x, '... h w c -> ... c h w')
+        # flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
+        # unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
 
-        image = flatten(permute(data['image']))
-        one_hot_tokens = unflatten(self.image_to_argmax_tokens(image))
-        emb_input = bottle(self.slot_model.embed_tokens)(one_hot_tokens)
-        priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=data['action'], is_first=data['is_first'])
+        # image = flatten(permute(data['image']))
+        # one_hot_tokens = unflatten(self.image_to_argmax_tokens(image))
+        emb_input = bottle(self.slot_model.embed_tokens)(z_input)
+        priors, posts, attns = self.slot_model.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
         z_gen = bottle(self.slot_model.autoregressive_decode)(posts)
         recon_transformer = bottle(self.decode)(z_gen)
-        output = {'pred': recon_transformer, 'slots': posts, 'attns': attns}
-        metrics = {}  # will later have cross entropy and mse
-        return output, metrics
+        output = {'pred': recon_transformer, 'slots': posts, 'attns': attns, 'z_gen': z_gen}
+        # metrics = {}  # will later have cross entropy and mse
+        return output
 
     def rollout(self, batch, seed_steps, pred_horizon):
         batch_horizon = tf.nest.map_structure(lambda x: x[:, :seed_steps + pred_horizon], batch)
         batch_seed = tf.nest.map_structure(lambda x: x[:, :seed_steps], batch)
 
-        # this could actually be done via parallel decode I suppose
-        recon_output, recon_metrics = self.reconstruct(batch_seed)  
+        permute = lambda x: rearrange(x, '... h w c -> ... c h w')
+        flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
+        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=batch['action'].shape[0])
+
+        image = flatten(permute(batch_seed['image']))
+        z_input, z_target = map(unflatten, self.image_to_argmax_tokens(image))
+
+        recon_output = self.reconstruct(z_input, batch_seed['action'], batch_seed['is_first'])
         if pred_horizon > 0:
-            imag_output, imag_metrics = self.imagine(recon_output['slots'][:, -1], batch_horizon['action'][:, seed_steps:])
+            imag_output = self.imagine(recon_output['slots'][:, -1], batch_horizon['action'][:, seed_steps:])
             output = {'video': tf.concat((recon_output['pred'], imag_output['pred']), axis=1)}
-            metrics = {**recon_metrics, **imag_metrics}
+            metrics = {}
         else:
             output = {'video': recon_output['pred']}
-            metrics = recon_metrics
+            metrics = {}
         return output, metrics
 
 
