@@ -138,17 +138,14 @@ class TransformerEncoder(nn.Module):
 
 class TransformerDecoderBlock(tkl.Layer):
     
-    def __init__(self, d_model, num_heads, dropout=0., gain=1., is_first=False):
+    def __init__(self, d_model, num_heads, dropout=0., gain=1., masked=False, is_first=False):
         super().__init__()
         
         self.is_first = is_first
+        self.masked = masked
         
         self.self_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.self_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
-        
-        # # this could actually be generated on the fly
-        # mask = tf.experimental.numpy.triu(tf.ones((max_len, max_len)), k=1)  # float, not bool
-        # self.self_attn_mask = tf.Variable(mask, trainable=False)
         
         self.encoder_decoder_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.encoder_decoder_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
@@ -168,16 +165,19 @@ class TransformerDecoderBlock(tkl.Layer):
         encoder_output: batch_size x source_len x d_model
         return: batch_size x target_len x d_model
         """
-        T = input.shape[1]
-        mask = tf.experimental.numpy.triu(tf.ones((T, T)), k=1)  # float, not bool
+        if self.masked:
+            T = input.shape[1]
+            mask = tf.experimental.numpy.triu(tf.ones((T, T)), k=1)  # float, not bool
+        else:
+            mask = None
         
         if self.is_first:
             input = self.self_attn_layer_norm(input)
-            x = self.self_attn(input, input, input, mask)#self.self_attn_mask[:T, :T])
+            x = self.self_attn(input, input, input, mask)
             input = input + x
         else:
             x = self.self_attn_layer_norm(input)
-            x = self.self_attn(x, x, x, mask)#self.self_attn_mask[:T, :T])
+            x = self.self_attn(x, x, x, mask)
             input = input + x
         
         x = self.encoder_decoder_attn_layer_norm(input)
@@ -197,6 +197,7 @@ class TransformerDecoder(tkl.Layer):
             num_blocks=2,
             num_heads=2,
             dropout=0.1,
+            masked=True,
             ))
         return default_args
 
@@ -206,6 +207,7 @@ class TransformerDecoder(tkl.Layer):
             num_blocks=4,
             num_heads=4,
             dropout=0.1,
+            masked=True,
             ))
         return default_args
 
@@ -215,6 +217,7 @@ class TransformerDecoder(tkl.Layer):
             num_blocks=2,
             num_heads=2,
             dropout=0.1,
+            masked=False,
             ))
         return default_args
 
@@ -224,6 +227,7 @@ class TransformerDecoder(tkl.Layer):
             num_blocks=4,
             num_heads=4,
             dropout=0.1,
+            masked=False,
             ))
         return default_args
     
@@ -233,10 +237,11 @@ class TransformerDecoder(tkl.Layer):
         num_blocks = cfg.num_blocks
         num_heads = cfg.num_heads
         dropout = cfg.dropout
+        masked = cfg.masked
 
         if num_blocks > 0:
             gain = (3 * num_blocks) ** (-0.5)
-            self.blocks = [TransformerDecoderBlock(d_model, num_heads, dropout, gain, is_first=True)] + [TransformerDecoderBlock(d_model, num_heads, dropout, gain, is_first=False) for _ in range(num_blocks - 1)]
+            self.blocks = [TransformerDecoderBlock(d_model, num_heads, dropout, gain, masked, is_first=True)] + [TransformerDecoderBlock(d_model, num_heads, dropout, gain, masked, is_first=False) for _ in range(num_blocks - 1)]
         else:
             self.blocks = []
         
