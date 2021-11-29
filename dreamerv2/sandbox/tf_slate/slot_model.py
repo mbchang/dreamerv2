@@ -265,6 +265,29 @@ class DynamicSlotModel(SlotModel):
         return prior
 
 
+    def imag_autoregressive(self, slots, actions):
+        """
+            slots: (b, k, ds)
+            actions: (b, t, da)
+        """
+        imag_latent = self.generate(slots, actions)
+        z_gen = bottle(self.autoregressive_decode)(imag_latent)
+        output = {'z_gen': z_gen}
+        return output
+
+    def recon_autoregressive(self, z_input, actions, is_first):
+        """
+            image: TensorShape([6, 5, 64, 64, 3])
+            actions: TensorShape([6, 5, 9])
+            is_first: TensorShape([6,5])
+        """
+        emb_input = bottle(self.embed_tokens)(z_input)
+        priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
+        z_gen = bottle(self.autoregressive_decode)(posts)
+        output = {'slots': posts, 'attns': attns, 'z_gen': z_gen}
+        return output
+
+
     # or maybe I can put imagine and reconstruct here, and then in slate I just have one rollout function that just decodes everything all at once? 
 
 
