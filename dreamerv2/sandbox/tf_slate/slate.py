@@ -225,6 +225,8 @@ class DynamicSLATE(SLATE):
         debug_args = SLATE.defaults_debug()
         debug_args.slot_model = slot_model.DynamicSlotModel.defaults_debug()
         debug_args.vis_rollout = True
+        debug_args.curr = True
+        debug_args.curr_every = 1
         return debug_args
 
     @staticmethod
@@ -232,9 +234,11 @@ class DynamicSLATE(SLATE):
         default_args = SLATE.defaults()
         default_args.slot_model = slot_model.DynamicSlotModel.defaults()
         default_args.vis_rollout = True
+        default_args.curr = False
+        default_args.curr_every = 20000
         return default_args
 
-    def __init__(self, args):
+    def __init__(self, seqlen, args):
         layers.Layer.__init__(self)
         self.args = args
 
@@ -248,6 +252,11 @@ class DynamicSLATE(SLATE):
         self.training = False
         self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
 
+        self.horizon_curriculum = Counter(
+          initial_value=2 if args.curr else seqlen,
+          final_value=seqlen,
+          step_every=args.curr_every)
+
     def get_iterates(self, step):
         iterates = SLATE.get_iterates(self, step)
 
@@ -258,7 +267,9 @@ class DynamicSLATE(SLATE):
             start_step=self.args.slot_model.lr_warmup_steps,
             final_step=self.args.slot_model.lr_warmup_steps + self.args.slot_model.decay_steps)
 
-        return {**iterates, **dict(lr_decay_factor=lr_decay_factor)}
+        num_frames = self.horizon_curriculum.value(step)
+
+        return {**iterates, **dict(lr_decay_factor=lr_decay_factor, num_frames=num_frames)}
 
     def call(self, data, tau, hard):
         """
@@ -320,9 +331,9 @@ class DynamicSLATE(SLATE):
         unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
 
         iterates = self.get_iterates(self.step.numpy())
+        data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
 
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
-        # self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
         self.main_optimizer.lr = f32(iterates['lr_decay_factor'] * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
 
         dvae_loss, dvae_out, dvae_mets, gradients = self.dvae.loss_and_grad(flatten(permute(data['image'])), tf.constant(iterates['tau']), self.args.dvae.hard)

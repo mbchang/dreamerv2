@@ -57,6 +57,21 @@ def f32(x):
     return tf.cast(x, tf.float32)
 
 
+class Counter():
+    def __init__(self, initial_value, final_value, step_every):
+        self.initial_value = initial_value
+        self.final_value = final_value
+        self.step_every = step_every
+
+        # # -1 if you step before you call get value
+        # # 0 if you step after you call get value
+        # self.steps = 0
+
+    def value(self, step):
+        _value = min((step // self.step_every) + self.initial_value, self.final_value)
+        return _value
+    
+
 ########################################################################
 ## Visualization utils
 ########################################################################

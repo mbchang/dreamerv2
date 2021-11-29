@@ -107,15 +107,13 @@ class SlateWrapperForDreamer(causal_agent.WorldModel):
     return report
 
 
-
-
 class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
   """
   """
   def __init__(self, config, obs_space, tfstep):
     self.config = config
     self.defaults = ml_collections.ConfigDict(self.config.dslate)
-    self.model = slate.DynamicSLATE(self.defaults)
+    self.model = slate.DynamicSLATE(self.config.dataset.length, self.defaults)
 
   def log_weights(self, step):
     # import time
@@ -235,8 +233,9 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
 
     report[f'openl_{name}'] = video
-    report[f'recon_loss_{name}'] = rollout_metrics['recon']
-    report[f'imag_loss_{name}'] = rollout_metrics['imag']
+    report[f'slate/recon_cross_entropy'] = rollout_metrics['recon']
+    if 'imag' in rollout_metrics:
+      report[f'slate/imag_cross_entropy'] = rollout_metrics['imag']
 
     logdir = (Path(self.config.logdir) / Path(self.config.expdir)).expanduser()
     save_path = os.path.join(logdir, f'{self.model.step.numpy()}')
