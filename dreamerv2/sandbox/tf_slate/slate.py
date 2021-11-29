@@ -298,7 +298,8 @@ class DynamicSLATE(SLATE):
         flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
         unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=batch['action'].shape[0])
 
-        image = flatten(permute(batch['image']))
+        # image = flatten(permute(batch['image']))  # this should be batch_horizon
+        image = flatten(permute(batch_horizon['image']))  # this should be batch_horizon
         z_input, z_target = map(unflatten, self.image_to_argmax_tokens(image))
 
         recon_output = self.slot_model.recon_autoregressive(z_input[:, :seed_steps], batch_seed['action'], batch_seed['is_first'])
@@ -332,6 +333,7 @@ class DynamicSLATE(SLATE):
 
         iterates = self.get_iterates(self.step.numpy())
         data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+        # tf.print(iterates['num_frames'], data['image'].shape)
 
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
         self.main_optimizer.lr = f32(iterates['lr_decay_factor'] * iterates['lr_warmup_factor'] * self.args.slot_model.lr)

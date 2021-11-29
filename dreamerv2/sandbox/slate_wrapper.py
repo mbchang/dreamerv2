@@ -166,6 +166,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
       'slate/dvae_lr': self.model.dvae_optimizer.lr,
       'slate/itr': self.model.step,
       'slate/tau': outputs['iterates']['tau'],
+      'slate/num_frames': outputs['iterates']['num_frames'],
       'slate/lr_decay_factor': outputs['iterates']['lr_decay_factor'],
       'slate/consistency': mets['slot_model']['consistency']
     }
