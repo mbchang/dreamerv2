@@ -124,18 +124,6 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
       tf.summary.histogram(f'slot_model/{v.name}', v.value(), step=step.value)
     # lgr.info(f'Writing histogram took {time.time()-t0} seconds.')    
 
-  # def preprocess(self, data):
-  #   data = super().preprocess(data)
-
-  #   # if self.config.dslate.slot_model.hack_is_first:
-  #   #   # HACK take this out once it is fully integrated and train is decorated with tf.function
-  #   #   data['is_first'] = np.array(data['is_first'])  
-  #   #   data['is_first'][:, 1:] = False  # HACK: remove subsequent steps' is_first
-  #   #   data['is_first'][:, 0] = True  # HACK: tag first step with is_first=True
-  #   #   data['is_first'] = tf.convert_to_tensor(data['is_first'])
-  #   return data
-
-
   def train(self, data, state=None):
     """
       reward (B, T)

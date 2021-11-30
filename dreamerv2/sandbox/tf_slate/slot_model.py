@@ -155,8 +155,6 @@ class DynamicSlotModel(SlotModel):
         debug_args.lr = 3e-4
         debug_args.min_lr_factor = 0.2
         debug_args.decay_steps = 15
-        # debug_args.handle_is_first = True
-        # debug_args.hack_is_first = False
         return debug_args
 
     @staticmethod
@@ -168,8 +166,6 @@ class DynamicSlotModel(SlotModel):
         default_args.lr = 3e-4
         default_args.min_lr_factor = 0.2
         default_args.decay_steps = 30000
-        # default_args.handle_is_first = True
-        # default_args.hack_is_first = False
         return default_args
 
 
@@ -254,41 +250,14 @@ class DynamicSlotModel(SlotModel):
         return latents
 
 
-    # def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
-    #     if prev_state is None:
-    #         prior = self.slot_attn.reset(embed.shape[0])
-    #     else:
-    #         prior = self.img_step(prev_state, prev_action)
-    #     post, attns = self.apply_slot_attn(embed, prior)
-    #     return prior, post, attns
-
-    # def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
-    #     if prev_state is None:
-    #         prior = self.slot_attn.reset(embed.shape[0])
-    #     else:
-    #         if self.args.handle_is_first:
-    #             resetted_prior = self.slot_attn.reset(embed.shape[0])
-    #             predicted_prior = self.img_step(prev_state, prev_action)
-    #             mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
-    #             prior = mask * resetted_prior + (1 - mask) * predicted_prior
-    #         else:
-    #             prior = self.img_step(prev_state, prev_action)
-
-    #     post, attns = self.apply_slot_attn(embed, prior)
-    #     return prior, post, attns
-
     def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
         if prev_state is None:
             prior = self.slot_attn.reset(embed.shape[0])
         else:
-            # if self.args.handle_is_first:
             resetted_prior = self.slot_attn.reset(embed.shape[0])
             predicted_prior = self.img_step(prev_state, prev_action)
             mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
             prior = mask * resetted_prior + (1 - mask) * predicted_prior
-            # else:
-            #     prior = self.img_step(prev_state, prev_action)
-
         post, attns = self.apply_slot_attn(embed, prior)
         return prior, post, attns
 
