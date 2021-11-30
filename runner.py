@@ -2531,7 +2531,7 @@ def balls_test_is_first_11_29_21():
     r.add_flag('dslate.slot_model.handle_is_first', [True, False])
     # normal is when handle_is_first is False, doesn't matter what hack_is_first is
 
-    r.add_flag('logdir', ['runs/balls_curriculum_t8'])
+    r.add_flag('logdir', ['runs/balls_test_is_first'])
     to_watch = [
         'replay.maxlen',
         'dataset.batch',
