@@ -316,7 +316,8 @@ def main():
         #############################################################
         metrics[name].clear()
       #############################################################
-      agnt.wm.log_weights(step)
+      if config.wm == 'dslate':
+        agnt.wm.log_weights(step)
       #############################################################
       report = agnt.report(next(report_dataset))
       wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
