@@ -1,5 +1,6 @@
 from utils import *
 import slot_attn
+import slot_heads
 import transformer
 
 import einops as eo
@@ -126,7 +127,7 @@ class SlotModel(layers.Layer):
         slots, attns = self.apply_slot_attn(emb_input)
         pred = self.parallel_decode(emb_input, slots)
         cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
-        outputs = {'attns': attns}
+        outputs = {'attns': attns, 'slots': slots}
         metrics = {'cross_entropy': cross_entropy}
         loss = cross_entropy
         return loss, outputs, metrics
@@ -155,6 +156,7 @@ class DynamicSlotModel(SlotModel):
         debug_args.lr = 3e-4
         debug_args.min_lr_factor = 0.2
         debug_args.decay_steps = 15
+        debug_args.reward_head = slot_heads.SlotRewardHead.defaults_debug()
         return debug_args
 
     @staticmethod
@@ -166,6 +168,7 @@ class DynamicSlotModel(SlotModel):
         default_args.lr = 3e-4
         default_args.min_lr_factor = 0.2
         default_args.decay_steps = 30000
+        default_args.reward_head = slot_heads.SlotRewardHead.defaults()
         return default_args
 
 
@@ -178,16 +181,21 @@ class DynamicSlotModel(SlotModel):
           ])
         self.dynamics = transformer.TransformerDecoder(args.d_model, args.dyn_transformer)
 
+        # other heads
+        self.heads = {}
+        self.heads['reward'] = slot_heads.SlotRewardHead(args.slot_size, args.reward_head)
+
+
     @tf.function
-    def loss_and_grad(self, z_input, z_target, action, is_first):
+    def loss_and_grad(self, z_input, z_target, action, is_first, reward):
         with tf.GradientTape() as tape:
-            loss, output, metrics = self(z_input, z_target, action, is_first)
+            loss, output, metrics = self(z_input, z_target, action, is_first, reward)
         gradients = tape.gradient(loss, self.trainable_weights)
         return loss, output, metrics, gradients
 
 
     @tf.function
-    def call(self, z_input, z_target, actions, is_first):
+    def call(self, z_input, z_target, actions, is_first, reward):
         # TODO: make is_first flag the first action
         # for now, we will manually ignore the first action
 
@@ -205,13 +213,21 @@ class DynamicSlotModel(SlotModel):
         slots = concat([priors, posts])
         emb_input = concat([emb_input, emb_input])
         z_target = concat([z_target, z_target])
+        rew_target = concat([reward, reward])
 
         pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
 
-        outputs = {'attns': attns}  # should later include pred and slots
-        metrics = {'cross_entropy': cross_entropy, 'consistency': consistency}
-        loss = cross_entropy + consistency
+        rew_pred = self.heads['reward'](slots)  # or you could give it emb_input and slots too
+        rew_loss = tf.reduce_mean((eo.rearrange(rew_pred, 'b t 1 -> b t') - rew_target)**2)
+
+        outputs = {'attns': attns, 'reward': rew_pred}  # should later include pred and slots
+        metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'rew_loss': rew_loss}
+        loss = tf.reduce_sum([
+            cross_entropy, 
+            consistency,
+            rew_loss
+            ])
         return loss, outputs, metrics
 
 

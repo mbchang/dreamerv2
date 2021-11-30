@@ -219,6 +219,10 @@ class SLATE(layers.Layer):
 
 
 class DynamicSLATE(SLATE):
+    """
+    DynamicSLATE is like dreamer.wm
+    DynamicSlotModel is like dreamer.rssm
+    """
 
     @staticmethod
     def defaults_debug():
@@ -281,7 +285,13 @@ class DynamicSLATE(SLATE):
 
         dvae_loss, dvae_out, dvae_mets = self.dvae(flatten(permute(data['image'])), tau, hard)
         z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
-        sm_loss, sm_out, sm_mets = self.slot_model(unflatten(z_input), unflatten(z_target), data['action'], data['is_first'])
+        sm_loss, sm_out, sm_mets = self.slot_model(
+            unflatten(z_input), 
+            unflatten(z_target), 
+            data['action'], 
+            data['is_first'],
+            data['reward']
+            )
 
         sm_out['attns'] = flatten(sm_out['attns'])
 
@@ -347,7 +357,8 @@ class DynamicSLATE(SLATE):
             unflatten(z_input),
             unflatten(z_target),
             action=data['action'],
-            is_first=data['is_first']
+            is_first=data['is_first'],
+            reward=data['reward']
             )
         # NOTE: if we put this inside tf.function then the performance becomes very bad
         self.main_optimizer.apply_gradients(zip(gradients, self.slot_model.trainable_weights))

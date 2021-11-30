@@ -151,7 +151,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     metrics = {
       'kl_loss': 0,
       'image_loss': mets['dvae']['mse'],
-      'reward_loss': 0,
+      'reward_loss': mets['slot_model']['rew_loss'],
       'discount_loss': 0,
       'model_kl': mets['slot_model']['cross_entropy'],
       'prior_ent': 0,
@@ -166,7 +166,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
       'slate/tau': outputs['iterates']['tau'],
       'slate/num_frames': outputs['iterates']['num_frames'],
       'slate/lr_decay_factor': outputs['iterates']['lr_decay_factor'],
-      'slate/consistency': mets['slot_model']['consistency']
+      'slate/consistency': mets['slot_model']['consistency'],
     }
 
     # outputs is dummy

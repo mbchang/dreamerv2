@@ -230,6 +230,26 @@ class TransformerDecoder(tkl.Layer):
             masked=False,
             ))
         return default_args
+
+    @staticmethod
+    def rew_defaults_debug():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=1,
+            num_heads=1,
+            dropout=0.1,
+            masked=False,
+            ))
+        return default_args
+
+    @staticmethod
+    def rew_defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=2,
+            num_heads=2,
+            dropout=0.1,
+            masked=False,
+            ))
+        return default_args
     
     def __init__(self, d_model, cfg):
         super().__init__()
