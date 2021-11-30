@@ -53,6 +53,9 @@ def create_expname(args):
 
         'dslate.curr': 'cr',
         'dslate.curr_every': 'ce',
+
+        'dslate.slot_model.hack_is_first': 'hkif',
+        'dslate.slot_model.handle_is_first': 'hnif',
     }
     watcher = watch(args.watch, abbrvs)
     expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'
