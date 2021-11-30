@@ -103,6 +103,7 @@ class Replay:
     # episodes are all of the same length.
     length -= np.random.randint(self._minlen)
     length = max(self._minlen, length)
+    # at this point, length is a random number between minlen and maxlen
     upper = total - length + 1
     if self._prioritize_ends:
       upper += self._minlen
