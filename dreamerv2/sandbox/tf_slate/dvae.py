@@ -73,6 +73,16 @@ class dVAE(tkl.Layer):
         z_hard = tf.cast(rearrange(tf.one_hot(z_hard, depth=self.vocab_size), 'b h w v -> b v h w'), tf.float32)
         return z_hard
 
+    def sample_encode(self, image, tau, hard):
+        z_logits = self.get_logits(image)
+        z_hard = self.sample(z_logits, tau, hard)
+        return z_hard
+
+    def mode_encode(self, image):
+        z_logits = self.get_logits(image)
+        z_hard = self.mode(z_logits)
+        return z_hard
+
     def call(self, image, tau, hard):
         # dvae encode
         z_logits = self.get_logits(image)
