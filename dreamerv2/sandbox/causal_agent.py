@@ -225,7 +225,7 @@ class WorldModel(common.Module):
     feat = self.rssm.get_feat(post)
     ###########################################################
     # latent to decoder?
-    if self.config.rssm.num_slots > 1:
+    if self.config.wm == 'dslate' and self.config.dslate.slot_model.slot_attn.num_slots > 1:
       feat = rearrange(feat, '... k featdim -> ... (k featdim)')
     ###########################################################
     for name, head in self.heads.items():
@@ -255,7 +255,7 @@ class WorldModel(common.Module):
     start['feat'] = self.rssm.get_feat(start)
     ###########################################################
     # latent to decoder?
-    if self.config.rssm.num_slots > 1:
+    if self.config.wm == 'dslate' and self.config.dslate.slot_model.slot_attn.num_slots > 1:
       start['feat'] = rearrange(start['feat'], '... k featdim -> ... (k featdim)')
     ###########################################################
     start['action'] = tf.zeros_like(policy(start['feat']).mode())
@@ -266,7 +266,7 @@ class WorldModel(common.Module):
       feat = self.rssm.get_feat(state)
       ###########################################################
       # latent to decoder?
-      if self.config.rssm.num_slots > 1:
+      if self.config.wm == 'dslate' and self.config.dslate.slot_model.slot_attn.num_slots > 1:
         feat = rearrange(feat, '... k featdim -> ... (k featdim)')
       ###########################################################
       for key, value in {**state, 'action': action, 'feat': feat}.items():
