@@ -123,8 +123,14 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     permute = lambda x: eo.rearrange(x, '... h w c -> ... c h w')
     image = permute(data['image'])
 
-    iterates = self.model.get_iterates(self.model.step.numpy())
-    z_hard = self.model.dvae.sample_encode(image, tf.constant(iterates['tau']), True)
+    tau = utils.tf_cosine_anneal(
+        step=tf.cast(self.model.step, tf.float32),
+        start_value=tf.cast(self.model.args.dvae.tau_start, tf.float32),
+        final_value=tf.cast(self.model.args.dvae.tau_final, tf.float32),
+        start_step=tf.cast(0, tf.float32),
+        final_step=tf.cast(self.model.args.dvae.tau_steps, tf.float32))
+
+    z_hard = self.model.dvae.sample_encode(image, tau, True)
     z_input, _ = slate.create_tokens(tf.stop_gradient(z_hard))
     emb_input = self.model.slot_model.embed_tokens(z_input)
     return emb_input

@@ -49,7 +49,24 @@ def cosine_anneal(step, start_value, final_value, start_step, final_step):
         b = 0.5 * (start_value + final_value)
         progress = (step - start_step) / (final_step - start_step)
         value = a * math.cos(math.pi * progress) + b
+    return value
+
+
+def tf_cosine_anneal(step, start_value, final_value, start_step, final_step):
     
+    # assert start_value >= final_value
+    # assert start_step <= final_step
+    
+    if step < start_step:
+        value = start_value
+    elif step >= final_step:
+        value = final_value
+    else:
+        a = tf.cast(0.5 * (start_value - final_value), tf.float32)
+        b = tf.cast(0.5 * (start_value + final_value), tf.float32)
+        progress = tf.cast((step - start_step) / (final_step - start_step), tf.float32)
+        value = tf.cast(a * tf.math.cos(tf.cast(math.pi, tf.float32) * progress) + b, tf.float32)
+
     return value
 
 

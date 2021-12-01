@@ -2605,6 +2605,55 @@ def test_reward_head_11_30_21():
             r.generate_commands(args.for_real)
 
 
+def test_randomly_initialized_policy_11_30_21():
+    """
+        this should perform the same as usual from the perspective of the world model
+        The only changes are
+            action_encode at each img_step
+            the world model is used in the policy()
+            tf_cosine_anneal for tau in encoder()
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2,3])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_finger_turn_easy', 'vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+
+    r.add_flag('logdir', ['runs/test_randomly_initialized_policy'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -2671,7 +2720,8 @@ if __name__ == '__main__':
     # balls_curriculum_t8_currevery_11_28_21()
     # dmc_curriculum_t8_11_29_21()
     # balls_test_is_first_11_29_21()
-    test_reward_head_11_30_21()
+    # test_reward_head_11_30_21()
+    test_randomly_initialized_policy_11_30_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
