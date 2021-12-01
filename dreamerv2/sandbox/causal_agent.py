@@ -7,6 +7,7 @@ import expl
 
 from sandbox import machine
 from sandbox import normalize as nmlz
+import sandbox.tf_slate.utils as slate_utils
 
 class CausalAgent(common.Module):
 
@@ -72,7 +73,7 @@ class CausalAgent(common.Module):
       feat = self.wm.rssm.get_feat(latent)
       ###########################################################
       # latent to decoder?
-      if self.config.wm == 'dslate' and self.config.dslate.slot_model.slot_attn.num_slots > 1:
+      if self.config.wm == 'dslate':# and self.config.dslate.slot_model.slot_attn.num_slots > 1:
         feat = rearrange(feat, '... k featdim -> ... (k featdim)')
       ###########################################################
       if mode == 'eval':
@@ -92,6 +93,24 @@ class CausalAgent(common.Module):
       state = (latent, action)
       return outputs, state
 
+
+  # # @tf.function
+  # def train(self, data, state=None):
+  #   metrics = {}
+  #   state, outputs, mets = self.wm.train(data, state)
+  #   metrics.update(mets)
+  #   if not self.config.wm_only:
+  #     start = outputs['post']
+  #     reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
+  #     metrics.update(self._task_behavior.train(
+  #         self.wm, start, data['is_terminal'], reward))
+  #     if self.config.expl_behavior != 'greedy':
+  #       mets = self._expl_behavior.train(start, outputs, data)[-1]
+  #       metrics.update({'expl_' + key: value for key, value in mets.items()})
+  #   return state, metrics
+
+
+
   # @tf.function
   def train(self, data, state=None):
     metrics = {}
@@ -99,13 +118,35 @@ class CausalAgent(common.Module):
     metrics.update(mets)
     if not self.config.wm_only:
       start = outputs['post']
-      reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
+
+
+      if self.config.wm == 'dslate':
+        # seq['feat'] will be (H, B*T, K*D)
+        # output shouldbe (H, B*T)
+        reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(
+            rearrange(seq['feat'], 'h bt (k featdim) -> h bt k featdim', k=self.wm.model.slot_model.slot_attn.num_slots)), 'h bt 1 -> h bt')
+      else:
+        """
+        ipdb> outputs['post'].keys()
+        dict_keys(['logit', 'stoch', 'deter'])
+        ipdb> outputs['post']['logit'].shape
+        TensorShape([3, 6, 4, 4])
+        ipdb> outputs['post']['stoch'].shape
+        TensorShape([3, 6, 4, 4])
+        ipdb> outputs['post']['deter'].shape
+        TensorShape([3, 6, 8])
+        """
+        reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
+
+
       metrics.update(self._task_behavior.train(
           self.wm, start, data['is_terminal'], reward))
       if self.config.expl_behavior != 'greedy':
         mets = self._expl_behavior.train(start, outputs, data)[-1]
         metrics.update({'expl_' + key: value for key, value in mets.items()})
     return state, metrics
+
+
 
   # @tf.function --> turn this back on when you 
   def report(self, data):
@@ -225,7 +266,7 @@ class WorldModel(common.Module):
     feat = self.rssm.get_feat(post)
     ###########################################################
     # latent to decoder?
-    if self.config.wm == 'dslate' and self.config.dslate.slot_model.slot_attn.num_slots > 1:
+    if self.config.wm == 'dslate':# and self.config.dslate.slot_model.slot_attn.num_slots > 1:
       feat = rearrange(feat, '... k featdim -> ... (k featdim)')
     ###########################################################
     for name, head in self.heads.items():
@@ -250,43 +291,56 @@ class WorldModel(common.Module):
     return model_loss, last_state, outs, metrics
 
   def imagine(self, policy, start, is_terminal, horizon):
-    flatten = lambda x: x.reshape([-1] + list(x.shape[2:]))
+    """
+    flattened: TensorShape([3, 2, 3, 16]) to TensorShape([6, 3, 16]) = (B*T, K, D)
+
+    by the end of this, feat will be flattened (for the actor and critic), which means we will unflatten it for the reward function
+
+    check whether the discount shape is correct
+      check what it should be based on monolithic
+      then check if it is what it should be for slots
+    """
+    flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
     start = {k: flatten(v) for k, v in start.items()}
     start['feat'] = self.rssm.get_feat(start)
     ###########################################################
     # latent to decoder?
-    if self.config.wm == 'dslate' and self.config.dslate.slot_model.slot_attn.num_slots > 1:
+    if self.config.wm == 'dslate':# and self.config.dslate.slot_model.slot_attn.num_slots > 1:
       start['feat'] = rearrange(start['feat'], '... k featdim -> ... (k featdim)')
     ###########################################################
     start['action'] = tf.zeros_like(policy(start['feat']).mode())
     seq = {k: [v] for k, v in start.items()}
     for _ in range(horizon):
       action = policy(tf.stop_gradient(seq['feat'][-1])).sample()
-      state = self.rssm.img_step({k: v[-1] for k, v in seq.items()}, action)
+      if self.config.wm == 'dslate':
+        state = {'deter': self.rssm.img_step(seq['deter'][-1], action)}
+      else:
+        state = self.rssm.img_step({k: v[-1] for k, v in seq.items()}, action)
       feat = self.rssm.get_feat(state)
       ###########################################################
       # latent to decoder?
-      if self.config.wm == 'dslate' and self.config.dslate.slot_model.slot_attn.num_slots > 1:
+      if self.config.wm == 'dslate':# and self.config.dslate.slot_model.slot_attn.num_slots > 1:
         feat = rearrange(feat, '... k featdim -> ... (k featdim)')
       ###########################################################
       for key, value in {**state, 'action': action, 'feat': feat}.items():
         seq[key].append(value)
-    seq = {k: tf.stack(v, 0) for k, v in seq.items()}
+    seq = {k: tf.stack(v, 0) for k, v in seq.items()}  # {deter: [H, B*T, D], logit: [H, B*T, S, V]}
     if 'discount' in self.heads:
       disc = self.heads['discount'](seq['feat']).mean()
       if is_terminal is not None:
         # Override discount prediction for the first step with the true
         # discount factor from the replay buffer.
         true_first = 1.0 - flatten(is_terminal).astype(disc.dtype)
-        true_first *= self.config.discount
-        disc = tf.concat([true_first[None], disc[1:]], 0)
+        true_first *= self.config.discount  # (H)
+        disc = tf.concat([true_first[None], disc[1:]], 0)  # (H, B*T)
     else:
-      disc = self.config.discount * tf.ones(seq['feat'].shape[:-1])
+      # disc = self.config.discount * tf.ones(seq['feat'].shape[:-1])  # (H, B*T)
+        disc = self.config.discount * tf.ones(seq['feat'].shape[:2])  # (H, B*T)
     seq['discount'] = disc
     # Shift discount factors because they imply whether the following state
     # will be valid, not whether the current state is valid.
     seq['weight'] = tf.math.cumprod(
-        tf.concat([tf.ones_like(disc[:1]), disc[:-1]], 0), 0)
+        tf.concat([tf.ones_like(disc[:1]), disc[:-1]], 0), 0)  # (H, B*T)
     return seq
 
   @tf.function
@@ -440,6 +494,7 @@ class ActorCritic(common.Module):
     self.critic_opt = common.Optimizer('critic', **self.config.critic_opt)
     self.rewnorm = common.StreamNorm(**self.config.reward_norm)
 
+  @tf.function
   def train(self, world_model, start, is_terminal, reward_fn):
     metrics = {}
     hor = self.config.imag_horizon
@@ -450,7 +505,7 @@ class ActorCritic(common.Module):
     # them to scale the whole sequence.
     with tf.GradientTape() as actor_tape:
       seq = world_model.imagine(self.actor, start, is_terminal, hor)
-      reward = reward_fn(seq)
+      reward = reward_fn(seq)  # (H, B*T)
       seq['reward'], mets1 = self.rewnorm(reward)
       mets1 = {f'reward_{k}': v for k, v in mets1.items()}
       target, mets2 = self.target(seq)

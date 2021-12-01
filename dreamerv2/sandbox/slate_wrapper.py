@@ -117,6 +117,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     # integrate for actor and critic
     self.rssm = self.model.slot_model
+    self.heads = self.model.slot_model.heads
 
   def encoder(self, data):
     assert len(data['image'].shape) == 4  # this way we don't bottle
@@ -190,7 +191,9 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     }
 
     # outputs is dummy
-    outputs = None
+    outputs = {
+      'post': {'deter': outputs['slot_model']['post']}
+    }
 
     return state, outputs, metrics
 
@@ -302,4 +305,7 @@ python dreamerv2/train.py --configs debug slate --task dmc_cheetah_run --agent c
 
 11-21-21: 9:28am: 
 python dreamerv2/train.py --configs debug dslate --task dmc_manip_lift_large_box --agent causal --dataset.length 8 --dataset.batch 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit False --steps 125
+
+12-1-21:
+python dreamerv2/train.py --configs debug dslate --task dmc_manip_lift_large_box --agent causal --dataset.length 8 --dataset.batch 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit True --steps 125 --wm_only=False
 """

@@ -224,7 +224,7 @@ class DynamicSlotModel(SlotModel):
         rew_pred = bottle(self.heads['reward'])(slots)  # or you could give it emb_input and slots too
         rew_loss = tf.reduce_mean((eo.rearrange(rew_pred, 'b t 1 -> b t') - rew_target)**2)
 
-        outputs = {'attns': attns, 'reward': rew_pred}  # should later include pred and slots
+        outputs = {'attns': attns, 'reward': rew_pred, 'post': posts}  # should later include pred and slots
         metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'rew_loss': rew_loss}
         loss = tf.reduce_sum([
             cross_entropy, 
@@ -235,7 +235,11 @@ class DynamicSlotModel(SlotModel):
 
 
     def get_feat(self, slots):
-        return slots
+        # HACK for now, but later you will make your latent a dictionary
+        if isinstance(slots, dict):
+            return slots['deter']
+        else:
+            return slots
 
 
     def filter(self, slots, embeds, actions, is_first):
@@ -286,6 +290,10 @@ class DynamicSlotModel(SlotModel):
 
 
     def img_step(self, prev_state, prev_action, sample=True):
+        """
+            prev_state: (B, K, D)
+            prev_action: (B, A)
+        """
         prev_action = self.action_encoder(prev_action)
         context = tf.concat([prev_state, rearrange(prev_action, 'b a -> b 1 a')], 1)
         prior = self.dynamics(prev_state, context)
