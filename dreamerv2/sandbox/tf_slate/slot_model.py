@@ -77,6 +77,9 @@ class SlotModel(layers.Layer):
 
         self.training = False
 
+    def initial(self, batch_size):
+        return self.slot_attn.reset(batch_size)
+
     def embed_tokens(self, tokens):
         emb_input = self.dictionary(tokens)
         emb_input = self.positional_encoder(emb_input, training=self.training)
@@ -231,8 +234,13 @@ class DynamicSlotModel(SlotModel):
         return loss, outputs, metrics
 
 
+    def get_feat(self, slots):
+        feat = rearrange(slots, '... k featdim -> ... (k featdim)')  # HACKY FOR NOW
+        return feat
+
+
     def filter(self, slots, embeds, actions, is_first):
-        actions = self.action_encoder(actions)
+        # actions = self.action_encoder(actions)
 
         priors = []
         posts = []
@@ -257,7 +265,7 @@ class DynamicSlotModel(SlotModel):
 
 
     def generate(self, slots, actions):
-        actions = self.action_encoder(actions)
+        # actions = self.action_encoder(actions)
         latents = []
         for i in range(actions.shape[1]):
             slots = self.img_step(slots, actions[:, i])
@@ -279,6 +287,7 @@ class DynamicSlotModel(SlotModel):
 
 
     def img_step(self, prev_state, prev_action, sample=True):
+        prev_action = self.action_encoder(prev_action)
         context = tf.concat([prev_state, rearrange(prev_action, 'b a -> b 1 a')], 1)
         prior = self.dynamics(prev_state, context)
         return prior
