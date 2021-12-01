@@ -115,6 +115,20 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     self.defaults = ml_collections.ConfigDict(self.config.dslate)
     self.model = slate.DynamicSLATE(self.config.dataset.length, self.defaults)
 
+    # integrate for actor and critic
+    self.rssm = self.model.slot_model
+
+  def encoder(self, data):
+    assert len(data['image'].shape) == 4  # this way we don't bottle
+    permute = lambda x: eo.rearrange(x, '... h w c -> ... c h w')
+    image = permute(data['image'])
+
+    iterates = self.model.get_iterates(self.model.step.numpy())
+    z_hard = self.model.dvae.sample_encode(image, tf.constant(iterates['tau']), True)
+    z_input, _ = slate.create_tokens(tf.stop_gradient(z_hard))
+    emb_input = self.model.slot_model.embed_tokens(z_input)
+    return emb_input
+
   def log_weights(self, step):
     # import time
     # t0 = time.time()

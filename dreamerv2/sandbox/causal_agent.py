@@ -43,7 +43,8 @@ class CausalAgent(common.Module):
 
   @tf.function
   def policy(self, obs, state=None, mode='train'):
-    if self.config.wm in ['fwm', 'slate', 'dslate'] and self.config.wm_only:
+    # if self.config.wm in ['fwm', 'slate', 'dslate'] and self.config.wm_only:
+    if self.config.wm in ['fwm', 'slate'] and self.config.wm_only:
       random_policy = common.RandomAgent({'action': self.act_space})
       return random_policy(obs, state)
     else:
@@ -60,12 +61,18 @@ class CausalAgent(common.Module):
       # encoder to latent?
       ###########################################################
       sample = (mode == 'train') or not self.config.eval_state_mean
-      latent, _ = self.wm.rssm.obs_step(
-          latent, action, embed, obs['is_first'], sample)
+
+      if self.config.wm in ['dslate']:
+        _, latent, _ = self.wm.rssm.obs_step(
+            latent, action, embed, obs['is_first'], sample)  # we'll use this until we refactor the obs_step
+      else:
+        latent, _ = self.wm.rssm.obs_step(
+            latent, action, embed, obs['is_first'], sample)
+
       feat = self.wm.rssm.get_feat(latent)
       ###########################################################
       # latent to decoder?
-      if self.config.rssm.num_slots > 1:
+      if self.config.wm == 'dslate' and self.config.dslate.slot_model.slot_attn.num_slots > 1:
         feat = rearrange(feat, '... k featdim -> ... (k featdim)')
       ###########################################################
       if mode == 'eval':
