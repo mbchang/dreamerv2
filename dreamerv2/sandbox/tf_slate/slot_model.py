@@ -235,8 +235,7 @@ class DynamicSlotModel(SlotModel):
 
 
     def get_feat(self, slots):
-        feat = rearrange(slots, '... k featdim -> ... (k featdim)')  # HACKY FOR NOW
-        return feat
+        return slots
 
 
     def filter(self, slots, embeds, actions, is_first):
