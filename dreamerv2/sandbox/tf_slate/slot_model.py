@@ -221,7 +221,7 @@ class DynamicSlotModel(SlotModel):
         pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
 
-        rew_pred = self.heads['reward'](slots)  # or you could give it emb_input and slots too
+        rew_pred = bottle(self.heads['reward'])(slots)  # or you could give it emb_input and slots too
         rew_loss = tf.reduce_mean((eo.rearrange(rew_pred, 'b t 1 -> b t') - rew_target)**2)
 
         outputs = {'attns': attns, 'reward': rew_pred}  # should later include pred and slots

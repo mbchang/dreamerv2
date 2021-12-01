@@ -34,9 +34,9 @@ class SlotRewardHead(tkl.Layer):
 
     def call(self, slots):
         """
-        x: B, T, K, D
+        x: B, K, D
         """
-        x = bottle(self.head)(slots, slots)  # later we will just replace this with cross attention
-        x = eo.reduce(x, 'b t k d -> b t d', 'mean')
+        x = self.head(slots, slots)
+        x = eo.reduce(x, 'b k d -> b d', 'mean')
         rew = self.out(x)
         return rew
