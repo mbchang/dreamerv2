@@ -5,9 +5,11 @@ import logging
 from loguru import logger as lgr
 import os
 import pathlib
+import psutil
 import re
 import shutil
 import sys
+import time
 import warnings
 
 try:
@@ -306,9 +308,12 @@ def main():
   def train_step(tran, worker):
     if should_train(step):
       for _ in range(config.train_steps):
+        t0 = time.time()
         mets = train_agent(next(train_dataset))
         [metrics[key].append(value) for key, value in mets.items()]
     if should_log(step):
+      lgr.debug(f'Env step {step.value}: a train step took {time.time()-t0} seconds.')
+      lgr.debug(f'RAM memory {psutil.virtual_memory()[2]}% used. Swap: {psutil.swap_memory()} used.')
       for name, values in metrics.items():
         logger.scalar(name, np.array(values, np.float64).mean())
         #############################################################
