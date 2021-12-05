@@ -117,33 +117,18 @@ class CausalAgent(common.Module):
     state, outputs, mets = self.wm.train(data, state)
     metrics.update(mets)
     if not self.config.wm_only:
-      start = outputs['post']
-
-
-      if self.config.wm == 'dslate':
-        # seq['feat'] will be (H, B*T, K*D)
-        # output shouldbe (H, B*T)
-        reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(
-            rearrange(seq['feat'], 'h bt (k featdim) -> h bt k featdim', k=self.wm.model.slot_model.slot_attn.num_slots)), 'h bt 1 -> h bt')
-      else:
-        """
-        ipdb> outputs['post'].keys()
-        dict_keys(['logit', 'stoch', 'deter'])
-        ipdb> outputs['post']['logit'].shape
-        TensorShape([3, 6, 4, 4])
-        ipdb> outputs['post']['stoch'].shape
-        TensorShape([3, 6, 4, 4])
-        ipdb> outputs['post']['deter'].shape
-        TensorShape([3, 6, 8])
-        """
-        reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
-
-
-      metrics.update(self._task_behavior.train(
-          self.wm, start, data['is_terminal'], reward))
-      if self.config.expl_behavior != 'greedy':
-        mets = self._expl_behavior.train(start, outputs, data)[-1]
-        metrics.update({'expl_' + key: value for key, value in mets.items()})
+      if not(self.config.wm == 'dslate' and self.wm.model.step < self.config.delay_train_behavior_by):
+        start = outputs['post']
+        if self.config.wm == 'dslate':
+          reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(
+              rearrange(seq['feat'], 'h bt (k featdim) -> h bt k featdim', k=self.wm.model.slot_model.slot_attn.num_slots)), 'h bt 1 -> h bt')  # seq['feat'](H, B*T, K*D) --> reward (H, B*T)
+        else:
+          reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
+        metrics.update(self._task_behavior.train(
+            self.wm, start, data['is_terminal'], reward))
+        if self.config.expl_behavior != 'greedy':
+          mets = self._expl_behavior.train(start, outputs, data)[-1]
+          metrics.update({'expl_' + key: value for key, value in mets.items()})
     return state, metrics
 
 
@@ -290,6 +275,7 @@ class WorldModel(common.Module):
     last_state = {k: v[:, -1] for k, v in post.items()}
     return model_loss, last_state, outs, metrics
 
+  @tf.function
   def imagine(self, policy, start, is_terminal, horizon):
     """
     flattened: TensorShape([3, 2, 3, 16]) to TensorShape([6, 3, 16]) = (B*T, K, D)
@@ -494,7 +480,7 @@ class ActorCritic(common.Module):
     self.critic_opt = common.Optimizer('critic', **self.config.critic_opt)
     self.rewnorm = common.StreamNorm(**self.config.reward_norm)
 
-  @tf.function
+  # @tf.function
   def train(self, world_model, start, is_terminal, reward_fn):
     metrics = {}
     hor = self.config.imag_horizon
@@ -518,6 +504,7 @@ class ActorCritic(common.Module):
     self.update_slow_target()  # Variables exist after first forward pass.
     return metrics
 
+  @tf.function
   def actor_loss(self, seq, target):
     # Actions:      0   [a1]  [a2]   a3
     #                  ^  |  ^  |  ^  |
@@ -558,6 +545,7 @@ class ActorCritic(common.Module):
     metrics['actor_ent_scale'] = ent_scale
     return actor_loss, metrics
 
+  @tf.function
   def critic_loss(self, seq, target):
     # States:     [z0]  [z1]  [z2]   z3
     # Rewards:    [r0]  [r1]  [r2]   r3

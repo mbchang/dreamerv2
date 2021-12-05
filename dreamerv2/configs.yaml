@@ -63,6 +63,7 @@ defaults:
 
   wm: 'default'
   wm_only: False
+  delay_train_behavior_by: 50000
 
   # Testing out Encoders and Decoders
   encoder_type: 'default'
@@ -219,3 +220,4 @@ dslate:
   wm_only: True
   wm: dslate
   precision: 32
+  delay_train_behavior_by: 50000

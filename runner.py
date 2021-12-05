@@ -2663,16 +2663,20 @@ def test_with_policy_learning_12_1_21():
         put this on grace
     """
     # r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3,4,5,6,7])
-    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1,3,5,7])
+    # r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1,3,5,7])
+    # r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2,6])
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,4])
     r.add_flag('configs', ['dmc_vision dslate'])
-    r.add_flag('task', ['dmc_finger_turn_easy', 'vmballs_simple_box4', 'vmballs_simple_box', 'dmc_manip_reach_site'])
+    # r.add_flag('task', ['dmc_finger_turn_easy', 'vmballs_simple_box4', 'vmballs_simple_box', 'dmc_manip_reach_site'])
+    # r.add_flag('task', [ 'vmballs_simple_box4', 'dmc_manip_reach_site'])
+    r.add_flag('task', ['dmc_finger_turn_easy', 'vmballs_simple_box'])
     r.add_flag('agent', ['causal'])
     r.add_flag('prefill', [20000])
     r.add_flag('dataset.batch', [16])
 
     r.add_flag('wm_only', ['False'])
 
-    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])#5, 1])
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])#5, 1])
     r.add_flag('dslate.slot_model.consistency_loss', [True])
     r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
     r.add_flag('dslate.slot_model.lr', [3e-4])
@@ -2706,6 +2710,206 @@ def test_with_policy_learning_12_1_21():
 
             r.generate_commands(args.for_real)
 
+
+def test_with_policy_learning_gauss1_12_1_21():
+    """
+        I basically have not touched any of the code in ActorCritic.
+        So as long as my world model is good, the ActorCritic part should also be good.
+        The only possibe reason it might not work is if I'm not propagating the hidden states across training sequences. But that should only be a problem for non-cyclical behaviors (which is ultimately what I want to work on though), but we will deal with that when we get to it
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_finger_turn_easy', 'vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5, 1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+
+    r.add_flag('logdir', ['runs/test_with_policy_learning_gauss1'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        'wm_only',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+def test_with_policy_learning_delay_learning_behavior_gauss1_12_1_21():
+    """
+        I basically have not touched any of the code in ActorCritic.
+        So as long as my world model is good, the ActorCritic part should also be good.
+        The only possibe reason it might not work is if I'm not propagating the hidden states across training sequences. But that should only be a problem for non-cyclical behaviors (which is ultimately what I want to work on though), but we will deal with that when we get to it
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_finger_turn_easy'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [3])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+
+    r.add_flag('logdir', ['runs/test_with_policy_learning_delay_learning_behavior_gauss1'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        'wm_only',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+
+def debug_why_it_crashes_gauss1_12_1_21():
+    """
+        I basically have not touched any of the code in ActorCritic.
+        So as long as my world model is good, the ActorCritic part should also be good.
+        The only possibe reason it might not work is if I'm not propagating the hidden states across training sequences. But that should only be a problem for non-cyclical behaviors (which is ultimately what I want to work on though), but we will deal with that when we get to it
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_finger_turn_easy'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [200])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+
+    r.add_flag('logdir', ['runs/debug_why_it_crashes'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        'wm_only',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+def test_with_policy_learning_delay_learning_policy_12_4_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,2])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_finger_turn_easy', 'vmballs_simple_box'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1, 2])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+
+    r.add_flag('logdir', ['runs/test_with_policy_learning_delay_learning_policy'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        'wm_only',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+def test_whether_stop_gradient_matters_12_4_21():
+    """
+    CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python dreamerv2/train.py --configs dmc_vision dslate --task dmc_finger_turn_easy --agent causal --prefill 200 --dataset.batch 16 --wm_only False --dslate.slot_model.slot_attn.num_slots 1 --dslate.slot_model.consistency_loss=True --dslate.slot_model.slot_attn.temp 1.0 --dslate.slot_model.lr 0.0003 --dslate.slot_model.min_lr_factor 0.1 --dslate.slot_model.decay_steps 30000 --dslate.curr=True --logdir runs/debug_why_it_crashes_jit_components_remove_stopgrad --watch replay.maxlen dataset.batch dataset.length dslate.slot_model.slot_attn.num_slots dslate.slot_model.slot_attn.temp dslate.slot_model.lr dslate.slot_model.min_lr_factor dslate.curr wm_only --replay.minlen 8 --replay.maxlen 8 --dataset.length 4 --eval_dataset.length 8 --eval_dataset.seed_steps 4 --pretrain 2 --log_every 5 --train_steps 10
+    """
+    pass
 
 
 if __name__ == '__main__':
@@ -2775,7 +2979,11 @@ if __name__ == '__main__':
     # balls_test_is_first_11_29_21()
     # test_reward_head_11_30_21()
     # test_randomly_initialized_policy_11_30_21()
-    test_with_policy_learning_12_1_21()
+    # test_with_policy_learning_12_1_21()
+    # test_with_policy_learning_gauss1_12_1_21()
+    # test_with_policy_learning_delay_learning_behavior_gauss1_12_1_21()
+    # debug_why_it_crashes_gauss1_12_1_21()
+    test_with_policy_learning_delay_learning_policy_12_4_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
