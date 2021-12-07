@@ -22,6 +22,36 @@ class OneHotDictionary(layers.Layer):
         return token_embs
 
 
+class SlotHead(tkl.Layer):
+    @staticmethod
+    def defaults_debug():
+        debug_args = SlotHead.defaults()
+        debug_args.head = transformer.TransformerDecoder.head_defaults_debug()
+        return debug_args
+
+    @staticmethod
+    def defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            head=transformer.TransformerDecoder.small_head_defaults()
+            ))
+        return default_args
+
+    def __init__(self, slot_size, out_size, cfg):
+        super().__init__()
+        self.head = transformer.TransformerDecoder(slot_size, cfg.head)
+        self.out = linear(slot_size, out_size)
+
+
+    def call(self, slots):
+        """
+        x: B, K, D
+        """
+        x = self.head(slots, slots)
+        x = eo.reduce(x, 'b k d -> b d', 'mean')
+        rew = self.out(x)
+        return rew
+
+
 class SlotModel(layers.Layer):
 
     @staticmethod
@@ -159,7 +189,7 @@ class DynamicSlotModel(SlotModel):
         debug_args.lr = 3e-4
         debug_args.min_lr_factor = 0.2
         debug_args.decay_steps = 15
-        debug_args.reward_head = slot_heads.SlotRewardHead.defaults_debug()
+        debug_args.reward_head = SlotHead.defaults_debug()
         return debug_args
 
     @staticmethod
@@ -171,7 +201,7 @@ class DynamicSlotModel(SlotModel):
         default_args.lr = 3e-4
         default_args.min_lr_factor = 0.2
         default_args.decay_steps = 30000
-        default_args.reward_head = slot_heads.SlotRewardHead.defaults()
+        default_args.reward_head = SlotHead.defaults()
         return default_args
 
 
@@ -186,7 +216,7 @@ class DynamicSlotModel(SlotModel):
 
         # other heads
         self.heads = {}
-        self.heads['reward'] = slot_heads.SlotRewardHead(args.slot_size, args.reward_head)
+        self.heads['reward'] = SlotHead(args.slot_size, 1, args.reward_head)
 
 
     @tf.function

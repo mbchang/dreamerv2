@@ -232,7 +232,7 @@ class TransformerDecoder(tkl.Layer):
         return default_args
 
     @staticmethod
-    def rew_defaults_debug():
+    def head_defaults_debug():
         default_args = ml_collections.ConfigDict(dict(
             num_blocks=1,
             num_heads=1,
@@ -242,10 +242,20 @@ class TransformerDecoder(tkl.Layer):
         return default_args
 
     @staticmethod
-    def rew_defaults():
+    def small_head_defaults():
         default_args = ml_collections.ConfigDict(dict(
             num_blocks=2,
             num_heads=2,
+            dropout=0.1,
+            masked=False,
+            ))
+        return default_args
+
+    @staticmethod
+    def med_head_defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=4,
+            num_heads=4,
             dropout=0.1,
             masked=False,
             ))
