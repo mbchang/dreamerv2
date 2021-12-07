@@ -137,9 +137,12 @@ class CausalAgent(common.Module):
     if not self.config.wm_only:
       if not(self.config.wm == 'dslate' and self.wm.model.step < self.config.delay_train_behavior_by):
         start = outputs['post']
-        if self.config.wm == 'dslate' and not self.config.slot_behavior.use_slot_heads:
-          reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(
-              rearrange(seq['feat'], 'h bt (k featdim) -> h bt k featdim', k=self.wm.model.slot_model.slot_attn.num_slots)), 'h bt 1 -> h bt')  # seq['feat'](H, B*T, K*D) --> reward (H, B*T)
+        if self.config.wm == 'dslate':
+          if not self.config.slot_behavior.use_slot_heads:
+            reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(
+                rearrange(seq['feat'], 'h bt (k featdim) -> h bt k featdim', k=self.wm.model.slot_model.slot_attn.num_slots)), 'h bt 1 -> h bt')  # seq['feat'](H, B*T, K*D) --> reward (H, B*T)
+          else:
+            reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(seq['feat']), 'h bt 1 -> h bt')  # seq['feat'](H, B*T, K*D) --> reward (H, B*T)
         else:
           reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
         metrics.update(self._task_behavior.train(
@@ -586,7 +589,7 @@ class ActorCritic(common.Module):
     # Targets:     t0    t1    t2
     reward = tf.cast(seq['reward'], tf.float32)
     disc = tf.cast(seq['discount'], tf.float32)
-    value = self._target_critic(seq['feat']).mode()
+    value = self._target_critic(seq['feat']).mode()  # (H, B*T)
     # Skipping last time step because it is used for bootstrapping.
     target = common.lambda_return(
         reward[:-1], value[:-1], disc[:-1],

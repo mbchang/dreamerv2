@@ -1,12 +1,15 @@
 from utils import *
 import slot_attn
-import slot_heads
+# import slot_heads
 import transformer
 
 import einops as eo
 import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as layers
+
+# dreamer stuff
+from common import nets, tfutils
 
 class OneHotDictionary(layers.Layer):
     def __init__(self, vocab_size, emb_size):
@@ -50,6 +53,51 @@ class SlotHead(tkl.Layer):
         x = eo.reduce(x, 'b k d -> b d', 'mean')
         rew = self.out(x)
         return rew
+
+class DistSlotHead(tkl.Layer):
+    @staticmethod
+    def defaults_debug():
+        debug_args = SlotHead.defaults()
+        debug_args.head = transformer.TransformerDecoder.head_defaults_debug()
+        return debug_args
+
+    @staticmethod
+    def defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            head=transformer.TransformerDecoder.small_head_defaults()
+            ))
+        return default_args
+
+    def __init__(self, slot_size, shape, dist_cfg, cfg):
+        super().__init__()
+        self._shape = (shape,) if isinstance(shape, int) else shape
+        self.head = transformer.TransformerDecoder(slot_size, cfg.head)
+        self.out = nets.DistLayer(self._shape, **dist_cfg)
+
+    # def call(self, slots):
+    #     """
+    #     x: (B K D) or (H B K D)
+    #     """
+    #     x = self.head(slots, slots)
+    #     x = eo.reduce(x, 'b k d -> b d', 'mean')
+    #     out = self.out(x)
+    #     return out
+
+    def call(self, slots):
+        """
+        x: (B K D) or (H B K D)
+
+        TODO: get rid of the hacky case analysis. Essentially you want to be able to bottle if necessary, otherwise don't bottle.
+        """
+        if len(slots.shape) == 3:
+            x = self.head(slots, slots)
+        elif len(slots.shape) == 4:
+            x = bottle(self.head)(slots, slots)
+        else:
+            raise NotImplementedError
+        x = eo.reduce(x, '... k d -> ... d', 'mean')
+        out = self.out(x)
+        return out
 
 
 class SlotModel(layers.Layer):

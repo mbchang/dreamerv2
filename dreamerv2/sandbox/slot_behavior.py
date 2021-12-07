@@ -43,18 +43,21 @@ class SlotActorCritic(causal_agent.ActorCritic):
           'actor_grad': 'reinforce' if discrete else 'dynamics'})
     #################################################################
     if self.config.slot_behavior.use_slot_heads:
-      self.actor = sm.SlotHead(
+      self.actor = sm.DistSlotHead(
         slot_size=self.config.dslate.slot_model.slot_size, 
-        out_size=act_space.shape[0], 
+        shape=act_space.shape[0], 
+        dist_cfg=dict(dist=self.config.actor.dist, min_std=self.config.actor.min_std),
         cfg=self.config.slot_behavior.actor)
-      self.critic = sm.SlotHead(
+      self.critic = sm.DistSlotHead(
         slot_size=self.config.dslate.slot_model.slot_size, 
-        out_size=1, 
+        shape=[], 
+        dist_cfg=dict(dist=self.config.critic.dist),
         cfg=self.config.slot_behavior.critic)
       if self.config.slow_target:
-        self._target_critic = sm.SlotHead(
+        self._target_critic = sm.DistSlotHead(
           slot_size=self.config.dslate.slot_model.slot_size, 
-          out_size=1, 
+          shape=[], 
+          dist_cfg=dict(dist=self.config.critic.dist),
           cfg=self.config.slot_behavior.critic)
         self._updates = tf.Variable(0, tf.int64)
       else:
