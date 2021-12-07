@@ -308,4 +308,11 @@ python dreamerv2/train.py --configs debug dslate --task dmc_manip_lift_large_box
 
 12-1-21:
 python dreamerv2/train.py --configs debug dslate --task dmc_manip_lift_large_box --agent causal --dataset.length 8 --dataset.batch 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit True --steps 125 --wm_only=False
+
+
+12-7-21:
+
+python dreamerv2/train.py --configs debug dslate --task dmc_manip_lift_large_box --agent causal --dataset.length 8 --dataset.batch 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit False --steps 125 --wm_only=False --delay_train_behavior_by 5 --slot_behavior.use_slot_heads False
+
+python dreamerv2/train.py --configs debug dslate --task dmc_manip_lift_large_box --agent causal --dataset.length 8 --dataset.batch 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit False --steps 125 --wm_only=False --delay_train_behavior_by 5 --slot_behavior.use_slot_heads True
 """
