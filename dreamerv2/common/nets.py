@@ -378,12 +378,12 @@ class DistLayer(common.Module):
     self._init_std = init_std
 
   def __call__(self, inputs):
-    out = self.get('out', tfkl.Dense, np.prod(self._shape))(inputs)
-    out = tf.reshape(out, tf.concat([tf.shape(inputs)[:-1], self._shape], 0))
+    out = self.get('out', tfkl.Dense, np.prod(self._shape))(inputs)  # (..., outdim)
+    out = tf.reshape(out, tf.concat([tf.shape(inputs)[:-1], self._shape], 0))  # (...) if outdim = 1 else unchanged
     out = tf.cast(out, tf.float32)
     if self._dist in ('normal', 'tanh_normal', 'trunc_normal'):
-      std = self.get('std', tfkl.Dense, np.prod(self._shape))(inputs)
-      std = tf.reshape(std, tf.concat([tf.shape(inputs)[:-1], self._shape], 0))
+      std = self.get('std', tfkl.Dense, np.prod(self._shape))(inputs)  # (..., outdim)
+      std = tf.reshape(std, tf.concat([tf.shape(inputs)[:-1], self._shape], 0))  # (...) if outdim = 1 else unchanged
       std = tf.cast(std, tf.float32)
     if self._dist == 'mse':
       dist = tfd.Normal(out, 1.0)
@@ -404,7 +404,7 @@ class DistLayer(common.Module):
     if self._dist == 'trunc_normal':
       std = 2 * tf.nn.sigmoid((std + self._init_std) / 2) + self._min_std
       dist = common.TruncNormalDist(tf.tanh(out), std, -1, 1)
-      return tfd.Independent(dist, 1)
+      return tfd.Independent(dist, 1)  # rightmost dim considered event_dim
     if self._dist == 'onehot':
       return common.OneHotDist(out)
     raise NotImplementedError(self._dist)
