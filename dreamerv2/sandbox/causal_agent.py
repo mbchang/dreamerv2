@@ -574,7 +574,10 @@ class ActorCritic(common.Module):
     # Weights:    [ 1]  [w1]  [w2]   w3
     # Targets:    [t0]  [t1]  [t2]
     # Loss:        l0    l1    l2
-    dist = self.critic(seq['feat'][:-1])  # it does not matter whether we stop_gradient into seq['feat']
+    if self.config.critic_stop_grad:
+      dist = self.critic(tf.stop_gradient(seq['feat'][:-1]))  # it does not matter whether we stop_gradient into seq['feat']
+    else:
+      dist = self.critic(seq['feat'][:-1])  # it does not matter whether we stop_gradient into seq['feat']
     target = tf.stop_gradient(target)
     weight = tf.stop_gradient(seq['weight'])
     critic_loss = -(dist.log_prob(target) * weight[:-1]).mean()

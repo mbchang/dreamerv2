@@ -2908,8 +2908,59 @@ def test_with_policy_learning_delay_learning_policy_12_4_21():
 def test_whether_stop_gradient_matters_12_4_21():
     """
     CUDA_VISIBLE_DEVICES=1 DISPLAY=:0 python dreamerv2/train.py --configs dmc_vision dslate --task dmc_finger_turn_easy --agent causal --prefill 200 --dataset.batch 16 --wm_only False --dslate.slot_model.slot_attn.num_slots 1 --dslate.slot_model.consistency_loss=True --dslate.slot_model.slot_attn.temp 1.0 --dslate.slot_model.lr 0.0003 --dslate.slot_model.min_lr_factor 0.1 --dslate.slot_model.decay_steps 30000 --dslate.curr=True --logdir runs/debug_why_it_crashes_jit_components_remove_stopgrad --watch replay.maxlen dataset.batch dataset.length dslate.slot_model.slot_attn.num_slots dslate.slot_model.slot_attn.temp dslate.slot_model.lr dslate.slot_model.min_lr_factor dslate.curr wm_only --replay.minlen 8 --replay.maxlen 8 --dataset.length 4 --eval_dataset.length 8 --eval_dataset.seed_steps 4 --pretrain 2 --log_every 5 --train_steps 10
+
+    conclusion: it does seem to matter
     """
     pass
+
+def does_transformer_behavior_help_12_7_21():
+    """
+        on grace
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1, 2, 3, 4, 5, 6, 7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_finger_turn_easy', 'vmballs_simple_box'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1, 2])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+    r.add_flag('critic_stop_grad', [True, False])
+
+    r.add_flag('logdir', ['runs/does_transformer_behavior_help'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        'wm_only',
+        'critic_stop_grad',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
 
 
 if __name__ == '__main__':
@@ -2983,7 +3034,8 @@ if __name__ == '__main__':
     # test_with_policy_learning_gauss1_12_1_21()
     # test_with_policy_learning_delay_learning_behavior_gauss1_12_1_21()
     # debug_why_it_crashes_gauss1_12_1_21()
-    test_with_policy_learning_delay_learning_policy_12_4_21()
+    # test_with_policy_learning_delay_learning_policy_12_4_21()
+    does_transformer_behavior_help_12_7_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
