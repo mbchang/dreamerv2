@@ -57,10 +57,13 @@ def add_programmatically_generated_configs(parsed, configs):
   elif 'dslate' in parsed.configs:
     sys.path.append(str(pathlib.Path(__file__).parent / 'sandbox' / 'tf_slate'))
     from slate import DynamicSLATE
+    from sandbox.slot_behavior import SlotActorCritic
     if 'debug' in parsed.configs:
       configs['defaults']['dslate'] = DynamicSLATE.defaults_debug().to_dict()
+      configs['defaults']['slot_behavior'] = SlotActorCritic.defaults_debug().to_dict()
     else:
       configs['defaults']['dslate'] = DynamicSLATE.defaults().to_dict()
+      configs['defaults']['slot_behavior'] = SlotActorCritic.defaults().to_dict()
   configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   return configs
 

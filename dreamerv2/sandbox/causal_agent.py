@@ -34,13 +34,31 @@ class CausalAgent(common.Module):
     else:
       raise NotImplementedError
 
-    self._task_behavior = ActorCritic(config, self.act_space, self.tfstep)
+    ###########################################################
+    if config.wm == 'default':
+      self._task_behavior = ActorCritic(config, self.act_space, self.tfstep)
+    elif config.wm == 'dslate':
+      from sandbox import slot_behavior
+      self._task_behavior = slot_behavior.SlotActorCritic(config, self.act_space, self.tfstep)
+    else:
+      raise NotImplementedError
+
     if config.expl_behavior == 'greedy':
       self._expl_behavior = self._task_behavior
     else:
+      # NOTE: 12-4-21 5:25pm: did not integrate slots into expl_behavior
       self._expl_behavior = getattr(expl, config.expl_behavior)(
           self.config, self.act_space, self.wm, self.tfstep,
           lambda seq: self.wm.heads['reward'](seq['feat']).mode())
+    # *********************************************************
+    # self._task_behavior = ActorCritic(config, self.act_space, self.tfstep)
+    # if config.expl_behavior == 'greedy':
+    #   self._expl_behavior = self._task_behavior
+    # else:
+    #   self._expl_behavior = getattr(expl, config.expl_behavior)(
+    #       self.config, self.act_space, self.wm, self.tfstep,
+    #       lambda seq: self.wm.heads['reward'](seq['feat']).mode())
+    ###########################################################
 
   @tf.function
   def policy(self, obs, state=None, mode='train'):
@@ -73,16 +91,16 @@ class CausalAgent(common.Module):
       feat = self.wm.rssm.get_feat(latent)
       ###########################################################
       # latent to decoder?
-      if self.config.wm == 'dslate':# and self.config.dslate.slot_model.slot_attn.num_slots > 1:
+      if self.config.wm == 'dslate' and not self.config.slot_behavior.use_slot_heads:
         feat = rearrange(feat, '... k featdim -> ... (k featdim)')
       ###########################################################
       if mode == 'eval':
         actor = self._task_behavior.actor(feat)
-        action = actor.mode()
+        action = actor.mode()  # (1, A)
         noise = self.config.eval_noise
       elif mode == 'explore':
         actor = self._expl_behavior.actor(feat)
-        action = actor.sample()
+        action = actor.sample()  # (1, A)
         noise = self.config.expl_noise
       elif mode == 'train':
         actor = self._task_behavior.actor(feat)
@@ -119,7 +137,7 @@ class CausalAgent(common.Module):
     if not self.config.wm_only:
       if not(self.config.wm == 'dslate' and self.wm.model.step < self.config.delay_train_behavior_by):
         start = outputs['post']
-        if self.config.wm == 'dslate':
+        if self.config.wm == 'dslate' and not self.config.slot_behavior.use_slot_heads:
           reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(
               rearrange(seq['feat'], 'h bt (k featdim) -> h bt k featdim', k=self.wm.model.slot_model.slot_attn.num_slots)), 'h bt 1 -> h bt')  # seq['feat'](H, B*T, K*D) --> reward (H, B*T)
         else:
@@ -251,7 +269,7 @@ class WorldModel(common.Module):
     feat = self.rssm.get_feat(post)
     ###########################################################
     # latent to decoder?
-    if self.config.wm == 'dslate':# and self.config.dslate.slot_model.slot_attn.num_slots > 1:
+    if self.config.wm == 'dslate' and not self.config.slot_behavior.use_slot_heads:
       feat = rearrange(feat, '... k featdim -> ... (k featdim)')
     ###########################################################
     for name, head in self.heads.items():
@@ -291,7 +309,7 @@ class WorldModel(common.Module):
     start['feat'] = self.rssm.get_feat(start)
     ###########################################################
     # latent to decoder?
-    if self.config.wm == 'dslate':# and self.config.dslate.slot_model.slot_attn.num_slots > 1:
+    if self.config.wm == 'dslate' and not self.config.slot_behavior.use_slot_heads:
       start['feat'] = rearrange(start['feat'], '... k featdim -> ... (k featdim)')
     ###########################################################
     start['action'] = tf.zeros_like(policy(start['feat']).mode())
@@ -305,7 +323,7 @@ class WorldModel(common.Module):
       feat = self.rssm.get_feat(state)
       ###########################################################
       # latent to decoder?
-      if self.config.wm == 'dslate':# and self.config.dslate.slot_model.slot_attn.num_slots > 1:
+      if self.config.wm == 'dslate' and not self.config.slot_behavior.use_slot_heads:
         feat = rearrange(feat, '... k featdim -> ... (k featdim)')
       ###########################################################
       for key, value in {**state, 'action': action, 'feat': feat}.items():
@@ -520,7 +538,7 @@ class ActorCritic(common.Module):
     # value prediction and one because the corresponding action does not lead
     # anywhere anymore. One target is lost at the start of the trajectory
     # because the initial state comes from the replay buffer.
-    policy = self.actor(tf.stop_gradient(seq['feat'][:-2]))
+    policy = self.actor(tf.stop_gradient(seq['feat'][:-2]))  # (H, B*T, D). This is a dist, with event_shape D
     if self.config.actor_grad == 'dynamics':
       objective = target[1:]
     elif self.config.actor_grad == 'reinforce':
