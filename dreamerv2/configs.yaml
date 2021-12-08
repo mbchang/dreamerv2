@@ -32,6 +32,7 @@ defaults:
   headless: True
   watch: [dataset.batch, dataset.length]
   debug: False
+  load_from: ''
 
   eval_dataset: {batch: 6, seed_steps: 5, length: 50}
 

@@ -298,8 +298,9 @@ def main():
   #############################################################
   train_agent = common.CarryOverState(agnt.train)
   train_agent(next(train_dataset))
-  if (logdir / 'variables.pkl').exists():
-    agnt.load(logdir / 'variables.pkl')
+  if config.load_from and (pathlib.Path(config.load_from) / 'variables.pkl').exists():
+    agnt.load(pathlib.Path(config.load_from) / 'variables.pkl')
+    lgr.info(f'Loaded pretrained agent from: {config.load_from}')
   else:
     lgr.info('Pretrain agent.')
     for _ in range(config.pretrain):

@@ -135,7 +135,19 @@ class CausalAgent(common.Module):
     state, outputs, mets = self.wm.train(data, state)
     metrics.update(mets)
     if not self.config.wm_only:
-      if not(self.config.wm == 'dslate' and self.wm.model.step < self.config.delay_train_behavior_by):
+      """
+        still want to train on the first step to initialize the variables
+
+        we are looking at step = 1 rather than step = 0 because the wm already took a train step
+
+        dslate  |  step = 1  |  step < delay  |  train_behavior
+
+        False         -              -             True
+        True        True             -             True
+        True        False          True            False
+        True        False          False           True
+      """
+      if not(self.config.wm == 'dslate' and self.wm.model.step < self.config.delay_train_behavior_by and not self.wm.model.step == 1):
         start = outputs['post']
         if self.config.wm == 'dslate':
           if not self.config.slot_behavior.use_slot_heads:
