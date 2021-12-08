@@ -347,6 +347,7 @@ def main():
     lgr.info('Start training.')
     train_driver(train_policy, steps=config.eval_every)
     agnt.save(logdir / 'variables.pkl')
+    agnt.wm.save(logdir / 'wm_variables.pkl')
   for env in train_envs + eval_envs:
     try:
       env.close()
