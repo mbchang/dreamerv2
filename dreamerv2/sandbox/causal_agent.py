@@ -146,6 +146,12 @@ class CausalAgent(common.Module):
         True        True             -             True
         True        False          True            False
         True        False          False           True
+
+        if delay_train_behavior_by in [0,1,2]: always train
+        if delay_train_behavior_by in [3, ...]: 
+          train for the first step
+          do not train for [delay_train_behavior_by-2] steps
+          train for the rest
       """
       if not(self.config.wm == 'dslate' and self.wm.model.step < self.config.delay_train_behavior_by and not self.wm.model.step == 1):
         start = outputs['post']
