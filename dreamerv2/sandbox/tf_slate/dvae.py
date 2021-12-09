@@ -71,7 +71,6 @@ class dVAE(tkl.Layer):
         self.vocab_size = vocab_size
         
         if weak:
-            # print('WEAK')
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
                 Conv2dBlock(img_channels, 64, 4, 4),
@@ -102,7 +101,6 @@ class dVAE(tkl.Layer):
                 Rearrange('b h w c -> b c h w'),
             ])
         else:
-            # print('STRONG')
             conv = lambda **kwargs: tf.keras.Sequential([PaddedConv2D(**kwargs), tkl.ReLU()])
             convT = lambda **kwargs: tf.keras.Sequential([PaddedConv2DTranspose(**kwargs), tkl.ReLU()])
             self.encoder = tf.keras.Sequential([
