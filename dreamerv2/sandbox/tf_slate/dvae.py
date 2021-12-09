@@ -5,6 +5,44 @@ import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as tkl
 
+class PaddedConv2D(tkl.Layer):
+    def __init__(self, padding=0, **kwargs):
+        super().__init__()
+        self.m = tf.keras.Sequential([
+            tkl.ZeroPadding2D(padding=padding),
+            tkl.Conv2D(**kwargs)
+            ])
+
+    def call(self, x):
+        return self.m(x)
+
+class PaddedConv2DTranspose(tkl.Layer):
+    def __init__(self, padding=0, dilation_rate=1, **kwargs):
+        super().__init__()
+        self.m = tf.keras.Sequential([
+            tkl.Conv2DTranspose(**kwargs),
+            tkl.Cropping2D(cropping=padding),
+            ])
+
+    def call(self, x):
+        return self.m(x)
+
+
+class ResBlock(tkl.Layer):
+    def __init__(self, chan):
+        super().__init__()
+        self.net = tf.keras.Sequential([
+            PaddedConv2D(filters=chan, kernel_size=3, padding=1),
+            tkl.ReLU(),
+            PaddedConv2D(filters=chan, kernel_size=3, padding=1),
+            tkl.ReLU(),
+            PaddedConv2D(filters=chan, kernel_size=1),
+        ])
+
+    def call(self, x):
+        return self.net(x) + x
+
+
 class dVAE(tkl.Layer):
 
     @staticmethod
@@ -23,42 +61,68 @@ class dVAE(tkl.Layer):
             tau_steps=30000,
 
             hard=False,
+
+            weak=True,
             ))
         return default_args
     
-    def __init__(self, vocab_size, img_channels):
+    def __init__(self, vocab_size, img_channels, weak):
         super().__init__()
         self.vocab_size = vocab_size
         
-        self.encoder = tf.keras.Sequential([
-            Rearrange('b c h w -> b h w c'),
-            Conv2dBlock(img_channels, 64, 4, 4),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            conv2d(64, vocab_size, 1),
-            Rearrange('b h w c -> b c h w'),
-        ])
-        
-        self.decoder = tf.keras.Sequential([
-            Rearrange('b c h w -> b h w c'),
-            Conv2dBlock(vocab_size, 64, 1),
-            Conv2dBlock(64, 64, 3, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64 * 2 * 2, 1),
-            PixelShuffle(2),
-            Conv2dBlock(64, 64, 3, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64, 1, 1),
-            Conv2dBlock(64, 64 * 2 * 2, 1),
-            PixelShuffle(2),
-            conv2d(64, img_channels, 1),
-            Rearrange('b h w c -> b c h w'),
-        ])
+        if weak:
+            # print('WEAK')
+            self.encoder = tf.keras.Sequential([
+                Rearrange('b c h w -> b h w c'),
+                Conv2dBlock(img_channels, 64, 4, 4),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                conv2d(64, vocab_size, 1),
+                Rearrange('b h w c -> b c h w'),
+            ])
+            
+            self.decoder = tf.keras.Sequential([
+                Rearrange('b c h w -> b h w c'),
+                Conv2dBlock(vocab_size, 64, 1),
+                Conv2dBlock(64, 64, 3, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64 * 2 * 2, 1),
+                PixelShuffle(2),
+                Conv2dBlock(64, 64, 3, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64 * 2 * 2, 1),
+                PixelShuffle(2),
+                conv2d(64, img_channels, 1),
+                Rearrange('b h w c -> b c h w'),
+            ])
+        else:
+            # print('STRONG')
+            conv = lambda **kwargs: tf.keras.Sequential([PaddedConv2D(**kwargs), tkl.ReLU()])
+            convT = lambda **kwargs: tf.keras.Sequential([PaddedConv2DTranspose(**kwargs), tkl.ReLU()])
+            self.encoder = tf.keras.Sequential([
+                Rearrange('b c h w -> b h w c'),
+                conv(filters=64, kernel_size=4, strides=2, padding=1),
+                conv(filters=64, kernel_size=4, strides=2, padding=1),
+                ResBlock(chan=64),
+                PaddedConv2D(filters=vocab_size, kernel_size=1),
+                Rearrange('b h w c -> b c h w'),
+                ])
+            self.decoder = tf.keras.Sequential([
+                Rearrange('b c h w -> b h w c'),
+                PaddedConv2D(filters=64, kernel_size=1),
+                ResBlock(chan=64),
+                convT(filters=64, kernel_size=4, strides=2, padding=1),
+                convT(filters=64, kernel_size=4, strides=2, padding=1),
+                PaddedConv2D(filters=3, kernel_size=1),
+                Rearrange('b h w c -> b c h w'),
+                ])
+
 
     def get_logits(self, image):
         z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)

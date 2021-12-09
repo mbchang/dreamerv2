@@ -59,7 +59,9 @@ def create_expname(args):
 
         'critic_stop_grad': 'csg',
 
-        'delay_train_behavior_by': 'dly'
+        'delay_train_behavior_by': 'dly',
+
+        'dslate.dvae.weak': 'dvwk'
     }
     watcher = watch(args.watch, abbrvs)
     expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'

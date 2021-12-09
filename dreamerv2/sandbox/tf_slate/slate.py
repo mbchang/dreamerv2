@@ -70,7 +70,7 @@ class SLATE(layers.Layer):
         self.args = args
         self.num_tokens = (args.image_size // 4) ** 2
 
-        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
+        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak)
         self.slot_model = slot_model.SlotModel(args.vocab_size, self.num_tokens, args.slot_model)
 
         self.configure_optimizers(self.args)
@@ -246,7 +246,7 @@ class DynamicSLATE(SLATE):
         layers.Layer.__init__(self)
         self.args = args
 
-        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels)
+        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
         self.num_tokens = (args.image_size // 4) ** 2
