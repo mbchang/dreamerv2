@@ -242,15 +242,16 @@ class DynamicSLATE(SLATE):
         default_args.curr_every = 20000
         return default_args
 
-    def __init__(self, seqlen, args):
+    def __init__(self, seqlen, args, global_config):
         layers.Layer.__init__(self)
         self.args = args
+        self.global_config = global_config  # a hack that we will remove once we integrate with RSSM
 
         self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
         self.num_tokens = (args.image_size // 4) ** 2
-        self.slot_model = slot_model.DynamicSlotModel(args.vocab_size, self.num_tokens, args.slot_model)
+        self.slot_model = slot_model.DynamicSlotModel(args.vocab_size, self.num_tokens, args.slot_model, global_config)
         self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
 
         self.training = False

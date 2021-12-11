@@ -113,7 +113,7 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
   def __init__(self, config, obs_space, tfstep):
     self.config = config
     self.defaults = ml_collections.ConfigDict(self.config.dslate)
-    self.model = slate.DynamicSLATE(self.config.dataset.length, self.defaults)
+    self.model = slate.DynamicSLATE(self.config.dataset.length, self.defaults, self.config)
 
     # integrate for actor and critic
     self.rssm = self.model.slot_model

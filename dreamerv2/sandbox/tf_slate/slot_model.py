@@ -51,13 +51,13 @@ class SlotHead(tkl.Layer):
         """
         x = self.head(slots, slots)
         x = eo.reduce(x, 'b k d -> b d', 'mean')
-        rew = self.out(x)
-        return rew
+        out = self.out(x)
+        return out
 
 class DistSlotHead(tkl.Layer):
     @staticmethod
     def defaults_debug():
-        debug_args = SlotHead.defaults()
+        debug_args = DistSlotHead.defaults()
         debug_args.head = transformer.TransformerDecoder.head_defaults_debug()
         return debug_args
 
@@ -240,12 +240,13 @@ class DynamicSlotModel(SlotModel):
         default_args.lr = 3e-4
         default_args.min_lr_factor = 0.2
         default_args.decay_steps = 30000
-        default_args.reward_head = SlotHead.defaults()
+        default_args.reward_head = DistSlotHead.defaults()
         return default_args
 
 
-    def __init__(self, vocab_size, num_tokens, args):
+    def __init__(self, vocab_size, num_tokens, args, global_config):
         super().__init__(vocab_size, num_tokens, args)
+        self.global_config = global_config  # a hack that we will remove once we integrate with RSSM
 
         self.action_encoder = tf.keras.Sequential([
           layers.Dense(args.slot_size, activation='relu'),
@@ -255,7 +256,12 @@ class DynamicSlotModel(SlotModel):
 
         # other heads
         self.heads = {}
-        self.heads['reward'] = SlotHead(args.slot_size, 1, args.reward_head)
+        # self.heads['reward'] = SlotHead(args.slot_size, 1, args.reward_head)
+        self.heads['reward'] = DistSlotHead(
+            slot_size=args.slot_size, 
+            shape=[],
+            dist_cfg=dict(dist=self.global_config.reward_head.dist),
+            cfg=args.reward_head)
 
 
     @tf.function
@@ -290,10 +296,35 @@ class DynamicSlotModel(SlotModel):
         pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
 
-        rew_pred = bottle(self.heads['reward'])(slots)  # or you could give it emb_input and slots too
-        rew_loss = tf.reduce_mean((eo.rearrange(rew_pred, 'b t 1 -> b t') - rew_target)**2)
+        # rew_pred = bottle(self.heads['reward'])(slots)  # or you could give it emb_input and slots too
+        # rew_loss = tf.reduce_mean((eo.rearrange(rew_pred, 'b t 1 -> b t') - rew_target)**2)
 
-        outputs = {'attns': attns, 'reward': rew_pred, 'post': posts}  # should later include pred and slots
+        ###########################################################
+        feat = slots
+        likes = {}
+        losses = {}
+        data = {'reward': rew_target}
+        # *********************************************************
+        # copied from WorldModel.loss()
+        for name, head in self.heads.items():
+          grad_head = (name in self.global_config.grad_heads)
+          inp = feat if grad_head else tf.stop_gradient(feat)
+          out = head(inp)
+          dists = out if isinstance(out, dict) else {name: out}
+          for key, dist in dists.items():
+            like = tf.cast(dist.log_prob(data[key]), tf.float32)
+            likes[key] = like
+            losses[key] = -like.mean()
+        # *********************************************************
+        rew_loss = self.global_config.loss_scales.get('reward', 1.0) * losses['reward'] 
+        ###########################################################
+
+
+
+
+
+        # outputs = {'attns': attns, 'reward': rew_pred, 'post': posts}  # should later include pred and slots
+        outputs = {'attns': attns, 'post': posts}
         metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'rew_loss': rew_loss}
         loss = tf.reduce_sum([
             cross_entropy, 

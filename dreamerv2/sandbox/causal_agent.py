@@ -160,7 +160,9 @@ class CausalAgent(common.Module):
             reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(
                 rearrange(seq['feat'], 'h bt (k featdim) -> h bt k featdim', k=self.wm.model.slot_model.slot_attn.num_slots)), 'h bt 1 -> h bt')  # seq['feat'](H, B*T, K*D) --> reward (H, B*T)
           else:
-            reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(seq['feat']), 'h bt 1 -> h bt')  # seq['feat'](H, B*T, K*D) --> reward (H, B*T)
+            # reward = lambda seq: rearrange(slate_utils.bottle(self.wm.model.slot_model.heads['reward'])(seq['feat']), 'h bt 1 -> h bt')  # seq['feat'](H, B*T, K*D) --> reward (H, B*T)
+            reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
+             # seq['feat'](H, B*T, K, D) --> reward (H, B*T)
         else:
           reward = lambda seq: self.wm.heads['reward'](seq['feat']).mode()
         metrics.update(self._task_behavior.train(
