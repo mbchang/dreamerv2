@@ -371,9 +371,10 @@ class Decoder(common.Module):
 
   def _cnn(self, features):
     """
-      (16, 10, 112)
-      (16, 10, 128)
-      (160, 1, 1, 128)
+      (16, 10, deter + num_tokens * stoch_size)
+      (16, 10, hiddim)
+      (160, 1, 1, hiddim)  
+      --> aha, so these discrete latents are actually replicated across space
 
       0 (B, 5, 5, 16)
       1 (B, 13, 13, 8)
