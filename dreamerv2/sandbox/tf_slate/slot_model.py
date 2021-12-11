@@ -312,8 +312,6 @@ class DynamicSlotModel(SlotModel):
 
 
     def filter(self, slots, embeds, actions, is_first):
-        # actions = self.action_encoder(actions)
-
         priors = []
         posts = []
         attns_seq = []
@@ -337,7 +335,6 @@ class DynamicSlotModel(SlotModel):
 
 
     def generate(self, slots, actions):
-        # actions = self.action_encoder(actions)
         latents = []
         for i in range(actions.shape[1]):
             slots = self.img_step(slots, actions[:, i])
