@@ -74,15 +74,6 @@ class DistSlotHead(tkl.Layer):
         self.head = transformer.TransformerDecoder(slot_size, cfg.head)
         self.out = nets.DistLayer(self._shape, **dist_cfg)
 
-    # def call(self, slots):
-    #     """
-    #     x: (B K D) or (H B K D)
-    #     """
-    #     x = self.head(slots, slots)
-    #     x = eo.reduce(x, 'b k d -> b d', 'mean')
-    #     out = self.out(x)
-    #     return out
-
     def call(self, slots):
         """
         x: (B K D) or (H B K D)
