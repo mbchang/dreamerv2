@@ -17,15 +17,15 @@ class SlotActorCritic(causal_agent.ActorCritic):
   @staticmethod
   def defaults_debug():
     debug_args = SlotActorCritic.defaults()
-    debug_args.actor = sm.SlotHead.defaults_debug()
-    debug_args.critic = sm.SlotHead.defaults_debug()
+    debug_args.actor = sm.DistSlotHead.defaults_debug()
+    debug_args.critic = sm.DistSlotHead.defaults_debug()
     return debug_args
 
   @staticmethod
   def defaults():
     default_args = ml_collections.ConfigDict(dict(
-      actor=sm.SlotHead.defaults(),
-      critic=sm.SlotHead.defaults(),
+      actor=sm.DistSlotHead.defaults(),
+      critic=sm.DistSlotHead.defaults(),
       use_slot_heads=True,
       ))
     return default_args
