@@ -3261,6 +3261,377 @@ def how_does_k1_perform_on_cheetah_12_9_21():
 
             r.generate_commands(args.for_real)
 
+
+def does_probabilistic_reward_head_improve_behavior_12_11_21():
+    """
+        on grace.
+
+        Yes, yes it does.
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1, 3])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [False, True])
+    r.add_flag('delay_train_behavior_by', [0])
+
+    r.add_flag('logdir', ['runs/does_probabilistic_reward_head_improve_behavior'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        'wm_only',
+        'critic_stop_grad',
+        'delay_train_behavior_by',
+        'dslate.dvae.weak',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+def is_slotdim128_sufficient_12_12_21():
+    """
+        is slotdim128 sufficient compared to slotdim192?
+
+        how much memory does slotdim128 cost and how much memory does slotdim192 cost?
+
+        slotdim192 costs 4706MiB per job
+
+        the process id is not 5119 and is not 5163
+
+        it looks like 
+        slotdim128 costs 2557 per job --> wait this is not entirely accurate, because we are using curriculum
+        (although if we want to be comparable to monolithic dreamer we should probably use hdim=200).
+
+        But for now we just want to test whether training for sequence lengths of 50 steps will help us
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [False, True])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('logdir', ['runs/is_slotdim128_sufficient'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        # 'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        # 'dslate.curr',
+        # 'wm_only',
+        'critic_stop_grad',
+        'delay_train_behavior_by',
+        'dslate.dvae.weak',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+def train_on_longer_sequence_length_no_curr_for_cheetah_12_12_21():
+    """
+        slotdim128, t4 costs:
+        slotdim128, t8, nocurr costs: 8472MiB
+
+        no curriculum here
+
+        it is not process id 2541, 2557
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [False])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [False, True])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('logdir', ['runs/train_on_longer_sequence_length_no_curr_for_cheetah'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        # 'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        # 'wm_only',
+        'critic_stop_grad',
+        'delay_train_behavior_by',
+        'dslate.dvae.weak',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [8]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+
+def train_on_longer_sequence_length_no_curr_for_cheetah2_12_12_21():
+    """
+        slotdim128, t4 costs:
+        slotdim128, t8, nocurr costs: 8472MiB
+        slotdim128, t16, nocurr costs:
+        slotdim128, t32, nocurr costs:
+        slotdim128, t50, nocurr costs:
+
+        no curriculum here
+
+        it is not process id 2541, 2557
+
+        gpu4: 16 
+        gpu5: 32
+        gpu7: 50
+
+        it gets OOM for 16, 32, and 50
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[4, 5, 7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [False])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [False])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('logdir', ['runs/train_on_longer_sequence_length_no_curr_for_cheetah'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        # 'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        # 'wm_only',
+        'critic_stop_grad',
+        'delay_train_behavior_by',
+        'dslate.dvae.weak',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [16, 32, 50]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+def train_on_longer_sequence_length_no_curr_for_cheetah3_12_12_21():
+    """
+        slotdim128, t4 costs:
+        slotdim128, t8, nocurr costs: 8472MiB
+
+        no curriculum here
+
+        it is not process id 2541, 2557
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[4,5])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [False])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [False, True])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('logdir', ['runs/train_on_longer_sequence_length_no_curr_for_cheetah'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        # 'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        # 'wm_only',
+        'critic_stop_grad',
+        'delay_train_behavior_by',
+        'dslate.dvae.weak',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [8]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+def train_on_longer_sequence_length_no_curr_for_cheetah4_12_12_21():
+    """
+        slotdim128, t4 costs:
+        slotdim128, t8, nocurr costs: 8472MiB
+
+        with curriculum
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['False'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [1])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [False])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('logdir', ['runs/train_on_longer_sequence_length_no_curr_for_cheetah'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        # 'dslate.slot_model.slot_attn.temp',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.min_lr_factor',
+        'dslate.curr',
+        # 'wm_only',
+        'critic_stop_grad',
+        'delay_train_behavior_by',
+        'dslate.dvae.weak',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [8]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -3339,7 +3710,13 @@ if __name__ == '__main__':
     # does_larger_receptive_field_help_k1_behavior_12_9_21()
     # monolithic_reference_for_finger_12_9_21()
     # monolithic_reference2_12_9_21()
-    how_does_k1_perform_on_cheetah_12_9_21()
+    # how_does_k1_perform_on_cheetah_12_9_21()
+    # does_probabilistic_reward_head_improve_behavior_12_11_21()
+    # is_slotdim128_sufficient_12_12_21()
+    # train_on_longer_sequence_length_no_curr_for_cheetah_12_12_21()
+    # train_on_longer_sequence_length_no_curr_for_cheetah2_12_12_21()
+    # train_on_longer_sequence_length_no_curr_for_cheetah3_12_12_21()
+    train_on_longer_sequence_length_no_curr_for_cheetah4_12_12_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
