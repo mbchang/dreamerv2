@@ -101,7 +101,7 @@ Ok, now the question is:
             - verify that if I remove the straight-through gradient, but unblock the gradient going into the target, the dvae will not change --> verified. The straight-through gradient does indeed pass gradients through the target if I unblock the gradients going into target.
         - why is it that the loss from the slot model does not propagate back through the z_input? Could it be because of the one-hot dictionary? --> it might be because of the one-hot dictionary
             - let's test it. In order to test this I might actually need to implement a different way of selecting the token_embs. I might instead of have to do an einsum thing. 
-                - ah yes, if I do the einsum thing, then the gradients are indeed different. If I stop the gradient though, the dvae is not affected. Wait actually this is confusing: if I stop the gradient, then why should the gradient be different again, if I'm stopping the gradient?
+                - ah yes, if I do the einsum thing, then the gradients are indeed different. If I stop the gradient though, the dvae is not affected. Wait actually this is confusing: if I stop the gradient, then why should the gradient be different again, if I'm stopping the gradient? I think it's just a numerical error
     - why does changing sg_in not affect the gradients of sm?
         - because sm is downstream of of sg_in anyways
     - Note that z_input is computed from z_target, so I would assume not stopping gradients into the input would also affect z_target. So why doesn't the gradient leak into z_target?
@@ -116,6 +116,46 @@ Why is it that if I remove the straight through gradient it doesn't change the g
 
 
 Stackpointer:
-- we are currently trying to understand what effect the einsum version of onehot dictionary has on the gradients going into the dvae. I know that if I use the old onehot dictionary, then the gradients of the dvae are not affected whether or not I stop the gradient to z_input. I also observe that if I use einsum onehot dictionary, then the gradients of the dvae are affected even though I stop gradient into both z_input and z_output! Why is this the case? My next question is to figure out why.
+- it seems like the reason why sg_inp=True and sg_out=False did not create changes in the dvae is because the onehot dictionary cut off the gradients
+- we are currently trying to understand what effect the einsum version of onehot dictionary has on the gradients going into the dvae. I know that if I use the old onehot dictionary, then the gradients of the dvae are not affected whether or not I stop the gradient to z_input. I also observe that if I use einsum onehot dictionary, then the gradients of the dvae are affected even though I stop gradient into both z_input and z_output! Why is this the case? My next question is to figure out why. --> it seems to mostly be a numerical error.
 
+Ok, now what you can do is you can ask the question again when you use z_sample rather than z_hard as input. Oh wait hold on, you indeed are using self.sample. Now, given that we are using the onehot dictionary version now, let's see what happens here.
+
+    sg_inp  |  sg_out  |  does grad norm change?
+
+    True       True        (default)
+    True       False       dvae changes
+    False      True        dvae changes
+    False      False       dvae changes
+
+for all three options where dvae changes, they all change in different ways
+
+
+Ok, now let's see what happens if we make z_hard be soft instead
+
+    sg_inp  |  sg_out  |  does grad norm change?
+
+    True       True        (default)
+    True       False       dvae changes
+    False      True        dvae changes
+    False      False       dvae changes
+
+given that z_hard is soft, why don't the sm gradients change?
+    this is in the case of sg_out=False. Yeah, actually we wouldn't expect the gradient of sm to change because there is no computation downstream of sm that would influence sm.
+    - we would expect the sm gradients to change if we made sm predict the input of the dvae decoder.
+
+Ok, what experiments can you run right now? You can run the experiments of:
+discrete, hard, but turn sg_inp and sg_out on and off
+- do it for 3d_shapes to sanity check
+- do it for balls to see how it affects performance
+(what would have changed from before, even with default, would be (1) the new onehot dictionary (2) mono_train=True)
+
+
+then: you will test what happens if you do soft and hard
+
+then you will test what happens if you hook up the slot model output as decoder input
+- discrete
+    - hard vs soft
+    - stop gradient (yes/no)
+- continuous
 """
