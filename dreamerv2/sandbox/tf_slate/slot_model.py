@@ -24,6 +24,27 @@ class OneHotDictionary(layers.Layer):
         token_embs = self.dictionary(tokens)  # batch_size x N x emb_size
         return token_embs
 
+class EinsumOneHotDictionary(layers.Layer):
+    """
+        first test whether doing this will allow gradient to flow through the input
+        if it does, then just use a weight matrix instead of an embedding layer
+    """
+    def __init__(self, vocab_size, emb_size):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.dictionary = layers.Embedding(vocab_size, emb_size)
+        # self.dictionary.variables[0].shape: (vocab_size, emb_size)
+
+    def call(self, x):
+        """
+        x: B, N, vocab_size
+        """
+        tokens = tf.math.argmax(x, axis=-1)
+        dummy_output = self.dictionary(tokens)  # batch_size x N x emb_size
+        # onehots = tf.one_hot(tokens, depth=self.vocab_size, axis=1)  # (b, vocab_size, N)
+        token_embs = tf.einsum('bnv,vd->bnd', x, self.dictionary.variables[0])  # batch_size x N x emb_size
+        return token_embs
+
 
 class SlotHead(tkl.Layer):
     @staticmethod
@@ -101,6 +122,7 @@ class SlotModel(layers.Layer):
         debug_args.lr_warmup_steps = 3
         debug_args.obs_transformer = transformer.TransformerDecoder.obs_defaults_debug()
         debug_args.slot_attn=slot_attn.SlotAttention.defaults_debug()
+        debug_args.einsum_dict=False
         return debug_args
 
     @staticmethod
@@ -116,6 +138,8 @@ class SlotModel(layers.Layer):
 
             slot_attn=slot_attn.SlotAttention.defaults(),
             slot_size=192,
+
+            einsum_dict=False
             ))
         return default_args
 
@@ -128,7 +152,10 @@ class SlotModel(layers.Layer):
         self.num_tokens = num_tokens
 
         # obs encoder
-        self.dictionary = OneHotDictionary(self.vocab_size + 1, args.d_model)
+        if self.args.einsum_dict:
+            self.dictionary = EinsumOneHotDictionary(self.vocab_size + 1, args.d_model)
+        else:
+            self.dictionary = OneHotDictionary(self.vocab_size + 1, args.d_model)
         self.positional_encoder = transformer.PositionalEncoding(1 + self.num_tokens, args.d_model, args.dropout)
         self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.token_mlp = tf.keras.Sequential([
