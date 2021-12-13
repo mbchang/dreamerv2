@@ -43,6 +43,12 @@ class SLATE(layers.Layer):
         debug_args.vocab_size = 32
         debug_args.dvae = dvae.dVAE.defaults_debug()
         debug_args.slot_model = slot_model.SlotModel.defaults_debug()
+
+        debug_args.mono_train = True
+
+        debug_args.stop_gradient_input = True
+        debug_args.stop_gradient_output = True
+
         return debug_args
 
     @staticmethod
@@ -62,6 +68,9 @@ class SLATE(layers.Layer):
 
             mono_train=False,
             # clip=1.0,
+
+            stop_gradient_input=True,
+            stop_gradient_output=True,
             ))
         return default_args
 
@@ -70,7 +79,7 @@ class SLATE(layers.Layer):
         self.args = args
         self.num_tokens = (args.image_size // 4) ** 2
 
-        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak)
+        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak, args.dvae.sm_hard)
         self.slot_model = slot_model.SlotModel(args.vocab_size, self.num_tokens, args.slot_model)
 
         self.configure_optimizers(self.args)
@@ -95,7 +104,10 @@ class SLATE(layers.Layer):
         """
         dvae_loss, dvae_out, dvae_mets = self.dvae(image, tau, hard)
 
-        z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        z_input, z_target = create_tokens(dvae_out['z_hard'])
+        z_input, z_target = self.handle_stop_gradient(z_input, z_target)
+
         sm_loss, sm_out, sm_mets = self.slot_model(z_input, z_target)
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
@@ -113,6 +125,16 @@ class SLATE(layers.Layer):
         z_logits = self.dvae.get_logits(image)
         z_hard = self.dvae.mode(z_logits)
         z_input, z_target = create_tokens(z_hard)
+        return z_input, z_target
+
+    def handle_stop_gradient(self, z_input, z_target):
+        """
+        assumes that z_hard is one_hot
+        """
+        if self.args.stop_gradient_input:
+            z_input = tf.stop_gradient(z_input)
+        if self.args.stop_gradient_output:
+            z_target = tf.stop_gradient(z_target)
         return z_input, z_target
 
     @tf.function
@@ -153,7 +175,9 @@ class SLATE(layers.Layer):
         dvae_loss, dvae_out, dvae_mets, gradients = self.dvae.loss_and_grad(image, tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
-        z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        z_input, z_target = create_tokens(dvae_out['z_hard'])
+        z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
         sm_loss, sm_out, sm_mets, gradients = self.slot_model.loss_and_grad(z_input, z_target)
         # NOTE: if we put this inside tf.function then the performance becomes very bad
@@ -247,7 +271,7 @@ class DynamicSLATE(SLATE):
         self.args = args
         self.global_config = global_config  # a hack that we will remove once we integrate with RSSM
 
-        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak)
+        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak, args.dvae.sm_hard)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
         self.num_tokens = (args.image_size // 4) ** 2
@@ -285,7 +309,11 @@ class DynamicSLATE(SLATE):
         unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
 
         dvae_loss, dvae_out, dvae_mets = self.dvae(flatten(permute(data['image'])), tau, hard)
-        z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+
+        # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        z_input, z_target = create_tokens(dvae_out['z_hard'])
+        z_input, z_target = self.handle_stop_gradient(z_input, z_target)
+
         sm_loss, sm_out, sm_mets = self.slot_model(
             unflatten(z_input), 
             unflatten(z_target), 
@@ -352,7 +380,9 @@ class DynamicSLATE(SLATE):
         dvae_loss, dvae_out, dvae_mets, gradients = self.dvae.loss_and_grad(flatten(permute(data['image'])), tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
-        z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+        z_input, z_target = create_tokens(dvae_out['z_hard'])
+        z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
         sm_loss, sm_out, sm_mets, gradients = self.slot_model.loss_and_grad(
             unflatten(z_input),

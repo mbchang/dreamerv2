@@ -132,7 +132,10 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
         final_step=tf.cast(self.model.args.dvae.tau_steps, tf.float32))
 
     z_hard = self.model.dvae.sample_encode(image, tau, True)
-    z_input, _ = slate.create_tokens(tf.stop_gradient(z_hard))
+    # z_input, _ = slate.create_tokens(tf.stop_gradient(z_hard))
+    z_input, z_target = create_tokens(z_hard)
+    z_input, z_target = self.model.handle_stop_gradient(z_input, z_target)
+
     emb_input = self.model.slot_model.embed_tokens(z_input)
     return emb_input
 
