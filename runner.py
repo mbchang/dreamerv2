@@ -3869,4 +3869,10 @@ if __name__ == '__main__':
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
+"""
+debug
+12-13-21
+python dreamerv2/train.py --configs debug dslate --task dmc_manip_lift_large_box --agent causal --dataset.length 8 --dataset.batch 3 --eval_dataset.length 10 --logdir runs/debug_wandb --jit False --steps 125 --wm_only=False --delay_train_behavior_by 3 --slot_behavior.use_slot_heads True
+"""
+
 
