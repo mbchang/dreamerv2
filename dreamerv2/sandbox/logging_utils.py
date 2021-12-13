@@ -6,7 +6,10 @@ def watch(args_to_watch, abbrvs):
         exp_name = []
         for key in args_to_watch:
             val = getattr(args, key)
-            exp_name.append(f'{abbrvs[key]}{val}')
+            if isinstance(val, bool):
+                exp_name.append(f'{abbrvs[key]}T' if val else f'{abbrvs[key]}F')
+            else:
+                exp_name.append(f'{abbrvs[key]}{val}')
         exp_name = '_'.join(exp_name)
         return exp_name
     return _fn
