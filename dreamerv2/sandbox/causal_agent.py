@@ -63,7 +63,7 @@ class CausalAgent(common.Module):
   @tf.function
   def policy(self, obs, state=None, mode='train'):
     # if self.config.wm in ['fwm', 'slate', 'dslate'] and self.config.wm_only:
-    if self.config.wm in ['fwm', 'slate'] and self.config.wm_only:
+    if self.config.wm in ['fwm', 'slate'] or self.config.wm_only:
       random_policy = common.RandomAgent({'action': self.act_space})
       return random_policy(obs, state)
     else:
