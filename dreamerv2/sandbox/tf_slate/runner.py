@@ -651,6 +651,21 @@ def no_jit_11_23_21():
     r.generate_commands(args.for_real)
 
 
+def discrete_hard_test_stop_gradient_12_12_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[1, 3, 6, 7])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.eval', [False])
+    r.add_flag('args.slate.mono_train', [True])
+    r.add_flag('args.slate.slot_model.einsum_dict', [True])
+    r.add_flag('args.slate.stop_gradient_input', [True, False])
+    r.add_flag('args.slate.stop_gradient_output', [True, False])
+    r.add_flag('args.log_path', ['logs/discrete_hard_test_stop_gradient'])
+    r.generate_commands(args.for_real)
+
+
 
 
 
@@ -692,4 +707,5 @@ if __name__ == '__main__':
     # try_again_after_fix_moved_mlp_from_embed_tokens_11_18_21()
     # does_jitted_monolithic_train_affect_performance_11_23_21()
     # does_jitted_monolithic_train_affect_performance_debug_11_23_21()
-    no_jit_11_23_21()
+    # no_jit_11_23_21()
+    discrete_hard_test_stop_gradient_12_12_21()
