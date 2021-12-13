@@ -49,6 +49,7 @@ class dVAE(tkl.Layer):
     def defaults_debug():
         debug_args = dVAE.defaults()
         debug_args.tau_steps=3
+        debug_args.sm_hard=True
         return debug_args
 
     @staticmethod
@@ -63,12 +64,15 @@ class dVAE(tkl.Layer):
             hard=False,
 
             weak=True,
+
+            sm_hard=True,
             ))
         return default_args
     
-    def __init__(self, vocab_size, img_channels, weak):
+    def __init__(self, vocab_size, img_channels, weak, sm_hard):
         super().__init__()
         self.vocab_size = vocab_size
+        self.sm_hard = sm_hard
         
         if weak:
             self.encoder = tf.keras.Sequential([
@@ -153,7 +157,8 @@ class dVAE(tkl.Layer):
         recon = self.decoder(z)
         mse = tf.math.reduce_sum((image - recon) ** 2) / image.shape[0]
         # hard z
-        z_hard = self.sample(z_logits, tau, True)
+        # z_hard = self.sample(z_logits, tau, True)
+        z_hard = self.sample(z_logits, tau, self.sm_hard)
         # ship
         outputs = {'recon': recon,'z_hard': z_hard}
         metrics = {'mse': mse, 'dvae/loss': mse}
