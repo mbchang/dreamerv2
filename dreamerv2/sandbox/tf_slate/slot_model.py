@@ -300,12 +300,12 @@ class DynamicSlotModel(SlotModel):
 
 
     @tf.function
-    def call(self, z_input, z_target, actions, is_first, reward):
+    def call(self, z_input, z_target, action, is_first, reward):
         # TODO: make is_first flag the first action
         # for now, we will manually ignore the first action
 
         emb_input = bottle(self.embed_tokens)(z_input)
-        priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
+        priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=action, is_first=is_first)
 
         # latent loss
         if self.args.consistency_loss:

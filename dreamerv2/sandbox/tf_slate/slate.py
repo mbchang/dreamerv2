@@ -49,7 +49,7 @@ class SLATE(layers.Layer):
         debug_args.stop_gradient_input = True
         debug_args.stop_gradient_output = True
 
-        debug_args.smooth_input = True
+        debug_args.smooth_input = False
 
         return debug_args
 
@@ -108,7 +108,6 @@ class SLATE(layers.Layer):
         """
         dvae_loss, dvae_out, dvae_mets = self.dvae(image, tau, hard)
 
-        # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
         z_input, z_target = create_tokens(dvae_out['z_hard'])
         z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
@@ -179,7 +178,6 @@ class SLATE(layers.Layer):
         dvae_loss, dvae_out, dvae_mets, gradients = self.dvae.loss_and_grad(image, tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
-        # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
         z_input, z_target = create_tokens(dvae_out['z_hard'])
         z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
@@ -232,15 +230,10 @@ class SLATE(layers.Layer):
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
         self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
 
-
-        # loss, outputs, metrics, gradients = self.loss_and_grad(image, tf.constant(iterates['tau']), self.args.dvae.hard)
-
         with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
-            # loss, outputs, metrics = self(image, iterates['tau'], self.args.dvae.hard)
 
             dvae_loss, dvae_out, dvae_mets = self.dvae(image, iterates['tau'], self.args.dvae.hard)
 
-            # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
             z_input, z_target = create_tokens(dvae_out['z_hard'])
             z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
@@ -349,13 +342,13 @@ class DynamicSLATE(SLATE):
         """
         image: batch_size x img_channels x H x W
         """
+        # assert False
         permute = lambda x: rearrange(x, '... h w c -> ... c h w')
         flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
         unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
 
         dvae_loss, dvae_out, dvae_mets = self.dvae(flatten(permute(data['image'])), tau, hard)
 
-        # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
         z_input, z_target = create_tokens(dvae_out['z_hard'])
         z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
@@ -417,7 +410,6 @@ class DynamicSLATE(SLATE):
 
         iterates = self.get_iterates(self.step.numpy())
         data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
-        # tf.print(iterates['num_frames'], data['image'].shape)
 
         self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
         self.main_optimizer.lr = f32(iterates['lr_decay_factor'] * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
@@ -425,7 +417,6 @@ class DynamicSLATE(SLATE):
         dvae_loss, dvae_out, dvae_mets, gradients = self.dvae.loss_and_grad(flatten(permute(data['image'])), tf.constant(iterates['tau']), self.args.dvae.hard)
         self.dvae_optimizer.apply_gradients(zip(gradients, self.dvae.trainable_weights))
 
-        # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
         z_input, z_target = create_tokens(dvae_out['z_hard'])
         z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
@@ -446,3 +437,52 @@ class DynamicSLATE(SLATE):
         self.step.assign_add(1)
 
         return loss, outputs, metrics
+
+
+    def monolithic_train_step(self, data):
+        permute = lambda x: rearrange(x, '... h w c -> ... c h w')
+        flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
+        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
+
+        iterates = self.get_iterates(self.step.numpy())
+        data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+
+        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
+        self.main_optimizer.lr = f32(iterates['lr_decay_factor'] * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
+
+        with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
+
+            dvae_loss, dvae_out, dvae_mets = self.dvae(flatten(permute(data['image'])), tf.constant(iterates['tau']), self.args.dvae.hard)
+
+            z_input, z_target = create_tokens(dvae_out['z_hard'])
+            z_input, z_target = self.handle_stop_gradient(z_input, z_target)
+
+            sm_loss, sm_out, sm_mets = self.slot_model(
+                unflatten(z_input),
+                unflatten(z_target),
+                action=data['action'],
+                is_first=data['is_first'],
+                reward=data['reward']
+                )
+
+            outputs = dict(dvae=dvae_out, slot_model=sm_out)
+            metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
+            loss = dvae_loss + sm_loss
+
+        dvae_grads = dvae_tape.gradient(loss, self.dvae.trainable_weights)
+        sm_grads = sm_tape.gradient(loss, self.slot_model.trainable_weights)
+
+        gradients = {'dvae': dvae_grads, 'slot_model': sm_grads}
+
+        self.dvae_optimizer.apply_gradients(zip(gradients['dvae'], self.dvae.trainable_weights))
+        self.main_optimizer.apply_gradients(zip(gradients['slot_model'], self.slot_model.trainable_weights))
+
+        outputs = {'iterates': iterates, **outputs}
+
+        # ################################################
+
+        self.step.assign_add(1)
+
+        return loss, outputs, metrics
+
+
