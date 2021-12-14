@@ -49,6 +49,8 @@ class SLATE(layers.Layer):
         debug_args.stop_gradient_input = True
         debug_args.stop_gradient_output = True
 
+        debug_args.smooth_input = True
+
         return debug_args
 
     @staticmethod
@@ -71,6 +73,8 @@ class SLATE(layers.Layer):
 
             stop_gradient_input=True,
             stop_gradient_output=True,
+
+            smooth_input=False
             ))
         return default_args
 
@@ -220,6 +224,47 @@ class SLATE(layers.Layer):
         self.step.assign_add(1)
 
         return loss, outputs, metrics
+
+
+    def monolithic_train_step_smooth_input(self, image):
+        iterates = self.get_iterates(self.step.numpy())
+
+        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
+        self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
+
+
+        # loss, outputs, metrics, gradients = self.loss_and_grad(image, tf.constant(iterates['tau']), self.args.dvae.hard)
+
+        with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
+            # loss, outputs, metrics = self(image, iterates['tau'], self.args.dvae.hard)
+
+            dvae_loss, dvae_out, dvae_mets = self.dvae(image, iterates['tau'], self.args.dvae.hard)
+
+            # z_input, z_target = create_tokens(tf.stop_gradient(dvae_out['z_hard']))
+            z_input, z_target = create_tokens(dvae_out['z_hard'])
+            z_input, z_target = self.handle_stop_gradient(z_input, z_target)
+
+            sm_loss, sm_out, sm_mets = self.slot_model(z_input, z_target)
+
+            outputs = dict(dvae=dvae_out, slot_model=sm_out)
+            metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
+            loss = dvae_loss + sm_loss
+
+
+        dvae_grads = dvae_tape.gradient(loss, self.dvae.trainable_weights)
+        sm_grads = sm_tape.gradient(loss, self.slot_model.trainable_weights)
+
+        gradients = {'dvae': dvae_grads, 'slot_model': sm_grads}
+
+        self.dvae_optimizer.apply_gradients(zip(gradients['dvae'], self.dvae.trainable_weights))
+        self.main_optimizer.apply_gradients(zip(gradients['slot_model'], self.slot_model.trainable_weights))
+
+        outputs = {'iterates': iterates, **outputs}
+
+        self.step.assign_add(1)
+
+        return loss, outputs, metrics
+
 
 
     # this should either have the teaching-forcing mode or the autoregressive mode

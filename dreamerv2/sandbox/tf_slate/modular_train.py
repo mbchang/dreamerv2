@@ -206,7 +206,10 @@ def main(argv):
             t0 = time.time()
 
             if args.slate.mono_train:
-                loss, outputs, metrics = model.monolithic_train_step(image)
+                if args.slate.smooth_input:
+                    loss, outputs, metrics = model.monolithic_train_step_smooth_input(image)
+                else:
+                    loss, outputs, metrics = model.monolithic_train_step(image)
             else:
                 loss, outputs, metrics = model.train_step(image)
 
