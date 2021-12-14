@@ -72,6 +72,8 @@ def create_expname(args):
         'dslate.stop_gradient_input': 'sgi',
         'dslate.stop_gradient_output': 'sgo',
 
+        'dslate.slot_model.d_model': 'dim'
+
     }
     watcher = watch(args.watch, abbrvs)
     expname = pathlib.Path(args.task) / f'{watcher(args)}_{datetime.datetime.now():%Y%m%d%H%M%S}'
