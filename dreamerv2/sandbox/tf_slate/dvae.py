@@ -130,8 +130,8 @@ class dVAE(tkl.Layer):
         z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)
         return z_logits
 
-    def sample(self, z_logits, tau, hard):
-        z = gumbel_softmax(z_logits, tau, hard, dim=1)
+    def sample(self, z_logits, tau, hard, dim=1):
+        z = gumbel_softmax(z_logits, tau, hard, dim)
         return z
 
     def mode(self, z_logits):
@@ -151,7 +151,7 @@ class dVAE(tkl.Layer):
 
     def call(self, image, tau, hard):
         # dvae encode
-        z_logits = self.get_logits(image)
+        z_logits = self.get_logits(image)  # (B, V, H, W)
         z = self.sample(z_logits, tau, hard)
         # dvae recon
         recon = self.decoder(z)
