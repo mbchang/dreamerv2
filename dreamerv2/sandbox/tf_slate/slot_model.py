@@ -287,7 +287,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
 
         # other heads
         self.heads = {}
-        # self.heads['reward'] = SlotHead(args.slot_size, 1, args.reward_head)
         self.heads['reward'] = DistSlotHead(
             slot_size=args.slot_size, 
             shape=[],
@@ -327,9 +326,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
 
-        # rew_pred = bottle(self.heads['reward'])(slots)  # or you could give it emb_input and slots too
-        # rew_loss = tf.reduce_mean((eo.rearrange(rew_pred, 'b t 1 -> b t') - rew_target)**2)
-
         ###########################################################
         feat = slots
         likes = {}
@@ -350,11 +346,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         rew_loss = self.global_config.loss_scales.get('reward', 1.0) * losses['reward'] 
         ###########################################################
 
-
-
-
-
-        # outputs = {'attns': attns, 'reward': rew_pred, 'post': posts}  # should later include pred and slots
         outputs = {'attns': attns, 'post': posts, 'pred': pred}
         metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'rew_loss': rew_loss}
         loss = tf.reduce_sum([
