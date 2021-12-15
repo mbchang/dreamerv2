@@ -299,7 +299,7 @@ class DynamicSLATE(SLATE):
         debug_args.vis_rollout = True
         debug_args.curr = True
         debug_args.curr_every = 1
-        debug_args.e2e = True
+        debug_args.e2e = False
         return debug_args
 
     @staticmethod
