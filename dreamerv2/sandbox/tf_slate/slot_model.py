@@ -351,7 +351,7 @@ class DynamicSlotModel(SlotModel):
 
 
         # outputs = {'attns': attns, 'reward': rew_pred, 'post': posts}  # should later include pred and slots
-        outputs = {'attns': attns, 'post': posts}
+        outputs = {'attns': attns, 'post': posts, 'pred': pred}
         metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'rew_loss': rew_loss}
         loss = tf.reduce_sum([
             cross_entropy, 
