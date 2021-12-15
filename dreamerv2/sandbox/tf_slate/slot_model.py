@@ -9,7 +9,8 @@ import tensorflow as tf
 import tensorflow.keras.layers as layers
 
 # dreamer stuff
-from common import nets, tfutils
+# from common import tfutils
+from sandbox import machine
 
 class OneHotDictionary(layers.Layer):
     def __init__(self, vocab_size, emb_size):
@@ -93,7 +94,7 @@ class DistSlotHead(tkl.Layer):
         super().__init__()
         self._shape = (shape,) if isinstance(shape, int) else shape
         self.head = transformer.TransformerDecoder(slot_size, cfg.head)
-        self.out = nets.DistLayer(self._shape, **dist_cfg)
+        self.out = machine.DistLayer(self._shape, **dist_cfg)
 
     def call(self, slots):
         """
@@ -245,7 +246,10 @@ class SlotModel(layers.Layer):
         self.training = False
 
 
-class DynamicSlotModel(SlotModel):
+# class DynamicSlotModel(SlotModel):
+
+class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
+    # will search SlotModel first, then machine.EnsembleRSSM
 
     @staticmethod
     def defaults_debug():
