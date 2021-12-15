@@ -168,7 +168,10 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     # train step
     if self.config.dslate.mono_train:
-      loss, outputs, mets = self.model.monolithic_train_step(data)  
+      if self.config.dslate.e2e:
+        loss, outputs, mets = self.model.e2e_monolithic_train_step(data)
+      else:
+        loss, outputs, mets = self.model.monolithic_train_step(data)  
     else:
       loss, outputs, mets = self.model.train_step(data)  
     # state is dummy

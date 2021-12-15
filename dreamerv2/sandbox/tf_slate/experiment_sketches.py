@@ -195,5 +195,13 @@ What we want is to make dynamic slate closer to dreamer while maintaining its ob
 
 
 
+12-15-21
+For making the monolithic_train_step end-to-end:
 
+# then now you just compute the loss manually yourself here
+# in fact, actually what you'd be doing is you'd just be adding an extra loss for now.
+# just add in that extra loss and see if that changes anything.
+# then if that works, you can remove the other losses
+
+# compute loss manually: dvae_mse, sm_consistency, sm_cross_entropy, sm_mse, reward_loss
 """

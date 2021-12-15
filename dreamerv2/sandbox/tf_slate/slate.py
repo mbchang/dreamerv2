@@ -130,6 +130,12 @@ class SLATE(layers.Layer):
         z_input, z_target = create_tokens(z_hard)
         return z_input, z_target
 
+    def image_to_sampled_tokens(self, image, tau, hard):
+        z_logits = self.dvae.get_logits(image)
+        z_sample = self.sample(z_logits, tau, hard)
+        z_input, z_target = create_tokens(z_sample)
+        return z_input, z_target
+
     def handle_stop_gradient(self, z_input, z_target):
         """
         assumes that z_hard is one_hot
@@ -293,6 +299,7 @@ class DynamicSLATE(SLATE):
         debug_args.vis_rollout = True
         debug_args.curr = True
         debug_args.curr_every = 1
+        debug_args.e2e = True
         return debug_args
 
     @staticmethod
@@ -302,6 +309,7 @@ class DynamicSLATE(SLATE):
         default_args.vis_rollout = True
         default_args.curr = False
         default_args.curr_every = 20000
+        defaults_args.e2e = False
         return default_args
 
     def __init__(self, seqlen, args, global_config):
@@ -468,6 +476,67 @@ class DynamicSLATE(SLATE):
             outputs = dict(dvae=dvae_out, slot_model=sm_out)
             metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
             loss = dvae_loss + sm_loss
+
+        dvae_grads = dvae_tape.gradient(loss, self.dvae.trainable_weights)
+        sm_grads = sm_tape.gradient(loss, self.slot_model.trainable_weights)
+
+        gradients = {'dvae': dvae_grads, 'slot_model': sm_grads}
+
+        self.dvae_optimizer.apply_gradients(zip(gradients['dvae'], self.dvae.trainable_weights))
+        self.main_optimizer.apply_gradients(zip(gradients['slot_model'], self.slot_model.trainable_weights))
+
+        outputs = {'iterates': iterates, **outputs}
+
+        # ################################################
+
+        self.step.assign_add(1)
+
+        return loss, outputs, metrics
+
+    # this will probably look a lot like rollout
+    def e2e_monolithic_train_step(self, data):
+        permute = lambda x: rearrange(x, '... h w c -> ... c h w')
+        flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
+        unflatten = lambda x: rearrange(x, '(b t) ... -> b t ...', b=data['action'].shape[0])
+
+        iterates = self.get_iterates(self.step.numpy())
+        data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+
+        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
+        self.main_optimizer.lr = f32(iterates['lr_decay_factor'] * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
+
+        with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
+            
+            dvae_loss, dvae_out, dvae_mets = self.dvae(flatten(permute(data['image'])), tf.constant(iterates['tau']), self.args.dvae.hard)
+
+            z_input, z_target = create_tokens(dvae_out['z_hard'])
+            z_input, z_target = self.handle_stop_gradient(z_input, z_target)
+
+            sm_loss, sm_out, sm_mets = self.slot_model(
+                unflatten(z_input),
+                unflatten(z_target),
+                action=data['action'],
+                is_first=data['is_first'],
+                reward=data['reward']
+                )
+
+            ################################################
+            # sm_out['pred']: (B, N, H*W, V). the thing that gets fed into log_softmax for cross entropy. So we can also feed it into softmax for cross entropy.
+            sm_sample = self.dvae.sample(sm_out['pred'], tf.constant(iterates['tau']), self.args.dvae.hard, dim=-1)
+            recon = flatten(bottle(self.decode)(sm_sample))
+            concat = lambda x: rearrange(x, 'n b ... -> (n b) ...')
+            image = flatten(permute(concat([data['image'], data['image']])))
+            mse = tf.math.reduce_sum((image - recon) ** 2) / image.shape[0]
+
+            outputs = dict(dvae=dvae_out, slot_model=sm_out)
+            metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
+            loss = tf.reduce_mean([dvae_mets['mse'], mse]) + sm_loss
+
+            # ************
+            # outputs = dict(dvae=dvae_out, slot_model=sm_out)
+            # metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
+            # loss = dvae_loss + sm_loss
+            ################################################
 
         dvae_grads = dvae_tape.gradient(loss, self.dvae.trainable_weights)
         sm_grads = sm_tape.gradient(loss, self.slot_model.trainable_weights)
