@@ -158,4 +158,42 @@ then you will test what happens if you hook up the slot model output as decoder 
     - hard vs soft
     - stop gradient (yes/no)
 - continuous
+
+12-14-21:
+What is the plan.
+
+What we want to get to is:
+- flat CNN encoder + position encoding
+- slot attention update
+- transformer dynamics with discrete latents
+- transformer decoder + position encoding
+- flat CNN decoder
+- reward, actor, critic
+    - either cross attention with position encoding
+    - or self-attention
+
+What we currently have now with dreamer is:
+- sharp CNN encoder
+- MLP update
+- MLP dynamics with discrete latents
+- sharp CNN decoder
+- MLP reward, actor, critic 
+
+What we currently have now with dynamic slate is:
+- flat VQ CNN encoder + position encoding
+- slot attention update
+- transformer dynamics
+- transfoerme decoder + position encoding
+- flat VQ decoder
+- cross entropy loss
+- reward, actor, critic
+    - either cross attention with position encoding
+    - or self-attention
+
+Maybe we can try to slowly meet half-way.
+What we want is to make dynamic slate closer to dreamer while maintaining its object modeling properties, and make dreamer closer to dynamic slate while retaining its sample efficiency in learning behaviors.
+
+
+
+
 """
