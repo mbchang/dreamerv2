@@ -374,7 +374,7 @@ class Decoder(common.Module):
       (16, 10, deter + num_tokens * stoch_size)
       (16, 10, hiddim) --> the discrete latents select codebook vectors and sum them
       (160, 1, 1, hiddim)  
-      --> aha, so these discrete latents are actually replicated across space
+      --> start with a 1x1, and then you end up distributing that across space.
 
       0 (B, 5, 5, 16)
       1 (B, 13, 13, 8)
