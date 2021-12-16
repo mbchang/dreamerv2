@@ -4084,6 +4084,135 @@ def discrete_hard_test_stop_gradient_try_again2_12_15_21():
             r.generate_commands(args.for_real)
 
 
+def discrete_soft_test_stop_gradient_try_again_12_15_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 1, 2, 3, 3, 6, 7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['True'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [False, True])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('dslate.mono_train', [True])
+    r.add_flag('dslate.slot_model.einsum_dict', [True])
+    r.add_flag('dslate.stop_gradient_input', [True, False])
+    r.add_flag('dslate.stop_gradient_output', [True, False])
+
+    r.add_flag('dslate.dvae.sm_hard', [False])
+
+    r.add_flag('logdir', ['runs/discrete_soft_test_stop_gradient_try_again'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.curr',
+        'wm_only',
+        'dslate.dvae.weak',
+        'dslate.dvae.sm_hard',
+
+        'dslate.mono_train',
+        'dslate.slot_model.einsum_dict',
+        'dslate.stop_gradient_input',
+        'dslate.stop_gradient_output',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [2]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+def test_e2e_with_full_loss_12_16_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3, 4, 5, 6, 7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['True'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [False, True])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('dslate.mono_train', [True])
+    r.add_flag('dslate.slot_model.einsum_dict', [True])
+    r.add_flag('dslate.stop_gradient_input', [True, False])
+    r.add_flag('dslate.stop_gradient_output', [True, False])
+
+    r.add_flag('dslate.dvae.sm_hard', [False])
+    r.add_flag('dslate.e2e', [True])
+
+    r.add_flag('logdir', ['runs/test_e2e_with_full_loss'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.curr',
+        'wm_only',
+        'dslate.dvae.weak',
+        'dslate.dvae.sm_hard',
+        'dslate.e2e',
+
+        'dslate.mono_train',
+        'dslate.slot_model.einsum_dict',
+        'dslate.stop_gradient_input',
+        'dslate.stop_gradient_output',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [2]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -4174,7 +4303,9 @@ if __name__ == '__main__':
     # make_sure_nothing_has_broken_12_14_21()
     # how_necessary_are_discrete_latents_balls_12_14_21()
     # discrete_hard_test_stop_gradient_try_again_12_14_21()
-    discrete_hard_test_stop_gradient_try_again2_12_15_21()
+    # discrete_hard_test_stop_gradient_try_again2_12_15_21()
+    # discrete_soft_test_stop_gradient_try_again_12_15_21()
+    test_e2e_with_full_loss_12_16_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

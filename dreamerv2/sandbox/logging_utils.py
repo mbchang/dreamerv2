@@ -72,7 +72,8 @@ def create_expname(args):
         'dslate.stop_gradient_input': 'sgi',
         'dslate.stop_gradient_output': 'sgo',
 
-        'dslate.slot_model.d_model': 'dim'
+        'dslate.slot_model.d_model': 'dim',
+        'dslate.e2e': 'e2e',
 
     }
     watcher = watch(args.watch, abbrvs)
