@@ -246,10 +246,34 @@ class SlotModel(layers.Layer):
         self.training = False
 
 
-# class DynamicSlotModel(SlotModel):
-
 class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
     # will search SlotModel first, then machine.EnsembleRSSM
+
+    """
+        what args are relevant for:
+            - kl_loss
+                - forward
+                - balance
+                - free
+                - free_avg
+            - _suff_stats_layer
+                - self._discrete
+                - self._stoch
+                - self._std_act
+                - self._min_std
+            - _suff_stats_ensemble
+                - self._hidden
+                - self._norm
+                - self._ensemble
+            - get_dist
+                - self._discrete
+            - DistLayer
+                - min_std
+                - dist
+
+        I guess I could just use self.global_config.rssm for the relevant args though.
+
+    """
 
     @staticmethod
     def defaults_debug():
@@ -260,6 +284,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         debug_args.min_lr_factor = 0.2
         debug_args.decay_steps = 15
         debug_args.reward_head = SlotHead.defaults_debug()
+        debug_args.distributional = False
         return debug_args
 
     @staticmethod
@@ -272,12 +297,24 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         default_args.min_lr_factor = 0.2
         default_args.decay_steps = 30000
         default_args.reward_head = DistSlotHead.defaults()
+        default_args.distributional = False
         return default_args
 
 
     def __init__(self, vocab_size, num_tokens, args, global_config):
-        super().__init__(vocab_size, num_tokens, args)
+        SlotModel.__init__(self, vocab_size, num_tokens, args)
         self.global_config = global_config  # a hack that we will remove once we integrate with RSSM
+
+        if self.args.distributional:
+            self._ensemble = self.global_config.rssm.ensemble
+            self._stoch = self.global_config.rssm.stoch
+            self._deter = self.global_config.rssm.deter
+            self._hidden = self.global_config.rssm.hidden
+            self._discrete = self.global_config.rssm.discrete
+            self._act = machine.get_act(self.global_config.rssm.act)
+            self._norm = self.global_config.rssm.norm
+            self._std_act = self.global_config.rssm.std_act
+            self._min_std = self.global_config.rssm.min_std
 
         self.action_encoder = tf.keras.Sequential([
           layers.Dense(args.slot_size, activation='relu'),
@@ -391,20 +428,72 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         latents = []
         for i in range(actions.shape[1]):
             slots = self.img_step(slots, actions[:, i])
+            slots = slots['deter']  # HACK FOR NOW
             latents.append(slots)
         latents = eo.rearrange(latents, 't b ... -> b t ...')
         return latents
 
+    def initial(self, batch_size):
+        if self.args.distributional:
+            state = dict(
+              logit=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
+              stoch=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
+              deter=self.slot_attn.reset(batch_size)
+                )
+        else:
+            state = dict(deter=self.slot_attn.reset(batch_size))
+        return state
+
+    # def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
+    #     if prev_state is None:
+    #         prior = self.slot_attn.reset(embed.shape[0])
+    #     else:
+    #         resetted_prior = self.slot_attn.reset(embed.shape[0])
+    #         predicted_prior = self.img_step(prev_state, prev_action)
+    #         mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
+    #         prior = mask * resetted_prior + (1 - mask) * predicted_prior
+    #     post, attns = self.apply_slot_attn(embed, prior)
+    #     if self.args.distributional:
+    #         import ipdb
+    #         ipdb.set_trace(context=20)
+    #         x = post
+    #         ########################################################
+    #         # copied directly from machine
+    #         stats = self._suff_stats_layer('obs_dist', x)
+    #         dist = self.get_dist(stats)
+    #         stoch = dist.sample() if sample else dist.mode()
+    #         post = {'stoch': stoch, 'deter': prior['deter'], **stats}
+    #         ########################################################
+
+    #     return prior, post, attns
+
+
 
     def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
         if prev_state is None:
-            prior = self.slot_attn.reset(embed.shape[0])
+            # prior = self.slot_attn.reset(embed.shape[0])
+            prior = self.initial(embed.shape[0])
+            prior = prior['deter']
         else:
-            resetted_prior = self.slot_attn.reset(embed.shape[0])
+            # resetted_prior = self.slot_attn.reset(embed.shape[0])
+            resetted_prior = self.initial(embed.shape[0])
             predicted_prior = self.img_step(prev_state, prev_action)
             mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
-            prior = mask * resetted_prior + (1 - mask) * predicted_prior
+            # prior = mask * resetted_prior + (1 - mask) * predicted_prior
+            prior = mask * resetted_prior['deter'] + (1 - mask) * predicted_prior['deter']
         post, attns = self.apply_slot_attn(embed, prior)
+        if self.args.distributional:
+            import ipdb
+            ipdb.set_trace(context=20)
+            x = post
+            ########################################################
+            # copied directly from machine
+            stats = self._suff_stats_layer('obs_dist', x)
+            dist = self.get_dist(stats)
+            stoch = dist.sample() if sample else dist.mode()
+            post = {'stoch': stoch, 'deter': prior['deter'], **stats}
+            ########################################################
+
         return prior, post, attns
 
 
@@ -415,7 +504,25 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         """
         prev_action = self.action_encoder(prev_action)
         context = tf.concat([prev_state, rearrange(prev_action, 'b a -> b 1 a')], 1)
-        prior = self.dynamics(prev_state, context)
+        deter = self.dynamics(prev_state, context)
+
+        if self.args.distributional:
+            import ipdb
+            ipdb.set_trace(context=20)
+            x = deter
+            ########################################################
+            # copied directly from machine
+            stats = self._suff_stats_ensemble(x)
+            index = tf.random.uniform((), 0, self._ensemble, tf.int32)
+            stats = {k: v[index] for k, v in stats.items()}
+            dist = self.get_dist(stats)
+            stoch = dist.sample() if sample else dist.mode()
+            prior = {'stoch': stoch, 'deter': deter, **stats}
+            ########################################################
+        else:
+            # prior = deter
+            prior = {'deter': deter}
+
         return prior
 
 

@@ -72,6 +72,7 @@ class CausalAgent(common.Module):
           int(self.step), read_value=False), [], [])
       if state is None:
         latent = self.wm.rssm.initial(len(obs['reward']))
+        latent = latent['deter']  # HACK FOR NOW
         action = tf.zeros((len(obs['reward']),) + self.act_space.shape)
         state = latent, action
       latent, action = state
@@ -327,6 +328,7 @@ class WorldModel(common.Module):
       check what it should be based on monolithic
       then check if it is what it should be for slots
     """
+    # import ipdb; ipdb.set_trace(context=20)
     flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
     start = {k: flatten(v) for k, v in start.items()}
     start['feat'] = self.rssm.get_feat(start)
@@ -340,7 +342,8 @@ class WorldModel(common.Module):
     for _ in range(horizon):
       action = policy(tf.stop_gradient(seq['feat'][-1])).sample()
       if self.config.wm == 'dslate':
-        state = {'deter': self.rssm.img_step(seq['deter'][-1], action)}
+        # state = {'deter': self.rssm.img_step(seq['deter'][-1], action)}
+        state = self.rssm.img_step(seq['deter'][-1], action)
       else:
         state = self.rssm.img_step({k: v[-1] for k, v in seq.items()}, action)
       feat = self.rssm.get_feat(state)
