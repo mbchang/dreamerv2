@@ -309,7 +309,7 @@ class DynamicSLATE(SLATE):
         default_args.vis_rollout = True
         default_args.curr = False
         default_args.curr_every = 20000
-        defaults_args.e2e = False
+        default_args.e2e = False
         return default_args
 
     def __init__(self, seqlen, args, global_config):
