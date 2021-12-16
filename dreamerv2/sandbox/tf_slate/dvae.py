@@ -105,6 +105,7 @@ class dVAE(tkl.Layer):
                 Rearrange('b h w c -> b c h w'),
             ])
         else:
+            # NOTE: you can probably get away with 32 filters instead
             conv = lambda **kwargs: tf.keras.Sequential([PaddedConv2D(**kwargs), tkl.ReLU()])
             convT = lambda **kwargs: tf.keras.Sequential([PaddedConv2DTranspose(**kwargs), tkl.ReLU()])
             self.encoder = tf.keras.Sequential([
