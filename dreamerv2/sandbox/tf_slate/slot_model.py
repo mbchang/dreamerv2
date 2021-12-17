@@ -348,6 +348,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=action, is_first=is_first)
 
         # HACK
+        priors = priors['deter']
         posts = posts['deter']
 
         # latent loss
@@ -416,14 +417,12 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
                 embed=embeds[:, t],
                 is_first=is_first[:, t])
 
-            # post = post['deter']  # HACK FOR NOW
-
             priors.append(prior)
             posts.append(post)
             attns_seq.append(attns)
 
         swap = lambda x: eo.rearrange(x, 't b ... -> b t ...')
-        priors = eo.rearrange(priors, 't b ... -> b t ...')
+        priors = {k: tf.stack([prior[k] for prior in priors], axis=1) for k in priors[0].keys()}
         posts = {k: tf.stack([post[k] for post in posts], axis=1) for k in posts[0].keys()}
         attns = eo.rearrange(attns_seq, 't b ... -> b t ...')
 
@@ -452,42 +451,18 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             state = dict(deter=self.slot_attn.reset(batch_size))
         return state
 
-    # def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
-    #     if prev_state is None:
-    #         prior = self.slot_attn.reset(embed.shape[0])
-    #     else:
-    #         resetted_prior = self.slot_attn.reset(embed.shape[0])
-    #         predicted_prior = self.img_step(prev_state, prev_action)
-    #         mask = rearrange(is_first.astype(prev_state.dtype), 'b -> b 1 1')
-    #         prior = mask * resetted_prior + (1 - mask) * predicted_prior
-    #     post, attns = self.apply_slot_attn(embed, prior)
-    #     if self.args.distributional:
-    #         import ipdb
-    #         ipdb.set_trace(context=20)
-    #         x = post
-    #         ########################################################
-    #         # copied directly from machine
-    #         stats = self._suff_stats_layer('obs_dist', x)
-    #         dist = self.get_dist(stats)
-    #         stoch = dist.sample() if sample else dist.mode()
-    #         post = {'stoch': stoch, 'deter': prior['deter'], **stats}
-    #         ########################################################
-
-    #     return prior, post, attns
-
-
 
     def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
 
         if prev_state is None:
             prior = self.initial(embed.shape[0])
-            prior = prior['deter']
         else:
             resetted_prior = self.initial(embed.shape[0])
             predicted_prior = self.img_step(prev_state, prev_action)
             mask = rearrange(is_first.astype(prev_state['deter'].dtype), 'b -> b 1 1')
             prior = mask * resetted_prior['deter'] + (1 - mask) * predicted_prior['deter']
-        post, attns = self.apply_slot_attn(embed, prior)
+            prior = {'deter': prior}
+        post, attns = self.apply_slot_attn(embed, prior['deter'])  # TODO or should you do get feat?
         if self.args.distributional:
             import ipdb
             ipdb.set_trace(context=20)
