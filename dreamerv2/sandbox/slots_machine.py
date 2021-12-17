@@ -1,6 +1,6 @@
 from loguru import logger as lgr
 import re
-import einops
+import einops as eo
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers as tfkl
@@ -66,9 +66,9 @@ class EnsembleRSSM(common.Module):
           deter=self.dynamics._cell.get_initial_state(None, batch_size * self.num_slots, dtype)  # initialized to zero
           )
       #************************************************************
-      state['logit'] = einops.rearrange(state['logit'], 'b (k s) v -> b k s v', k=self.num_slots)
-      state['stoch'] = einops.rearrange(state['stoch'], 'b (k s) v -> b k s v', k=self.num_slots)
-      state['deter'] = einops.rearrange(state['deter'], '(b k) d -> b k d', k= self.num_slots)
+      state['logit'] = eo.rearrange(state['logit'], 'b (k s) v -> b k s v', k=self.num_slots)
+      state['stoch'] = eo.rearrange(state['stoch'], 'b (k s) v -> b k s v', k=self.num_slots)
+      state['deter'] = eo.rearrange(state['deter'], '(b k) d -> b k d', k= self.num_slots)
       if self._update_type == 'slot_attention':
         slots = tf.cast(self.update.reset(batch_size), dtype)
         state['deter'] = state['deter'] + slots
@@ -99,7 +99,7 @@ class EnsembleRSSM(common.Module):
       prev is (prior, posterior) from the previous step
       so prev[0] refers to using the prior from the previous step as the input state
     """
-    swap = lambda x: rearrange(x, 'x y ... -> y x ...')
+    swap = lambda x: eo.rearrange(x, 'x y ... -> y x ...')
     if state is None:
       state = self.initial(tf.shape(action)[0])
     post, prior = common.static_scan(
@@ -124,7 +124,7 @@ class EnsembleRSSM(common.Module):
     prior stoch   (H, B, K, S, V)
     prior deter   (H, B, K, D)
     """
-    swap = lambda x: rearrange(x, 'x y ... -> y x ...')
+    swap = lambda x: eo.rearrange(x, 'x y ... -> y x ...')
     if state is None:
       state = self.initial(tf.shape(action)[0])
     assert isinstance(state, dict), state
@@ -137,7 +137,7 @@ class EnsembleRSSM(common.Module):
     # during sampling, we had cast stoch to f32, now we cast it back to f16
     stoch = self._cast(state['stoch'])
     if self._discrete:
-      stoch = einops.rearrange(stoch, '... s v -> ... (s v)')
+      stoch = eo.rearrange(stoch, '... s v -> ... (s v)')
     return tf.concat([stoch, state['deter']], -1)
 
   def get_dist(self, state, ensemble=False):
@@ -178,7 +178,7 @@ class EnsembleRSSM(common.Module):
     stats = self._suff_stats_layer('obs_dist', x)
     dist = self.get_dist(stats)
     stoch = dist.sample() if sample else dist.mode()
-    post = {'stoch': stoch, 'deter': x, **stats}  # NOTE we updated the deter! 
+    post = {'stoch': stoch, 'deter': prior['deter'], **stats}
     return post, prior
 
   @tf.function
@@ -186,7 +186,7 @@ class EnsembleRSSM(common.Module):
     prev_stoch = self._cast(prev_state['stoch'])
     prev_action = self._cast(prev_action)
     if self._discrete:
-      prev_stoch = einops.rearrange(prev_stoch, '... s v -> ... (s v)')
+      prev_stoch = eo.rearrange(prev_stoch, '... s v -> ... (s v)')
     ###########################################################
     # replace with this transformer
     x, deter = self.dynamics(prev_state['deter'], prev_stoch, prev_action)
@@ -201,7 +201,7 @@ class EnsembleRSSM(common.Module):
     return prior
 
   def _suff_stats_ensemble(self, inp):
-    # inp = einops.rearrange(inp, 'b k d -> (b k) d')
+    # inp = eo.rearrange(inp, 'b k d -> (b k) d')
     stats = []
     for k in range(self._ensemble):
       x = self.get(f'img_out_{k}', tfkl.Dense, self._hidden)(inp)
@@ -212,14 +212,14 @@ class EnsembleRSSM(common.Module):
         k: tf.stack([x[k] for x in stats], 0)
         for k, v in stats[0].items()}
     # stats = {
-    #     k: einops.rearrange(v, 'e (b k) ... -> e b k ...', k=self.num_slots)
+    #     k: eo.rearrange(v, 'e (b k) ... -> e b k ...', k=self.num_slots)
     #     for k, v in stats.items()}
     return stats
 
   def _suff_stats_layer(self, name, x):
     if self._discrete:
       x = self.get(name, tfkl.Dense, self._stoch//self.num_slots * self._discrete, None)(x)
-      logit = einops.rearrange(x, '... (s v) -> ... s v', v=self._discrete)
+      logit = eo.rearrange(x, '... (s v) -> ... s v', v=self._discrete)
       return {'logit': logit}
     else:
       x = self.get(name, tfkl.Dense, 2 * self._stoch, None)(x)
@@ -393,9 +393,15 @@ class Decoder(common.Module):
 
   def _cnn(self, features):
     """
-      (16, 10, 112)
-      (16, 10, 128)
-      (160, 1, 1, 128)
+      (16, 10, deter + num_tokens * stoch_size)
+      (16, 10, hiddim) --> the discrete latents select codebook vectors and sum them
+      (160, 1, 1, hiddim)  
+      --> start with a 1x1, and then you end up distributing that across space.
+
+      0 (B, 5, 5, 16)
+      1 (B, 13, 13, 8)
+      2 (B, 30, 30, 4)
+      3 (B, 64, 64, 3)
     """
     channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
     ConvT = tfkl.Conv2DTranspose
@@ -461,7 +467,7 @@ class SlotDecoder(Decoder):
 
     # hacky reshape for now
     batch_size, seq_length = features.shape[:2]
-    slots = einops.rearrange(features, 'b t (k d) -> (b t) k d', d=self.indim)
+    slots = eo.rearrange(features, 'b t (k d) -> (b t) k d', d=self.indim)
     x = self.decoder(slots)
 
     # Undo combination of slot and batch dimension; split alpha masks.
@@ -477,13 +483,13 @@ class SlotDecoder(Decoder):
     masked_components = recons * masks
 
     # combine
-    recon_combined = einops.reduce(masked_components, 'bt k h w c -> bt h w c', 'sum')  # Recombine image.
+    recon_combined = eo.reduce(masked_components, 'bt k h w c -> bt h w c', 'sum')  # Recombine image.
     # `recon_combined` has shape: [batch_size, width, height, num_channels].
 
     # center the combination
     recon_combined = nmlz.center(recon_combined)
 
-    x = einops.rearrange(recon_combined, '(b t) ... -> b t ...', b=batch_size)
+    x = eo.rearrange(recon_combined, '(b t) ... -> b t ...', b=batch_size)
     #############################################################
     means = tf.split(x, list(channels.values()), -1)  # [(B, T, H, W, C)]
     dists = {
@@ -491,7 +497,7 @@ class SlotDecoder(Decoder):
         for (key, shape), mean in zip(channels.items(), means)}
 
     if return_components:
-      masked_components = einops.rearrange(masked_components, '(b t) ... -> b t ...', b=batch_size)
+      masked_components = eo.rearrange(masked_components, '(b t) ... -> b t ...', b=batch_size)
       masked_components = nmlz.center(masked_components)
       dists['components'] = tfd.Independent(tfd.Normal(masked_components, 1), 3)  # (b t k h w c)
       dists['masks'] = masks
@@ -708,7 +714,7 @@ class SlimCrossAttentionDynamics(common.Module):
   def __call__(self, prev_deter, prev_stoch, prev_action):
     stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)  # (B, K, S*V) --> (B, K, H)
     act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)  # (B, A) --> (B, H)
-    context = tf.concat([stoch_embed, einops.rearrange(act_embed, 'b a -> b 1 a')], 1)  # (B, K+1, H)
+    context = tf.concat([stoch_embed, eo.rearrange(act_embed, 'b a -> b 1 a')], 1)  # (B, K+1, H)
 
     x = self.context_attention(prev_deter, context, mask=None)  # (B, K, D)
     x = self.get('img_in_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
@@ -781,7 +787,7 @@ class SlimAttentionUpdate(common.Module):
   #   self.num_slots = num_slots
 
   def __call__(self, deter, embed):
-    context = einops.rearrange(embed, 'b (gridsize embed_dim) -> b gridsize embed_dim', embed_dim=self._embed_dim)  
+    context = eo.rearrange(embed, 'b (gridsize embed_dim) -> b gridsize embed_dim', embed_dim=self._embed_dim)  
     x = self.context_attention(deter, context, mask=None)
     x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
@@ -815,7 +821,7 @@ class SlotAttentionUpdate(common.Module):
     return slots
 
   def __call__(self, deter, embed):
-    context = einops.rearrange(embed, 'b (gridsize embed_dim) -> b gridsize embed_dim', embed_dim=self._embed_dim)  
+    context = eo.rearrange(embed, 'b (gridsize embed_dim) -> b gridsize embed_dim', embed_dim=self._embed_dim)  
     updated_slots = self.slot_attention(deter, context)
     return updated_slots
 
