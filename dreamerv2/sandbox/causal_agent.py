@@ -62,6 +62,7 @@ class CausalAgent(common.Module):
 
   @tf.function
   def policy(self, obs, state=None, mode='train'):
+    # import ipdb; ipdb.set_trace(context=20)
     # if self.config.wm in ['fwm', 'slate', 'dslate'] and self.config.wm_only:
     if self.config.wm in ['fwm', 'slate'] or self.config.wm_only:
       random_policy = common.RandomAgent({'action': self.act_space})
@@ -72,7 +73,7 @@ class CausalAgent(common.Module):
           int(self.step), read_value=False), [], [])
       if state is None:
         latent = self.wm.rssm.initial(len(obs['reward']))
-        latent = latent['deter']  # HACK FOR NOW
+        # latent = latent['deter']  # HACK FOR NOW
         action = tf.zeros((len(obs['reward']),) + self.act_space.shape)
         state = latent, action
       latent, action = state
@@ -85,6 +86,8 @@ class CausalAgent(common.Module):
       if self.config.wm in ['dslate']:
         _, latent, _ = self.wm.rssm.obs_step(
             latent, action, embed, obs['is_first'], sample)  # we'll use this until we refactor the obs_step
+
+        # latent = latent['deter']  # HACK
       else:
         latent, _ = self.wm.rssm.obs_step(
             latent, action, embed, obs['is_first'], sample)
@@ -343,7 +346,7 @@ class WorldModel(common.Module):
       action = policy(tf.stop_gradient(seq['feat'][-1])).sample()
       if self.config.wm == 'dslate':
         # state = {'deter': self.rssm.img_step(seq['deter'][-1], action)}
-        state = self.rssm.img_step(seq['deter'][-1], action)
+        state = self.rssm.img_step({'deter': seq['deter'][-1]}, action)
       else:
         state = self.rssm.img_step({k: v[-1] for k, v in seq.items()}, action)
       feat = self.rssm.get_feat(state)

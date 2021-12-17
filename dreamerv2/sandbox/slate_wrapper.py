@@ -216,6 +216,8 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
 
     iterates = self.model.get_iterates(self.model.step.numpy())
 
+    # import ipdb
+    # ipdb.set_trace(context=20)
     loss, outs, mets = self.model(data, tf.constant(iterates['tau']), True)
 
 
@@ -233,6 +235,8 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
       rollout_output, rollout_metrics = self.model.rollout(data, seed_steps, self.config.eval_dataset.length-seed_steps)
       rollout = eo.rearrange(rollout_output['video'], 'b t c h w -> (b t) c h w')
 
+
+    # import ipdb; ipdb.set_trace(context=20)
     vis_recon = slate.SLATE.visualize(
       image, 
       outs['slot_model']['attns'], 
