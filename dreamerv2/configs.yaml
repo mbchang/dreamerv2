@@ -195,7 +195,7 @@ debug:
 
   eval_dataset: {batch: 6, seed_steps: 5, length: 30}
 
-  rssm: {hidden: 10, deter: 8, stoch: 4, discrete: 4, embed_dim: 8}
+  rssm: {hidden: 8, deter: 8, stoch: 4, discrete: 4, embed_dim: 8}
   encoder: {cnn_depth: 4, mlp_layers: [8, 8], mlp_keys: '$^', cnn_keys: 'image'}
   decoder: {cnn_depth: 4, mlp_layers: [8, 8], mlp_keys: '$^', cnn_keys: 'image'}
   reward_head: {layers: 2, units: 8, act: elu, norm: none, dist: mse}
