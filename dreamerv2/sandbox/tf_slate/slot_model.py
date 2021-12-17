@@ -7,6 +7,8 @@ import einops as eo
 import ml_collections
 import tensorflow as tf
 import tensorflow.keras.layers as layers
+from tensorflow.keras.mixed_precision import experimental as prec
+
 
 # dreamer stuff
 # from common import tfutils
@@ -347,19 +349,19 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         emb_input = bottle(self.embed_tokens)(z_input)
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=action, is_first=is_first)
 
-        # HACK
-        priors = priors['deter']
-        posts = posts['deter']
+        # # HACK
+        # priors = priors['deter']
+        # posts = posts['deter']
 
         # latent loss
         if self.args.consistency_loss:
-            consistency = tf.reduce_mean(eo.reduce((priors - posts)**2, 'b t k d -> b t k', 'sum'))
+            consistency = tf.reduce_mean(eo.reduce((priors['deter'] - posts['deter'])**2, 'b t k d -> b t k', 'sum'))
         else:
-            consistency = tf.cast(tf.convert_to_tensor(0), priors.dtype)
+            consistency = tf.cast(tf.convert_to_tensor(0), priors['deter'].dtype)
 
         # loss for both prior and posterior
         concat = lambda x: eo.rearrange(x, 'n b ... -> (n b) ...')
-        slots = concat([priors, posts])
+        slots = concat([priors['deter'], posts['deter']])
         emb_input = concat([emb_input, emb_input])
         z_target = concat([z_target, z_target])
         rew_target = concat([reward, reward])
@@ -386,7 +388,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         # *********************************************************
         rew_loss = self.global_config.loss_scales.get('reward', 1.0) * losses['reward'] 
         ###########################################################
-        outputs = {'attns': attns, 'post': posts, 'pred': pred}
+        outputs = {'attns': attns, 'post': posts, 'prior': priors, 'pred': pred}
         metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'rew_loss': rew_loss}
         loss = tf.reduce_sum([
             cross_entropy, 
@@ -421,6 +423,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             posts.append(post)
             attns_seq.append(attns)
 
+        # import ipdb; ipdb.set_trace(context=20)
         swap = lambda x: eo.rearrange(x, 't b ... -> b t ...')
         priors = {k: tf.stack([prior[k] for prior in priors], axis=1) for k in priors[0].keys()}
         posts = {k: tf.stack([post[k] for post in posts], axis=1) for k in posts[0].keys()}
@@ -441,10 +444,11 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         return latents
 
     def initial(self, batch_size):
+        dtype = prec.global_policy().compute_dtype
         if self.args.distributional:
             state = dict(
-              logit=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
-              stoch=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
+              logit=tf.zeros([batch_size, self.slot_attn.num_slots, self._stoch, self._discrete], dtype),
+              stoch=tf.zeros([batch_size, self.slot_attn.num_slots, self._stoch, self._discrete], dtype),
               deter=self.slot_attn.reset(batch_size)
                 )
         else:
@@ -459,13 +463,27 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         else:
             resetted_prior = self.initial(embed.shape[0])
             predicted_prior = self.img_step(prev_state, prev_action)
-            mask = rearrange(is_first.astype(prev_state['deter'].dtype), 'b -> b 1 1')
-            prior = mask * resetted_prior['deter'] + (1 - mask) * predicted_prior['deter']
-            prior = {'deter': prior}
+            # mask = rearrange(is_first.astype(prev_state['deter'].dtype), 'b -> b 1 1')
+            # prior = mask * resetted_prior['deter'] + (1 - mask) * predicted_prior['deter']
+
+            # mask should be b -> b 1 1 for deter
+            # mask should be b -> b 1 1 1 for stoch and logits
+            # prior = {key: mask * resetted_prior[key] + (1 - mask) * predicted_prior[key] for key in predicted_prior}
+
+            prior = {}
+            for key in predicted_prior:
+                if key == 'deter':
+                    mask = rearrange(is_first.astype(prev_state['deter'].dtype), 'b -> b 1 1')
+                elif key in ['stoch', 'logit']:
+                    mask = rearrange(is_first.astype(prev_state['deter'].dtype), 'b -> b 1 1 1')
+                else:
+                    raise NotImplementedError
+                prior[key] = mask * resetted_prior[key] + (1 - mask) * predicted_prior[key]
+
         post, attns = self.apply_slot_attn(embed, prior['deter'])  # TODO or should you do get feat?
         if self.args.distributional:
-            import ipdb
-            ipdb.set_trace(context=20)
+            # import ipdb
+            # ipdb.set_trace(context=20)
             x = post
             ########################################################
             # copied directly from machine
@@ -491,8 +509,8 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         deter = self.dynamics(prev_state, context)
 
         if self.args.distributional:
-            import ipdb
-            ipdb.set_trace(context=20)
+            # import ipdb
+            # ipdb.set_trace(context=20)
             x = deter
             ########################################################
             # copied directly from machine

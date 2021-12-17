@@ -195,6 +195,7 @@ class EnsembleRSSM(common.Module):
     return stats
 
   def _suff_stats_layer(self, name, x):
+    # import ipdb; ipdb.set_trace(context=20)
     if self._discrete:
       x = self.get(name, tfkl.Dense, self._stoch * self._discrete, None)(x)
       logit = rearrange(x, '... (s v) -> ... s v', v=self._discrete)

@@ -200,9 +200,19 @@ class DynamicSlateWrapperForDreamer(causal_agent.WorldModel):
     }
 
     # outputs is dummy
-    outputs = {
-      'post': {'deter': outputs['slot_model']['post']}
-    }
+    # import ipdb; ipdb.set_trace(context=20)
+    # outputs = {
+    #   # 'post': {'deter': outputs['slot_model']['post']['deter']}
+    #   post=outputs['slot_model']['post'],
+    # }
+    outputs = dict(
+      post=outputs['slot_model']['post'],
+      prior=outputs['slot_model']['prior'],
+      )
+
+    # outs = dict(
+    #     embed=embed, feat=feat, post=post,
+    #     prior=prior, likes=likes, kl=kl_value)
 
     return state, outputs, metrics
 
