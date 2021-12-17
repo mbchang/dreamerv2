@@ -62,7 +62,6 @@ class CausalAgent(common.Module):
 
   @tf.function
   def policy(self, obs, state=None, mode='train'):
-    # import ipdb; ipdb.set_trace(context=20)
     # if self.config.wm in ['fwm', 'slate', 'dslate'] and self.config.wm_only:
     if self.config.wm in ['fwm', 'slate'] or self.config.wm_only:
       random_policy = common.RandomAgent({'action': self.act_space})
