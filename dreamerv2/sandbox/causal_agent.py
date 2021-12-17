@@ -85,8 +85,6 @@ class CausalAgent(common.Module):
       if self.config.wm in ['dslate']:
         _, latent, _ = self.wm.rssm.obs_step(
             latent, action, embed, obs['is_first'], sample)  # we'll use this until we refactor the obs_step
-
-        # latent = latent['deter']  # HACK
       else:
         latent, _ = self.wm.rssm.obs_step(
             latent, action, embed, obs['is_first'], sample)
@@ -330,7 +328,6 @@ class WorldModel(common.Module):
       check what it should be based on monolithic
       then check if it is what it should be for slots
     """
-    # import ipdb; ipdb.set_trace(context=20)
     flatten = lambda x: rearrange(x, 'b t ... -> (b t) ...')
     start = {k: flatten(v) for k, v in start.items()}
     start['feat'] = self.rssm.get_feat(start)
@@ -343,11 +340,7 @@ class WorldModel(common.Module):
     seq = {k: [v] for k, v in start.items()}
     for _ in range(horizon):
       action = policy(tf.stop_gradient(seq['feat'][-1])).sample()
-      if self.config.wm == 'dslate':
-        # state = {'deter': self.rssm.img_step(seq['deter'][-1], action)}
-        state = self.rssm.img_step({'deter': seq['deter'][-1]}, action)
-      else:
-        state = self.rssm.img_step({k: v[-1] for k, v in seq.items()}, action)
+      state = self.rssm.img_step({k: v[-1] for k, v in seq.items()}, action)
       feat = self.rssm.get_feat(state)
       ###########################################################
       # latent to decoder?

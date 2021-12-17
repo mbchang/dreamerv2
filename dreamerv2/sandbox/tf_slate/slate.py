@@ -392,7 +392,8 @@ class DynamicSLATE(SLATE):
         if pred_horizon > 0:
             imag_output = self.slot_model.imag_autoregressive(
                 # recon_output['slots'][:, -1], 
-                {'deter': recon_output['slots'][:, -1]}, 
+                # {'deter': recon_output['slots'][:, -1]}, 
+                {'deter': recon_output['slots']['deter'][:, -1]}, 
                 batch_horizon['action'][:, seed_steps:])
             imag_ce = slot_model.SlotModel.cross_entropy_loss(imag_output['z_gen'], z_target[:, seed_steps:])
             output = {'video': bottle(self.decode)(tf.concat((recon_output['z_gen'], imag_output['z_gen']), axis=1))}

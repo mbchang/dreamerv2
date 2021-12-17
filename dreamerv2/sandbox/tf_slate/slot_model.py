@@ -345,7 +345,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         # for now, we will manually ignore the first action
 
         emb_input = bottle(self.embed_tokens)(z_input)
-        # import ipdb;ipdb.set_trace(context=20)
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=action, is_first=is_first)
 
         # HACK
@@ -354,7 +353,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         # latent loss
         if self.args.consistency_loss:
             consistency = tf.reduce_mean(eo.reduce((priors - posts)**2, 'b t k d -> b t k', 'sum'))
-            # consistency = tf.reduce_mean(eo.reduce((priors - posts['deter'])**2, 'b t k d -> b t k', 'sum'))
         else:
             consistency = tf.cast(tf.convert_to_tensor(0), priors.dtype)
 
@@ -387,7 +385,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         # *********************************************************
         rew_loss = self.global_config.loss_scales.get('reward', 1.0) * losses['reward'] 
         ###########################################################
-        # import ipdb;ipdb.set_trace(context=20)
         outputs = {'attns': attns, 'post': posts, 'pred': pred}
         metrics = {'cross_entropy': cross_entropy, 'consistency': consistency, 'rew_loss': rew_loss}
         loss = tf.reduce_sum([
@@ -426,38 +423,21 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             attns_seq.append(attns)
 
         swap = lambda x: eo.rearrange(x, 't b ... -> b t ...')
-        # priors, posts, attns = map(swap, [priors, posts, attns_seq])
         priors = eo.rearrange(priors, 't b ... -> b t ...')
-        # posts = {k: swap(v) for k, v in posts.items()}
-        # import ipdb; ipdb.set_trace(context=20)
-        # posts = {k: tf.stack([]) for k, v in posts[0].items()}
-
-        # stacked_posts = {}
-        # for k in posts[0].keys():
-        #     stacked_posts[k] = tf.stack([post[k] for post in posts], axis=1)
         posts = {k: tf.stack([post[k] for post in posts], axis=1) for k in posts[0].keys()}
-
-        # import ipdb; ipdb.set_trace(context=20)
         attns = eo.rearrange(attns_seq, 't b ... -> b t ...')
 
         # this can probably be achieved through the static scan
-
-
 
         # we should also just have a utility function for this
         return priors, posts, attns
 
 
     def generate(self, slots, actions):
-
-        # import ipdb; ipdb.set_trace(context=20)
         latents = []
         for i in range(actions.shape[1]):
             slots = self.img_step(slots, actions[:, i])
-              # HACK FOR NOW
-            # latents.append(slots = slots['deter'])  # HACK FOR NOW
             latents.append(slots)
-        # latents = eo.rearrange(latents, 't b ... -> b t ...')
         latents = {k: tf.stack([latent[k] for latent in latents], axis=1) for k in latents[0].keys()}
         return latents
 
@@ -500,17 +480,12 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
     def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
 
         if prev_state is None:
-            # prior = self.slot_attn.reset(embed.shape[0])
             prior = self.initial(embed.shape[0])
             prior = prior['deter']
         else:
-            # prev_state = prev_state['deter']  # HACK FOR NOW
-
-            # resetted_prior = self.slot_attn.reset(embed.shape[0])
             resetted_prior = self.initial(embed.shape[0])
             predicted_prior = self.img_step(prev_state, prev_action)
             mask = rearrange(is_first.astype(prev_state['deter'].dtype), 'b -> b 1 1')
-            # prior = mask * resetted_prior + (1 - mask) * predicted_prior
             prior = mask * resetted_prior['deter'] + (1 - mask) * predicted_prior['deter']
         post, attns = self.apply_slot_attn(embed, prior)
         if self.args.distributional:
@@ -554,7 +529,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             prior = {'stoch': stoch, 'deter': deter, **stats}
             ########################################################
         else:
-            # prior = deter
             prior = {'deter': deter}
 
         return prior
@@ -566,9 +540,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             actions: (b, t, da)
         """
         imag_latent = self.generate(slots, actions)
-        # HACK:
-        imag_latent = imag_latent['deter']
-        z_gen = bottle(self.autoregressive_decode)(imag_latent)
+        z_gen = bottle(self.autoregressive_decode)(self.get_feat(imag_latent))
         output = {'z_gen': z_gen}
         return output
 
@@ -580,9 +552,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         """
         emb_input = bottle(self.embed_tokens)(z_input)
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
-        # HACK:
-        posts = posts['deter']
-        z_gen = bottle(self.autoregressive_decode)(posts)
+        z_gen = bottle(self.autoregressive_decode)(self.get_feat(posts))
         output = {'slots': posts, 'attns': attns, 'z_gen': z_gen}
         return output
 
