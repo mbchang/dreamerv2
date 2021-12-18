@@ -728,8 +728,8 @@ class CrossDynamics(common.Module):
     prev_action = unflatten(prev_action, 1)
 
     stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
-    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)  # TODO: this should have no bias. 
-    # act_embed =  self.get('act_embed', tfkl.Dense, self._hidden, use_bias=False)(prev_action)  # TODO: this should have no bias. 
+    # act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)  # TODO: this should have no bias. 
+    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden, use_bias=False)(prev_action)  # TODO: this should have no bias. 
     context = tf.concat([stoch_embed, act_embed], 1)  # (B, K+1, H)
 
     deter = self.net(prev_deter, context)
