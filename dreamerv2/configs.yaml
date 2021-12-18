@@ -51,6 +51,7 @@ defaults:
   rssm: {ensemble: 1, hidden: 1024, deter: 1024, stoch: 32, discrete: 32, act: elu, norm: none, std_act: sigmoid2, min_std: 0.1, 
     dynamics: 'default', 
     update: 'default',
+    initial: 'default',
     embed_dim: 16,  # not used for default
     num_slots: 1  # not used in default
   }
