@@ -16,6 +16,20 @@ from sandbox import attention, slot_attention
 # sys.path.append(str(pathlib.Path(__file__).parent / 'sandbox' / 'tf_slate'))
 from sandbox.tf_slate import transformer, slot_attn
 
+
+########################################################################
+## Tensor utils
+########################################################################
+def unflatten(x, num_slots):
+    return eo.rearrange(x, '... (k d) -> ... k d', k=num_slots)
+
+def flatten(x):
+    return eo.rearrange(x, '... k d -> ... (k d)')
+
+########################################################################
+## Tensor utils
+########################################################################
+
 class EnsembleRSSM(common.Module):
 
   def __init__(
@@ -46,6 +60,8 @@ class EnsembleRSSM(common.Module):
       self.dynamics = SeparateEmbeddingDynamics(self._deter, self._hidden, self._act, self._norm)
     elif self._dynamics_type == 'slim_cross_attention':
       self.dynamics = SlimCrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm, self.num_slots)  # TODO: later manually set the number of slots for the specific episode
+    elif self._dynamics_type == 'cross':
+      self.dynamics = CrossDynamics(self._deter, self._hidden, self._act, self._norm)
     else:
       raise NotImplementedError
 
@@ -61,6 +77,8 @@ class EnsembleRSSM(common.Module):
       self.update = CrossUpdate(self._hidden, self._act, self._norm)
     else:
       raise NotImplementedError
+
+    # if 
 
 
   def initial(self, batch_size):
@@ -651,6 +669,11 @@ class DefaultDynamics(common.Module):
   #   self.num_slots = num_slots
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
+    """
+      prev_deter: (B, deter_dim)
+      prev_stoch: (B, stoch, discrete)
+      prev_action: (B, action_dim)
+    """
     x = tf.concat([prev_stoch, prev_action], -1)
     x = self.get('img_in', tfkl.Dense, self._hidden)(x)
     x = self.get('img_in_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
@@ -658,6 +681,36 @@ class DefaultDynamics(common.Module):
     x, deter = self._cell(x, [prev_deter])
     deter = deter[0]  # Keras wraps the state in a list.
     return deter, deter
+
+
+class CrossDynamics(common.Module):
+  def __init__(self, deter, hidden, act, norm):
+    self._deter = deter
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
+
+    # just to get the initial state for now
+    self._cell = GRUCell(self._deter, norm=True)
+
+    self.net = transformer.TransformerDecoder(
+      self._hidden, 
+      transformer.TransformerDecoder.one_block_one_head_defaults()
+      )
+
+  def __call__(self, prev_deter, prev_stoch, prev_action):
+    num_slots = 1
+    prev_deter, prev_stoch = map(lambda x: unflatten(x, num_slots), [prev_deter, prev_stoch])
+    prev_action = unflatten(prev_action, 1)
+
+    stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
+    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)
+    context = tf.concat([stoch_embed, act_embed], 1)  # (B, K+1, H)
+
+    deter = self.net(prev_deter, context)
+    deter = flatten(deter)  # take out later
+    return deter, deter
+
 
 """
 TODO
@@ -792,10 +845,11 @@ class CrossUpdate(common.Module):
       deter: (B, deter_dim)
       embed: (B, embed_dim)
     """
-    deter, embed = map(lambda x: eo.rearrange(x, 'b d -> b 1 d'), [deter, embed])  # take out later
+    num_slots = 1
+    deter, embed = map(lambda x: unflatten(x, num_slots), [deter, embed])  # take out later
     x = self.net(deter, embed)
     x = self._act(x)
-    x = eo.rearrange(x, 'b 1 d -> b d')  # take out later
+    x = flatten(x)  # take out later
     return x
 
 class SlimAttentionUpdate(common.Module):
