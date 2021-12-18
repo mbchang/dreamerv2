@@ -75,7 +75,10 @@ def create_expname(args):
         'dslate.slot_model.d_model': 'dim',
         'dslate.e2e': 'e2e',
 
-        'dslate.slot_model.distributional': 'latdist'
+        'dslate.slot_model.distributional': 'latdist',
+
+        'rssm.update': 'ru'
+
 
     }
     watcher = watch(args.watch, abbrvs)

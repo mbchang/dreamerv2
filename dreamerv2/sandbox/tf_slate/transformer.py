@@ -1,3 +1,7 @@
+import pathlib
+import sys
+sys.path.append(str(pathlib.Path(__file__).parent))
+
 from utils import *
 
 from einops import rearrange
@@ -256,6 +260,16 @@ class TransformerDecoder(tkl.Layer):
         default_args = ml_collections.ConfigDict(dict(
             num_blocks=4,
             num_heads=4,
+            dropout=0.1,
+            masked=False,
+            ))
+        return default_args
+
+    @staticmethod
+    def one_block_one_head_defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=1,
+            num_heads=1,
             dropout=0.1,
             masked=False,
             ))

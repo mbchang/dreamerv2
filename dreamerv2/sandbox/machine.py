@@ -11,6 +11,11 @@ import common
 
 from sandbox import attention, slot_attention
 
+# import pathlib
+# import sys
+# sys.path.append(str(pathlib.Path(__file__).parent / 'sandbox' / 'tf_slate'))
+from sandbox.tf_slate import transformer, slot_attn
+
 class EnsembleRSSM(common.Module):
 
   def __init__(
@@ -52,6 +57,8 @@ class EnsembleRSSM(common.Module):
     elif self._update_type == 'slot_attention':
       self.update = SlotAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim, self.num_slots)  # TODO: later manually set the number of slots for the specific episode
       # NOTE that I am treating self._deter = self._hidden
+    elif self._update_type == 'cross':
+      self.update = CrossUpdate(self._hidden, self._act, self._norm)
     else:
       raise NotImplementedError
 
@@ -64,7 +71,7 @@ class EnsembleRSSM(common.Module):
           stoch=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
           deter=self.dynamics._cell.get_initial_state(None, batch_size, dtype)  # initialized to zero
           )
-      if self._update_type == 'slot_attention':
+      if self._update_type in ['slot_attention']:#, 'slot', 'cross']:
         slots = tf.cast(self.update.reset(batch_size), dtype)
         state['deter'] = state['deter'] + slots.reshape((batch_size, -1))
     else:
@@ -758,12 +765,38 @@ class DefaultUpdate(common.Module):
   #   self.num_slots = num_slots
 
   def __call__(self, deter, embed):
+    """
+      deter: (B, deter_dim)
+      embed: (B, embed_dim)
+    """
     x = tf.concat([deter, embed], -1)
     x = self.get('obs_out', tfkl.Dense, self._hidden)(x)
     x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
     return x
 
+
+class CrossUpdate(common.Module):
+  def __init__(self, hidden, act, norm):
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
+
+    self.net = transformer.TransformerDecoder(
+      self._hidden, 
+      transformer.TransformerDecoder.one_block_one_head_defaults()
+      )
+
+  def __call__(self, deter, embed):
+    """
+      deter: (B, deter_dim)
+      embed: (B, embed_dim)
+    """
+    deter, embed = map(lambda x: eo.rearrange(x, 'b d -> b 1 d'), [deter, embed])  # take out later
+    x = self.net(deter, embed)
+    x = self._act(x)
+    x = eo.rearrange(x, 'b 1 d -> b d')  # take out later
+    return x
 
 class SlimAttentionUpdate(common.Module):
   def __init__(self, deter, act, norm, embed_dim, num_slots):
@@ -786,6 +819,8 @@ class SlimAttentionUpdate(common.Module):
     x = self.get('obs_out_norm', NormLayer, self._norm)(x)  # why do they normalize after the linear?
     x = self._act(x)
     return x
+
+
 class SlotAttentionUpdate(common.Module):
   def __init__(self, deter, act, norm, embed_dim, num_slots):
     self._deter = deter
