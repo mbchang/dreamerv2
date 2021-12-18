@@ -79,6 +79,7 @@ def create_expname(args):
 
         'rssm.update': 'ru',
         'rssm.dynamics': 'rd'
+        'rssm.initial': 'ri'
 
 
     }
