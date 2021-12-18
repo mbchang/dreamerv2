@@ -1,3 +1,4 @@
+import hashlib
 import json
 from loguru import logger as lgr
 import os
@@ -127,6 +128,7 @@ class TensorBoardOutput:
           self._logdir, max_queue=1000)
 
   def _video_summary(self, name, video, step):
+    lgr.debug(f'Video hash: {hashlib.sha1(video).hexdigest()}')
     import tensorflow as tf
     import tensorflow.compat.v1 as tf1
     name = name if isinstance(name, str) else name.decode('utf-8')
