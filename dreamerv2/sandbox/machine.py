@@ -34,7 +34,7 @@ class EnsembleRSSM(common.Module):
 
   def __init__(
       self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default', update='default', embed_dim=16, num_slots=1):
+      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default', update='default', initial='default', embed_dim=16, num_slots=1):
     super().__init__()
     self._ensemble = ensemble
     self._stoch = stoch
@@ -51,6 +51,7 @@ class EnsembleRSSM(common.Module):
     self._dynamics_type = dynamics
     self._update_type = update
     self._embed_dim = embed_dim
+    self._initial_type = initial
 
     if self._dynamics_type == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
@@ -78,7 +79,15 @@ class EnsembleRSSM(common.Module):
     else:
       raise NotImplementedError
 
-    # if 
+    if self._initial_type == 'iid':
+      pass  # parameters of the dist
+    elif self._initial_type == 'fixed':
+      # like position encoding
+      self.initial_deter = tf.Variable(tf.random.truncated_normal((self.num_slots, self._deter)))
+    elif self._initial_type != 'default':
+      raise NotImplementedError
+
+    assert self.num_slots == 1
 
 
   def initial(self, batch_size):
@@ -89,9 +98,19 @@ class EnsembleRSSM(common.Module):
           stoch=tf.zeros([batch_size, self._stoch, self._discrete], dtype),
           deter=self.dynamics._cell.get_initial_state(None, batch_size, dtype)  # initialized to zero
           )
-      if self._update_type in ['slot_attention']:#, 'slot', 'cross']:
-        slots = tf.cast(self.update.reset(batch_size), dtype)
-        state['deter'] = state['deter'] + slots.reshape((batch_size, -1))
+      if self._initial_type == 'fixed':
+        deter = flatten(self.initial_deter)
+        deter = tf.cast(deter, dtype)
+        state['deter'] = state['deter'] + deter
+      elif self._initial_type == 'iid':
+        pass
+      elif self._initial_type != 'default':
+        raise NotImplementedError
+
+      # if self._update_type in ['slot_attention']:#, 'slot', 'cross']:
+      #   slots = tf.cast(self.update.reset(batch_size), dtype)
+      #   state['deter'] = state['deter'] + slots.reshape((batch_size, -1))
+
     else:
       state = dict(
           mean=tf.zeros([batch_size, self._stoch], dtype),
@@ -119,7 +138,7 @@ class EnsembleRSSM(common.Module):
       so prev[0] refers to using the prior from the previous step as the input state
     """
     swap = lambda x: eo.rearrange(x, 'x y ... -> y x ...')
-    if state is None:
+    if state is None or self._initial_type != 'default':
       state = self.initial(tf.shape(action)[0])
     post, prior = common.static_scan(
         lambda prev, inputs: self.obs_step(prev[0], *inputs),
@@ -184,11 +203,16 @@ class EnsembleRSSM(common.Module):
       embed: (B, X)
       is_first: (B)
     """
-    # if is_first[idx] then we zero out prev_state[idx] and prev_action[idx]
-    prev_state, prev_action = tf.nest.map_structure(
-        lambda x: tf.einsum(
-            'b,b...->b...', 1.0 - is_first.astype(x.dtype), x),
-        (prev_state, prev_action))
+    # if is_first[idx] then we reset prev_state[idx] and zero prev_action[idx]
+    zero_first = lambda x: tf.einsum('b,b...->b...', 1.0 - is_first.astype(x.dtype), x)
+    zero_not_first = lambda x: tf.einsum('b,b...->b...', is_first.astype(x.dtype), x)
+
+    prev_action = zero_first(prev_action)
+    prev_state = tf.nest.map_structure(
+      lambda x, y: zero_first(x) + zero_not_first(y).astype(x.dtype),
+      prev_state, self.initial(tf.shape(prev_action)[0])
+      )
+
     prior = self.img_step(prev_state, prev_action, sample)
     ###########################################################
     # replace this with slot attention
@@ -704,7 +728,8 @@ class CrossDynamics(common.Module):
     prev_action = unflatten(prev_action, 1)
 
     stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
-    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)
+    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)  # TODO: this should have no bias. 
+    # act_embed =  self.get('act_embed', tfkl.Dense, self._hidden, use_bias=False)(prev_action)  # TODO: this should have no bias. 
     context = tf.concat([stoch_embed, act_embed], 1)  # (B, K+1, H)
 
     deter = self.net(prev_deter, context)
