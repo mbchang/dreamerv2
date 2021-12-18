@@ -78,8 +78,8 @@ def create_expname(args):
         'dslate.slot_model.distributional': 'latdist',
 
         'rssm.update': 'ru',
-        'rssm.dynamics': 'rd'
-        'rssm.initial': 'ri'
+        'rssm.dynamics': 'rd',
+        'rssm.initial': 'ri',
 
 
     }
