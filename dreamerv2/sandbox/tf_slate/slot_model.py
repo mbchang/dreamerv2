@@ -120,6 +120,14 @@ class DistSlotHead(tkl.Layer):
 
 
 class SelfAttnHead(DistSlotHead):
+
+    @staticmethod
+    def defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            head=transformer.TransformerDecoder.two_blocks_eight_heads_defaults()
+            ))
+        return default_args
+
     def __init__(self, slot_size, shape, dist_cfg, cfg):
         DistSlotHead.__init__(self, slot_size, shape, dist_cfg, cfg)
         self.encoder = layers.Dense(slot_size)
@@ -146,6 +154,14 @@ class SelfAttnHead(DistSlotHead):
 
 
 class CrossAttnHead(DistSlotHead):
+
+    @staticmethod
+    def defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            head=transformer.TransformerDecoder.two_blocks_eight_heads_defaults()
+            ))
+        return default_args
+
     def __init__(self, slot_size, shape, dist_cfg, cfg):
         DistSlotHead.__init__(self, slot_size, shape, dist_cfg, cfg)
         self.encoder = layers.Dense(slot_size)
