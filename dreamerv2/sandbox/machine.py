@@ -80,7 +80,8 @@ class EnsembleRSSM(common.Module):
       raise NotImplementedError
 
     if self._initial_type == 'iid':
-      pass  # parameters of the dist
+      self.slots_mu = tf.Variable(tf.initializers.GlorotUniform()(shape=[self._deter]))
+      self.slots_log_sigma = tf.Variable(tf.initializers.GlorotUniform()(shape=[self._deter]))
     elif self._initial_type == 'fixed':
       # like position encoding
       self.initial_deter = tf.Variable(tf.random.truncated_normal((self.num_slots, self._deter)))
@@ -100,17 +101,13 @@ class EnsembleRSSM(common.Module):
           )
       if self._initial_type == 'fixed':
         deter = flatten(self.initial_deter)
-        deter = tf.cast(deter, dtype)
-        state['deter'] = state['deter'] + deter
+        state['deter'] = state['deter'] + tf.cast(deter, dtype)
       elif self._initial_type == 'iid':
-        pass
+        deter = self.slots_mu + tf.exp(self.slots_log_sigma) * tf.random.normal([batch_size, self.num_slots, self._deter])
+        deter = flatten(deter)
+        state['deter'] = state['deter'] + tf.cast(deter, dtype)
       elif self._initial_type != 'default':
         raise NotImplementedError
-
-      # if self._update_type in ['slot_attention']:#, 'slot', 'cross']:
-      #   slots = tf.cast(self.update.reset(batch_size), dtype)
-      #   state['deter'] = state['deter'] + slots.reshape((batch_size, -1))
-
     else:
       state = dict(
           mean=tf.zeros([batch_size, self._stoch], dtype),
