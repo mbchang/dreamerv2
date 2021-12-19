@@ -4781,7 +4781,7 @@ def k1_selfattn_behavior_12_17_21():
         cheetah
         simple_box4
 
-        memory cost: 8773MiB as well
+        memory cost: 10919MiB
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2, 3])
     r.add_flag('configs', ['dmc_vision'])
@@ -4816,6 +4816,60 @@ def k1_selfattn_behavior_12_17_21():
     r.add_flag('behavior_type', ['selfattn'])
 
     r.add_flag('logdir', ['runs/k1_selfattn_behavior'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'rssm.update',
+        'rssm.dynamics',
+        'rssm.initial',
+        'behavior_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def k1_crossattn_behavior_12_17_21():
+    """
+        cheetah
+        simple_box4
+
+        memory cost: 8773MiB as well
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run', 'vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.update', ['slot'])
+    r.add_flag('rssm.dynamics', ['cross'])
+    r.add_flag('rssm.initial', ['iid'])
+    r.add_flag('behavior_type', ['crossattn'])
+
+    r.add_flag('logdir', ['runs/k1_crossattn_behavior'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'rssm.update',
+        'rssm.dynamics',
+        'rssm.initial',
+        'behavior_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[4, 5])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run', 'vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.update', ['cross'])
+    r.add_flag('rssm.dynamics', ['cross'])
+    r.add_flag('rssm.initial', ['fixed'])
+    r.add_flag('behavior_type', ['crossattn'])
+
+    r.add_flag('logdir', ['runs/k1_crossattn_behavior'])
     to_watch = [
         'dataset.batch',
         'dataset.length',
@@ -4931,7 +4985,8 @@ if __name__ == '__main__':
     # k1_with_cross_dynamics_and_update_no_action_bias_12_17_21()
     # k1_learnable_fixed_init_12_17_21()
     # k1_slotattn_update_12_17_21()
-    k1_selfattn_behavior_12_17_21()
+    # k1_selfattn_behavior_12_17_21()
+    k1_crossattn_behavior_12_17_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

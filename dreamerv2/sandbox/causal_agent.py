@@ -227,15 +227,15 @@ class WorldModel(common.Module):
       self.heads['reward'] = common.MLP([], **config.reward_head)
       if config.pred_discount:
         self.heads['discount'] = common.MLP([], **config.discount_head)
-    elif self.config.behavior_type == 'selfattn':
-      # feat_dim = config.rssm.deter+config.rssm.stoch*config.rssm.discrete
-      self.heads['reward'] = sm.SelfAttnHead(
+    elif self.config.behavior_type in ['selfattn', 'crossattn']:
+      head_type = sm.SelfAttnHead if self.config.behavior_type == 'selfattn' else sm.CrossAttnHead
+      self.heads['reward'] = head_type(
         shape=[], 
         slot_size=self.config.reward_head.units,
         dist_cfg=dict(dist=self.config.reward_head.dist),
         cfg=sm.DistSlotHead.defaults())
       if config.pred_discount:
-        self.heads['discount'] = sm.SelfAttnHead(
+        self.heads['discount'] = head_type(
           shape=[], 
           slot_size=self.config.discount_head.units,
           dist_cfg=dict(dist=self.config.discount_head.dist),
@@ -534,20 +534,20 @@ class ActorCritic(common.Module):
         self._updates = tf.Variable(0, tf.int64)
       else:
         self._target_critic = self.critic
-    elif self.config.behavior_type == 'selfattn':
-      # feat_dim = self.config.rssm.deter+self.config.rssm.stoch*self.config.rssm.discrete
-      self.actor = sm.SelfAttnHead(
+    elif self.config.behavior_type in ['selfattn', 'crossattn']:
+      head_type = sm.SelfAttnHead if self.config.behavior_type == 'selfattn' else sm.CrossAttnHead
+      self.actor = head_type(
         shape=act_space.shape[0],
         slot_size=self.config.actor.units,
         dist_cfg=dict(dist=self.config.actor.dist, min_std=self.config.actor.min_std),
         cfg=sm.DistSlotHead.defaults())
-      self.critic = sm.SelfAttnHead(
+      self.critic = head_type(
         shape=[],
         slot_size=self.config.critic.units,
         dist_cfg=dict(dist=self.config.critic.dist),
         cfg=sm.DistSlotHead.defaults())
       if self.config.slow_target:
-        self._target_critic = sm.SelfAttnHead(
+        self._target_critic = head_type(
           shape=[],
           slot_size=self.config.critic.units,
           dist_cfg=dict(dist=self.config.critic.dist),

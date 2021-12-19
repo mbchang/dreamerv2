@@ -145,6 +145,37 @@ class SelfAttnHead(DistSlotHead):
         return out
 
 
+class CrossAttnHead(DistSlotHead):
+    def __init__(self, slot_size, shape, dist_cfg, cfg):
+        DistSlotHead.__init__(self, slot_size, shape, dist_cfg, cfg)
+        self.encoder = layers.Dense(slot_size)
+        # self.query = tf.Variable(tf.random.truncated_normal(
+        #     (1,) if self._shape == [] else self._shape))
+        self.query = tf.Variable(tf.random.truncated_normal((slot_size,)))
+
+    def call(self, slots):
+        """
+        x: (B K D) or (H B K D)
+
+        TODO: get rid of the hacky case analysis. Essentially you want to be able to bottle if necessary, otherwise don't bottle.
+        """
+        num_slots = 1
+        slots = eo.rearrange(slots, '... (k d) -> ... k d', k=num_slots)
+
+        slots = self.encoder(slots)
+        if len(slots.shape) == 3:
+            query = eo.repeat(self.query, 'd -> b 1 d', b=slots.shape[0])
+            x = self.head(query, slots)
+        elif len(slots.shape) == 4:
+            query = eo.repeat(self.query, 'd -> b t 1 d', b=slots.shape[0], t=slots.shape[1])
+            x = bottle(self.head)(query, slots)
+        else:
+            raise NotImplementedError
+        x = eo.rearrange(x, '... q d -> ... (q d)')  # note q = 1. Although you could use the same transformer network for multiple heads I suppose
+        out = self.out(x)
+        return out
+
+
 class SlotModel(layers.Layer):
 
     @staticmethod
