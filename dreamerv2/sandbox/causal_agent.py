@@ -231,15 +231,17 @@ class WorldModel(common.Module):
       head_type = sm.SelfAttnHead if self.config.behavior_type == 'selfattn' else sm.CrossAttnHead
       self.heads['reward'] = head_type(
         shape=[], 
-        slot_size=self.config.reward_head.units,
+        # slot_size=self.config.reward_head.units,
+        slot_size=self.config.rssm.hidden,
         dist_cfg=dict(dist=self.config.reward_head.dist),
-        cfg=sm.DistSlotHead.defaults())
+        cfg=head_type.defaults())
       if config.pred_discount:
         self.heads['discount'] = head_type(
-          shape=[], 
-          slot_size=self.config.discount_head.units,
+          shape=[],
+          # slot_size=self.config.discount_head.units,
+          slot_size=self.config.rssm.hidden,
           dist_cfg=dict(dist=self.config.discount_head.dist),
-          cfg=sm.DistSlotHead.defaults())
+          cfg=head_type.defaults())
     else:
       raise NotImplementedError
     for name in config.grad_heads:
@@ -538,20 +540,23 @@ class ActorCritic(common.Module):
       head_type = sm.SelfAttnHead if self.config.behavior_type == 'selfattn' else sm.CrossAttnHead
       self.actor = head_type(
         shape=act_space.shape[0],
-        slot_size=self.config.actor.units,
+        # slot_size=self.config.actor.units,
+        slot_size=self.config.rssm.hidden,
         dist_cfg=dict(dist=self.config.actor.dist, min_std=self.config.actor.min_std),
-        cfg=sm.DistSlotHead.defaults())
+        cfg=head_type.defaults())
       self.critic = head_type(
         shape=[],
-        slot_size=self.config.critic.units,
+        # slot_size=self.config.critic.units,
+        slot_size=self.config.rssm.hidden,
         dist_cfg=dict(dist=self.config.critic.dist),
-        cfg=sm.DistSlotHead.defaults())
+        cfg=head_type.defaults())
       if self.config.slow_target:
         self._target_critic = head_type(
           shape=[],
-          slot_size=self.config.critic.units,
+          # slot_size=self.config.critic.units,
+          slot_size=self.config.rssm.hidden,
           dist_cfg=dict(dist=self.config.critic.dist),
-          cfg=sm.DistSlotHead.defaults())
+          cfg=head_type.defaults())
         self._updates = tf.Variable(0, tf.int64)
       else:
         self._target_critic = self.critic

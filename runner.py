@@ -4884,6 +4884,38 @@ def k1_crossattn_behavior_12_17_21():
     r.generate_commands(args.for_real)
 
 
+def k1_how_much_reduction_do_we_get_with_rssmhidden_instead_of_head_units_12_17_21():
+    """
+        cheetah
+
+        memory cost: 8886MiB
+
+        ok, this is much better in terms of memory. It would be the same amount of memory usage as monolithic. 
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.update', ['slot'])
+    r.add_flag('rssm.dynamics', ['cross'])
+    r.add_flag('rssm.initial', ['iid'])
+    r.add_flag('behavior_type', ['crossattn', 'selfattn'])
+
+    r.add_flag('logdir', ['runs/k1_how_much_reduction_do_we_get_with_rssmhidden_instead_of_head_units'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'rssm.update',
+        'rssm.dynamics',
+        'rssm.initial',
+        'behavior_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -4986,7 +5018,8 @@ if __name__ == '__main__':
     # k1_learnable_fixed_init_12_17_21()
     # k1_slotattn_update_12_17_21()
     # k1_selfattn_behavior_12_17_21()
-    k1_crossattn_behavior_12_17_21()
+    # k1_crossattn_behavior_12_17_21()
+    k1_how_much_reduction_do_we_get_with_rssmhidden_instead_of_head_units_12_17_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
