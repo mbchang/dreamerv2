@@ -49,15 +49,6 @@ class SlotAttention(tkl.Layer, Factorized):
             tkl.ReLU(),
             linear(slot_size, slot_size)])
 
-        # # Parameters for Gaussian init (shared by all slots).
-        # self.slots_mu = self.add_weight(initializer="glorot_uniform", shape=[1, 1, self.slot_size])
-        # self.slots_log_sigma = self.add_weight(initializer="glorot_uniform", shape=[1, 1, self.slot_size])
-
-    # def reset(self, batch_size):
-    #     # Initialize the slots. Shape: [batch_size, num_slots, slot_size].
-    #     slots = self.slots_mu + tf.exp(self.slots_log_sigma) * tf.random.normal([batch_size, self.num_slots, self.slot_size])
-    #     return slots
-
     def call(self, inputs, slots):
         # `inputs` has shape [batch_size, num_inputs, input_size].
         # `slots` has shape [batch_size, num_slots, slot_size].
@@ -100,7 +91,7 @@ class SlotAttentionWithReset(SlotAttention):
         debug_args = SlotAttention.defaults()
         debug_args.num_iterations = 2
         return debug_args
-    
+
     @staticmethod
     def defaults():
         default_args = ml_collections.ConfigDict(dict(
