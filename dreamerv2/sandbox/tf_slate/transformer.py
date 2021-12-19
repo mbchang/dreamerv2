@@ -274,6 +274,16 @@ class TransformerDecoder(tkl.Layer):
             masked=False,
             ))
         return default_args
+
+    @staticmethod
+    def two_blocks_eight_heads_defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=2,
+            num_heads=8,
+            dropout=0.1,
+            masked=False,
+            ))
+        return default_args
     
     def __init__(self, d_model, cfg):
         super().__init__()
