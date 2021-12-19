@@ -4781,7 +4781,7 @@ def k1_selfattn_behavior_12_17_21():
         cheetah
         simple_box4
 
-        memory cost: 10919MiB
+        memory cost: 10919MiB, probably from the 4x MLP in the transformer?
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2, 3])
     r.add_flag('configs', ['dmc_vision'])
@@ -4835,7 +4835,7 @@ def k1_crossattn_behavior_12_17_21():
         cheetah
         simple_box4
 
-        memory cost: 8773MiB as well
+        memory cost: 10919MiB, probably from the 4x MLP in the transformer?
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1])
     r.add_flag('configs', ['dmc_vision'])
