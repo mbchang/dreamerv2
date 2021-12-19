@@ -71,6 +71,7 @@ defaults:
   # Testing out Encoders and Decoders
   encoder_type: 'default'
   decoder_type: 'default'
+  behavior_type: 'default'
 
   # Slot Attention
   # num_slots: 1  # not used for default

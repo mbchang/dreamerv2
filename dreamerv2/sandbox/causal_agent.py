@@ -8,6 +8,7 @@ import expl
 from sandbox import machine
 from sandbox import normalize as nmlz
 import sandbox.tf_slate.utils as slate_utils
+from sandbox.tf_slate import slot_model as sm
 
 class CausalAgent(common.Module):
 
@@ -222,9 +223,25 @@ class WorldModel(common.Module):
     else:
       raise NotImplementedError
 
-    self.heads['reward'] = common.MLP([], **config.reward_head)
-    if config.pred_discount:
-      self.heads['discount'] = common.MLP([], **config.discount_head)
+    if self.config.behavior_type == 'default':
+      self.heads['reward'] = common.MLP([], **config.reward_head)
+      if config.pred_discount:
+        self.heads['discount'] = common.MLP([], **config.discount_head)
+    elif self.config.behavior_type == 'selfattn':
+      # feat_dim = config.rssm.deter+config.rssm.stoch*config.rssm.discrete
+      self.heads['reward'] = sm.SelfAttnHead(
+        shape=[], 
+        slot_size=self.config.reward_head.units,
+        dist_cfg=dict(dist=self.config.reward_head.dist),
+        cfg=sm.DistSlotHead.defaults())
+      if config.pred_discount:
+        self.heads['discount'] = sm.SelfAttnHead(
+          shape=[], 
+          slot_size=self.config.discount_head.units,
+          dist_cfg=dict(dist=self.config.discount_head.dist),
+          cfg=sm.DistSlotHead.defaults())
+    else:
+      raise NotImplementedError
     for name in config.grad_heads:
       assert name in self.heads, name
     self.model_opt = common.Optimizer('model', **config.model_opt)
@@ -299,6 +316,7 @@ class WorldModel(common.Module):
     for name, head in self.heads.items():
       grad_head = (name in self.config.grad_heads)
       inp = feat if grad_head else tf.stop_gradient(feat)
+      # import ipdb;ipdb.set_trace(context=20)
       out = head(inp)
       dists = out if isinstance(out, dict) else {name: out}
       for key, dist in dists.items():
@@ -508,13 +526,37 @@ class ActorCritic(common.Module):
     if self.config.actor_grad == 'auto':
       self.config = self.config.update({
           'actor_grad': 'reinforce' if discrete else 'dynamics'})
-    self.actor = common.MLP(act_space.shape[0], **self.config.actor)
-    self.critic = common.MLP([], **self.config.critic)
-    if self.config.slow_target:
-      self._target_critic = common.MLP([], **self.config.critic)
-      self._updates = tf.Variable(0, tf.int64)
+    if self.config.behavior_type == 'default':
+      self.actor = common.MLP(act_space.shape[0], **self.config.actor)
+      self.critic = common.MLP([], **self.config.critic)
+      if self.config.slow_target:
+        self._target_critic = common.MLP([], **self.config.critic)
+        self._updates = tf.Variable(0, tf.int64)
+      else:
+        self._target_critic = self.critic
+    elif self.config.behavior_type == 'selfattn':
+      # feat_dim = self.config.rssm.deter+self.config.rssm.stoch*self.config.rssm.discrete
+      self.actor = sm.SelfAttnHead(
+        shape=act_space.shape[0],
+        slot_size=self.config.actor.units,
+        dist_cfg=dict(dist=self.config.actor.dist, min_std=self.config.actor.min_std),
+        cfg=sm.DistSlotHead.defaults())
+      self.critic = sm.SelfAttnHead(
+        shape=[],
+        slot_size=self.config.critic.units,
+        dist_cfg=dict(dist=self.config.critic.dist),
+        cfg=sm.DistSlotHead.defaults())
+      if self.config.slow_target:
+        self._target_critic = sm.SelfAttnHead(
+          shape=[],
+          slot_size=self.config.critic.units,
+          dist_cfg=dict(dist=self.config.critic.dist),
+          cfg=sm.DistSlotHead.defaults())
+        self._updates = tf.Variable(0, tf.int64)
+      else:
+        self._target_critic = self.critic
     else:
-      self._target_critic = self.critic
+      raise NotImplementedError
     self.actor_opt = common.Optimizer('actor', **self.config.actor_opt)
     self.critic_opt = common.Optimizer('critic', **self.config.critic_opt)
     self.rewnorm = common.StreamNorm(**self.config.reward_norm)

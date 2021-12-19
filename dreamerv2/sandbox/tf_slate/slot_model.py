@@ -94,6 +94,7 @@ class DistSlotHead(tkl.Layer):
 
     def __init__(self, slot_size, shape, dist_cfg, cfg):
         super().__init__()
+        self.slot_size = slot_size
         self._shape = (shape,) if isinstance(shape, int) else shape
         self.head = transformer.TransformerDecoder(slot_size, cfg.head)
         self.out = machine.DistLayer(self._shape, **dist_cfg)
@@ -104,6 +105,35 @@ class DistSlotHead(tkl.Layer):
 
         TODO: get rid of the hacky case analysis. Essentially you want to be able to bottle if necessary, otherwise don't bottle.
         """
+        # if len(slots.shape) == 2:
+        #     num_slots = 1
+        #     slots = eo.rearrange(x, '... (k d) -> ... k d', k=num_slots)
+        if len(slots.shape) == 3:
+            x = self.head(slots, slots)
+        elif len(slots.shape) == 4:
+            x = bottle(self.head)(slots, slots)
+        else:
+            raise NotImplementedError
+        x = eo.reduce(x, '... k d -> ... d', 'mean')
+        out = self.out(x)
+        return out
+
+
+class SelfAttnHead(DistSlotHead):
+    def __init__(self, slot_size, shape, dist_cfg, cfg):
+        DistSlotHead.__init__(self, slot_size, shape, dist_cfg, cfg)
+        self.encoder = layers.Dense(slot_size)
+
+    def call(self, slots):
+        """
+        x: (B K D) or (H B K D)
+
+        TODO: get rid of the hacky case analysis. Essentially you want to be able to bottle if necessary, otherwise don't bottle.
+        """
+        num_slots = 1
+        slots = eo.rearrange(slots, '... (k d) -> ... k d', k=num_slots)
+
+        slots = self.encoder(slots)
         if len(slots.shape) == 3:
             x = self.head(slots, slots)
         elif len(slots.shape) == 4:
