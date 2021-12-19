@@ -351,6 +351,13 @@ class Encoder(common.Module):
       (B*T, 6, 6, 16)
       (B*T, 2, 2, 32)
       (B*T, 2*2*32) = (B*T, 128)
+
+      actual:
+      (B*T, 64, 64, 3)
+      (B*T, 31, 31, 48)
+      (B*T, 14, 14, 96)
+      (B*T, 6, 6, 192)
+      (B*T, 2, 2, 384) = (B*T, 1536)
     """
     x = tf.concat(list(data.values()), -1)  # (B*T, H, W, C)
     x = x.astype(prec.global_policy().compute_dtype)
@@ -359,7 +366,8 @@ class Encoder(common.Module):
       x = self.get(f'conv{i}', tfkl.Conv2D, depth, kernel, 2)(x)
       x = self.get(f'convnorm{i}', NormLayer, self._norm)(x)
       x = self._act(x)
-    return x.reshape(tuple(x.shape[:-3]) + (-1,))
+    # return x.reshape(tuple(x.shape[:-3]) + (-1,))
+    return eo.rearrange(x, '... h w c -> ... (h w c)')
 
   def _mlp(self, data):
     x = tf.concat(list(data.values()), -1)
@@ -444,11 +452,24 @@ class Decoder(common.Module):
       1 (B, 13, 13, 8)
       2 (B, 30, 30, 4)
       3 (B, 64, 64, 3)
+
+      actual:
+
+      features: (B, T, deter + num_tokens * stoch_size)
+      x: (B, T, 1536)
+      x: (B*T, 1, 1, 1536)
+      x: (B*T, 5, 5, 192)
+      x: (B*T, 13, 13, 96)
+      x: (B*T, 30, 30, 48)
+      x: (B*T, 64, 64, 3)
+      x: (B, T, 64, 64, 3)
+      means: [(B, T, 64, 64, 3)]
     """
     channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
     ConvT = tfkl.Conv2DTranspose
     x = self.get('convin', tfkl.Dense, 32 * self._cnn_depth)(features)
-    x = tf.reshape(x, [-1, 1, 1, 32 * self._cnn_depth])
+    # x = tf.reshape(x, [-1, 1, 1, 32 * self._cnn_depth])
+    x = eo.rearrange(x, '... d -> (...) 1 1 d')
     for i, kernel in enumerate(self._cnn_kernels):
       depth = 2 ** (len(self._cnn_kernels) - i - 2) * self._cnn_depth
       act, norm = self._act, self._norm
