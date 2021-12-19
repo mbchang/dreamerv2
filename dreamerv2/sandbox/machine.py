@@ -366,7 +366,6 @@ class Encoder(common.Module):
       x = self.get(f'conv{i}', tfkl.Conv2D, depth, kernel, 2)(x)
       x = self.get(f'convnorm{i}', NormLayer, self._norm)(x)
       x = self._act(x)
-    # return x.reshape(tuple(x.shape[:-3]) + (-1,))
     return eo.rearrange(x, '... h w c -> ... (h w c)')
 
   def _mlp(self, data):
@@ -468,7 +467,6 @@ class Decoder(common.Module):
     channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
     ConvT = tfkl.Conv2DTranspose
     x = self.get('convin', tfkl.Dense, 32 * self._cnn_depth)(features)
-    # x = tf.reshape(x, [-1, 1, 1, 32 * self._cnn_depth])
     x = eo.rearrange(x, '... d -> (...) 1 1 d')
     for i, kernel in enumerate(self._cnn_kernels):
       depth = 2 ** (len(self._cnn_kernels) - i - 2) * self._cnn_depth
