@@ -4745,6 +4745,36 @@ def k1_learnable_fixed_init_12_17_21():
     r.add_flag('watch', [' '.join(to_watch)])
     r.generate_commands(args.for_real)
 
+def k1_slotattn_update_12_17_21():
+    """
+        cheetah
+        simple_box4
+
+        memory cost: 8773MiB as well
+
+        the memory cost is the same as that for monolithic dreamer too, for all variations
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 2, 3, 4, 5, 6, 7])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run', 'vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.update', ['slot'])
+    r.add_flag('rssm.dynamics', ['cross', 'default'])
+    r.add_flag('rssm.initial', ['iid', 'fixed'])
+
+    r.add_flag('logdir', ['runs/k1_slotattn_update'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'rssm.update',
+        'rssm.dynamics',
+        'rssm.initial',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -4845,7 +4875,8 @@ if __name__ == '__main__':
     # k1_with_cross_update_12_17_21()
     # monolithic_check_memory_12_17_21()
     # k1_with_cross_dynamics_and_update_no_action_bias_12_17_21()
-    k1_learnable_fixed_init_12_17_21()
+    # k1_learnable_fixed_init_12_17_21()
+    k1_slotattn_update_12_17_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

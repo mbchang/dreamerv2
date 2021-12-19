@@ -76,6 +76,8 @@ class EnsembleRSSM(common.Module):
       # NOTE that I am treating self._deter = self._hidden
     elif self._update_type == 'cross':
       self.update = CrossUpdate(self._hidden, self._act, self._norm)
+    elif self._update_type == 'slot':
+      self.update = SlotUpdate(self._hidden, self._act, self._norm)
     else:
       raise NotImplementedError
 
@@ -873,6 +875,29 @@ class CrossUpdate(common.Module):
     x = self._act(x)
     x = flatten(x)  # take out later
     return x
+
+
+class SlotUpdate(common.Module):
+  def __init__(self, hidden, act, norm):
+    self._hidden = hidden
+    self._act = act
+    self._norm = norm
+
+    self.slot_attn = slot_attn.SlotAttention(
+      self._hidden, 
+      slot_attn.SlotAttention.savi_defaults())
+
+  def __call__(self, deter, embed):
+    """
+      deter: (B, deter_dim)
+      embed: (B, embed_dim)
+    """
+    num_slots = 1
+    deter, embed = map(lambda x: unflatten(x, num_slots), [deter, embed])  # take out later
+    x, attns = self.slot_attn(embed, deter)
+    x = flatten(x)  # take out later
+    return x
+
 
 class SlimAttentionUpdate(common.Module):
   def __init__(self, deter, act, norm, embed_dim, num_slots):

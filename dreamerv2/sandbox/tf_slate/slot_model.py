@@ -167,7 +167,7 @@ class SlotModel(layers.Layer):
             linear(args.d_model, args.d_model)])
 
         # recurrent: replace this with rssm
-        self.slot_attn = slot_attn.SlotAttention(args.slot_size, args.slot_attn)
+        self.slot_attn = slot_attn.SlotAttentionWithReset(args.slot_size, args.slot_attn)
         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
 
         # decoder
