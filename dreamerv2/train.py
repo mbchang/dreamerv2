@@ -288,14 +288,15 @@ def main():
     length=config.eval_dataset.length)))
   #############################################################
   # maybe use the mirrored strategy here? 
-  if config.agent == 'dv2':
-    import agent
-    agnt = agent.Agent(config, obs_space, act_space, step)
-  elif config.agent == 'causal':
-    from sandbox import causal_agent
-    agnt = causal_agent.CausalAgent(config, obs_space, act_space, step)
-  else:
-    raise NotImplementedError
+  with strategy.scope():
+    if config.agent == 'dv2':
+      import agent
+      agnt = agent.Agent(config, obs_space, act_space, step)
+    elif config.agent == 'causal':
+      from sandbox import causal_agent
+      agnt = causal_agent.CausalAgent(config, obs_space, act_space, step)
+    else:
+      raise NotImplementedError
   #############################################################
   train_agent = common.CarryOverState(agnt.train)
   train_agent(next(train_dataset))
@@ -338,6 +339,7 @@ def main():
   train_driver.on_step(train_step)
 
   # maybe here you can pass the distributed_train_step into the train_driver?
+  #     loss = mirrored_strategy.run(train_step, args=(next(dist_iterator),))
 
   while step < config.steps:
     logger.write()
