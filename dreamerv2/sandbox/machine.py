@@ -358,6 +358,16 @@ class Encoder(common.Module):
       (B*T, 14, 14, 96)
       (B*T, 6, 6, 192)
       (B*T, 2, 2, 384) = (B*T, 1536)
+
+      what I'd want
+
+      (B*T, 64, 64, 3)
+      (B*T, 31, 31, 48)
+      (B*T, 14, 14, 96)
+      position encoding
+      (B*T, 14, 14, 96)
+      (B*T, 14, 14, 96)
+
     """
     x = tf.concat(list(data.values()), -1)  # (B*T, H, W, C)
     x = x.astype(prec.global_policy().compute_dtype)
@@ -382,7 +392,7 @@ TODO:
   - make resolution, outdim configurable
   - take out reshaping for slots
 """
-class SlotEncoder(Encoder):
+class PreviousSlotEncoder(Encoder):
   def __init__(self, shapes, encoder_type, outdim, **kwargs):
     super().__init__(shapes, **kwargs)
     if encoder_type == 'slimslot':
@@ -500,7 +510,7 @@ TODO:
   - make the output shape of the decoder configurable
   - take out reshaping for slots
 """
-class SlotDecoder(Decoder):
+class PreviousSlotDecoder(Decoder):
   def __init__(self, shapes, indim, decoder_type, **kwargs):
     super().__init__(shapes, **kwargs)
     self.indim = indim

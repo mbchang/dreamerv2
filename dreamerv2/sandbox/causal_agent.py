@@ -209,7 +209,7 @@ class WorldModel(common.Module):
     if config.encoder_type == 'default':
       self.encoder = machine.Encoder(shapes, **config.encoder)
     elif config.encoder_type in ['slot', 'slimslot', 'slimmerslot']:
-      self.encoder = machine.SlotEncoder(shapes, config.encoder_type, config.rssm.embed_dim, **config.encoder)
+      self.encoder = machine.PreviousSlotEncoder(shapes, config.encoder_type, config.rssm.embed_dim, **config.encoder)
     else:
       raise NotImplementedError
 
@@ -219,7 +219,7 @@ class WorldModel(common.Module):
       self.heads['decoder'] = machine.Decoder(shapes, **config.decoder)
     elif config.decoder_type in ['slot', 'slimmerslot']:
       decoder_in_dim = config.rssm.deter//self.config.rssm.num_slots + config.rssm.stoch//self.config.rssm.num_slots * config.rssm.discrete
-      self.heads['decoder'] = machine.SlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
+      self.heads['decoder'] = machine.PreviousSlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
     else:
       raise NotImplementedError
 
