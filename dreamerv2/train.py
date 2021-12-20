@@ -347,11 +347,6 @@ def main():
       wandb.log({'fps': logger._compute_fps()}, step=step.value)
   train_driver.on_step(train_step)
 
-
-      #  per_replica_result = my_strategy.run(replica_fn, args=(x,))
-      # total_result += my_strategy.reduce(tf.distribute.ReduceOp.SUM,
-      #                                    per_replica_result, axis=None) 
-
   while step < config.steps:
     logger.write()
     lgr.info('Start evaluation.')
