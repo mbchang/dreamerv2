@@ -275,6 +275,7 @@ def main():
     train_driver.reset()
     eval_driver.reset()
 
+  # NOTE: you would create the distributed dataset before you call iter
   lgr.info('Create agent.')
   train_dataset = iter(train_replay.dataset(**config.dataset))
   # report_dataset = iter(train_replay.dataset(**config.dataset))
@@ -335,6 +336,8 @@ def main():
       logger.write(fps=True)
       wandb.log({'fps': logger._compute_fps()}, step=step.value)
   train_driver.on_step(train_step)
+
+  # maybe here you can pass the distributed_train_step into the train_driver?
 
   while step < config.steps:
     logger.write()
