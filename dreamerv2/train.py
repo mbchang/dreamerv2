@@ -275,14 +275,14 @@ def main():
     train_driver.reset()
     eval_driver.reset()
 
+  strategy = tf.distribute.get_strategy()
+
   # NOTE: you would create the distributed dataset before you call iter
   lgr.info('Create agent.')
   train_dataset = iter(train_replay.dataset(**config.dataset))
-  # report_dataset = iter(train_replay.dataset(**config.dataset))
   report_dataset = iter(train_replay.dataset(
     batch=config.eval_dataset.batch,
     length=config.eval_dataset.length))
-  # eval_dataset = iter(eval_replay.dataset(**config.dataset))
   eval_dataset = iter(train_replay.dataset(
     batch=config.eval_dataset.batch,
     length=config.eval_dataset.length))
