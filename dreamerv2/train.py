@@ -279,13 +279,20 @@ def main():
 
   # NOTE: you would create the distributed dataset before you call iter
   lgr.info('Create agent.')
-  train_dataset = iter(train_replay.dataset(**config.dataset))
-  report_dataset = iter(train_replay.dataset(
+  # train_dataset = iter(train_replay.dataset(**config.dataset))
+  # report_dataset = iter(train_replay.dataset(
+  #   batch=config.eval_dataset.batch,
+  #   length=config.eval_dataset.length))
+  # eval_dataset = iter(train_replay.dataset(
+  #   batch=config.eval_dataset.batch,
+  #   length=config.eval_dataset.length))
+  train_dataset = iter(strategy.experimental_distribute_dataset(train_replay.dataset(**config.dataset)))
+  report_dataset = iter(strategy.experimental_distribute_dataset(train_replay.dataset(
     batch=config.eval_dataset.batch,
-    length=config.eval_dataset.length))
-  eval_dataset = iter(train_replay.dataset(
+    length=config.eval_dataset.length)))
+  eval_dataset = iter(strategy.experimental_distribute_dataset(train_replay.dataset(
     batch=config.eval_dataset.batch,
-    length=config.eval_dataset.length))
+    length=config.eval_dataset.length)))
   #############################################################
   # maybe use the mirrored strategy here? 
   if config.agent == 'dv2':
