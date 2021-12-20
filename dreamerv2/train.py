@@ -275,20 +275,20 @@ def main():
     train_driver.reset()
     eval_driver.reset()
 
-  strategy = tf.distribute.get_strategy()
+  strategy = tf.distribute.get_strategy()  # DISTRIBUTED
 
   # NOTE: you would create the distributed dataset before you call iter
   lgr.info('Create agent.')
-  train_dataset = iter(strategy.experimental_distribute_dataset(train_replay.dataset(**config.dataset)))
+  train_dataset = iter(strategy.experimental_distribute_dataset(train_replay.dataset(**config.dataset)))  # DISTRIBUTED
   report_dataset = iter(strategy.experimental_distribute_dataset(train_replay.dataset(
     batch=config.eval_dataset.batch,
-    length=config.eval_dataset.length)))
+    length=config.eval_dataset.length)))  # DISTRIBUTED
   eval_dataset = iter(strategy.experimental_distribute_dataset(train_replay.dataset(
     batch=config.eval_dataset.batch,
-    length=config.eval_dataset.length)))
+    length=config.eval_dataset.length)))  # DISTRIBUTED
   #############################################################
   # maybe use the mirrored strategy here? 
-  with strategy.scope():
+  with strategy.scope():  # DISTRIBUTED
     if config.agent == 'dv2':
       import agent
       agnt = agent.Agent(config, obs_space, act_space, step)
@@ -306,7 +306,8 @@ def main():
   else:
     lgr.info('Pretrain agent.')
     for _ in range(config.pretrain):
-      train_agent(next(train_dataset))
+      # train_agent(next(train_dataset))
+      strategy.run(train_agent, args=(next(train_dataset),))
   train_policy = lambda *args: agnt.policy(
       *args, mode='explore' if should_expl(step) else 'train')
   eval_policy = lambda *args: agnt.policy(*args, mode='eval')
@@ -338,9 +339,6 @@ def main():
       wandb.log({'fps': logger._compute_fps()}, step=step.value)
   train_driver.on_step(train_step)
 
-  # maybe here you can pass the distributed_train_step into the train_driver?
-  #     loss = mirrored_strategy.run(train_step, args=(next(dist_iterator),))
-
   while step < config.steps:
     logger.write()
     lgr.info('Start evaluation.')
@@ -348,9 +346,11 @@ def main():
     wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
     logger.add({key: report[key] for key in report if 'openl' in key}, prefix='eval')
     # logger.add(report, prefix='eval')
-    eval_driver(eval_policy, episodes=config.eval_eps)
+    # eval_driver(eval_policy, episodes=config.eval_eps)
+    strategy.run(eval_driver, kwargs=dict(policy=eval_policy, episodes=config.eval_eps))  # DISTRIBUTED
     lgr.info('Start training.')
-    train_driver(train_policy, steps=config.eval_every)
+    # train_driver(train_policy, steps=config.eval_every)
+    strategy.run(train_driver, kwargs=dict(policy=train_policy, steps=config.eval_every))  # DISTRIBUTED
     agnt.save(logdir / 'variables.pkl')
     agnt.wm.save(logdir / 'wm_variables.pkl')
   for env in train_envs + eval_envs:
