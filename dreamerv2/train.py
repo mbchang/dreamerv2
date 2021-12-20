@@ -359,10 +359,8 @@ def main():
     logger.add({key: report[key] for key in report if 'openl' in key}, prefix='eval')
     # logger.add(report, prefix='eval')
     eval_driver(eval_policy, episodes=config.eval_eps)
-    # strategy.run(eval_driver, kwargs=dict(policy=eval_policy, episodes=config.eval_eps))  # DISTRIBUTED
     lgr.info('Start training.')
     train_driver(train_policy, steps=config.eval_every)
-    # strategy.run(train_driver, kwargs=dict(policy=train_policy, steps=config.eval_every))  # DISTRIBUTED
     agnt.save(logdir / 'variables.pkl')
     agnt.wm.save(logdir / 'wm_variables.pkl')
   for env in train_envs + eval_envs:
