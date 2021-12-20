@@ -33,6 +33,7 @@ defaults:
   watch: [dataset.batch, dataset.length]
   debug: False
   load_from: ''
+  data_parallel: False
 
   eval_dataset: {batch: 6, seed_steps: 5, length: 50}
 

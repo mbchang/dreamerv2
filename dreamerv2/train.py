@@ -109,8 +109,8 @@ def main():
   # initialize lgr
   lgr.remove()   # remove default handler
   lgr.add(os.path.join(logdir, 'debug.log'))
-  if not config.headless:
-    lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
+  # if not config.headless:
+  lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
 
   # initialize wandb
   import wandb
@@ -275,7 +275,10 @@ def main():
     train_driver.reset()
     eval_driver.reset()
 
-  strategy = tf.distribute.get_strategy()  # DISTRIBUTED
+  if config.data_parallel:
+    strategy = tf.distribute.MirroredStrategy()  # DISTRIBUTED
+  else:
+    strategy = tf.distribute.get_strategy()  # DISTRIBUTED
 
   # NOTE: you would create the distributed dataset before you call iter
   lgr.info('Create agent.')
@@ -299,7 +302,8 @@ def main():
       raise NotImplementedError
   #############################################################
   train_agent = common.CarryOverState(agnt.train)
-  train_agent(next(train_dataset))
+  # train_agent(next(train_dataset))
+  strategy.run(train_agent, args=(next(train_dataset),))  # DISTRIBUTED
   if config.load_from and (pathlib.Path(config.load_from) / 'variables.pkl').exists():
     agnt.load(pathlib.Path(config.load_from) / 'variables.pkl')
     lgr.info(f'Loaded pretrained agent from: {config.load_from}')
@@ -307,7 +311,7 @@ def main():
     lgr.info('Pretrain agent.')
     for _ in range(config.pretrain):
       # train_agent(next(train_dataset))
-      strategy.run(train_agent, args=(next(train_dataset),))
+      strategy.run(train_agent, args=(next(train_dataset),))  # DISTRIBUTED
   train_policy = lambda *args: agnt.policy(
       *args, mode='explore' if should_expl(step) else 'train')
   eval_policy = lambda *args: agnt.policy(*args, mode='eval')
@@ -316,7 +320,9 @@ def main():
     if should_train(step):
       for _ in range(config.train_steps):
         t0 = time.time()
-        mets = train_agent(next(train_dataset))
+        # mets = train_agent(next(train_dataset))
+        mets = strategy.run(train_agent, args=(next(train_dataset),))  # DISTRIBUTED
+        mets = {key: strategy.reduce(tf.distribute.ReduceOp.MEAN, mets[key], axis=None) for key in mets}  # DISTRIBUTED
         [metrics[key].append(value) for key, value in mets.items()]
     if should_log(step):
       lgr.debug(f'Env step {step.value}: a train step took {time.time()-t0} seconds.')
@@ -331,7 +337,9 @@ def main():
       if config.wm == 'dslate':
         agnt.wm.log_weights(step)
       #############################################################
-      report = agnt.report(next(report_dataset))
+      # report = agnt.report(next(report_dataset))
+      report = strategy.run(agnt.report, args=(next(report_dataset),))  # DISTRIBUTED
+      report = {key: strategy.reduce(tf.distribute.ReduceOp.MEAN, report[key], axis=None) for key in report}  # DISTRIBUTED
       wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
       logger.add({key: report[key] for key in report if 'openl' in key}, prefix='train')
       # logger.add(report, prefix='train')
@@ -339,18 +347,27 @@ def main():
       wandb.log({'fps': logger._compute_fps()}, step=step.value)
   train_driver.on_step(train_step)
 
+
+      #  per_replica_result = my_strategy.run(replica_fn, args=(x,))
+      # total_result += my_strategy.reduce(tf.distribute.ReduceOp.SUM,
+      #                                    per_replica_result, axis=None) 
+
   while step < config.steps:
     logger.write()
     lgr.info('Start evaluation.')
-    report = agnt.report(next(eval_dataset))
+    # report = agnt.report(next(eval_dataset))
+    ########################################
+    report = strategy.run(agnt.report, args=(next(eval_dataset),))
+    report = {key: strategy.reduce(tf.distribute.ReduceOp.MEAN, report[key], axis=None) for key in report}
+    ########################################
     wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
     logger.add({key: report[key] for key in report if 'openl' in key}, prefix='eval')
     # logger.add(report, prefix='eval')
-    # eval_driver(eval_policy, episodes=config.eval_eps)
-    strategy.run(eval_driver, kwargs=dict(policy=eval_policy, episodes=config.eval_eps))  # DISTRIBUTED
+    eval_driver(eval_policy, episodes=config.eval_eps)
+    # strategy.run(eval_driver, kwargs=dict(policy=eval_policy, episodes=config.eval_eps))  # DISTRIBUTED
     lgr.info('Start training.')
-    # train_driver(train_policy, steps=config.eval_every)
-    strategy.run(train_driver, kwargs=dict(policy=train_policy, steps=config.eval_every))  # DISTRIBUTED
+    train_driver(train_policy, steps=config.eval_every)
+    # strategy.run(train_driver, kwargs=dict(policy=train_policy, steps=config.eval_every))  # DISTRIBUTED
     agnt.save(logdir / 'variables.pkl')
     agnt.wm.save(logdir / 'wm_variables.pkl')
   for env in train_envs + eval_envs:
