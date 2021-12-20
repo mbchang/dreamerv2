@@ -82,6 +82,8 @@ def create_expname(args):
         'rssm.initial': 'ri',
         'behavior_type': 'b',
 
+        'data_parallel': 'dp',
+
 
     }
     watcher = watch(args.watch, abbrvs)

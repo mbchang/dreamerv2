@@ -109,8 +109,8 @@ def main():
   # initialize lgr
   lgr.remove()   # remove default handler
   lgr.add(os.path.join(logdir, 'debug.log'))
-  # if not config.headless:
-  lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
+  if not config.headless:
+    lgr.add(sys.stdout, colorize=True, format="<green>{time}</green> <level>{message}</level>")
 
   # initialize wandb
   import wandb
