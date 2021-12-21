@@ -6,6 +6,7 @@ from utils import *
 
 from einops import rearrange
 import ml_collections
+import numpy as np
 import tensorflow as tf
 import tensorflow.keras.layers as tkl
 
@@ -71,6 +72,24 @@ class PositionalEncoding(tkl.Layer):
         """
         T = input.shape[1]
         return self.dropout(input + self.pe[:, :T], training=training)
+
+
+class GridPositionalEncoding(tkl.Layer):
+
+    def __init__(self, resolution, dim, dropout=0.1):
+        super().__init__()
+        self.dropout = tkl.Dropout(dropout)
+        self.pe = self.add_weight(
+          initializer="truncated_normal",
+          shape=[1, *resolution, dim])
+
+    def call(self, input, training=False):
+        """
+        input: batch_size x h x w x dim
+        return: batch_size x h x w x dim
+        """
+        return self.dropout(input + self.pe, training=training)
+
 
 
 class TransformerEncoderBlock(nn.Module):
