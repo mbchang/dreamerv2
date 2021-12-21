@@ -10,6 +10,26 @@ from sandbox import normalize as nmlz
 import sandbox.tf_slate.utils as slate_utils
 from sandbox.tf_slate import slot_model as sm
 
+
+def encoder_interface(embed, config):
+    ###########################################################
+    # encoder to latent?
+    # import ipdb;ipdb.set_trace(context=20)
+    if 'grid' in config.encoder_type:
+      # embed: ... H, W, C
+      if config.rssm.update_type in ['slot', 'cross']:
+        embed = rearrange(embed, '... h w c -> ... (h w) c')
+      else:
+        embed = rearrange(embed, '... h w c -> ... (h w c)')
+    else:
+      # embed: ... (H W C)
+      if config.rssm.update_type in ['slot', 'cross']:
+        embed = rearrange(embed, '... d -> ... 1 d')
+      else:
+        pass  # nothing
+    ###########################################################
+    return embed
+
 class CausalAgent(common.Module):
 
   def __init__(self, config, obs_space, act_space, step):
@@ -80,6 +100,7 @@ class CausalAgent(common.Module):
       embed = self.wm.encoder(self.wm.preprocess(obs))
       ###########################################################
       # encoder to latent?
+      embed = encoder_interface(embed, self.config)
       ###########################################################
       sample = (mode == 'train') or not self.config.eval_state_mean
 
@@ -210,6 +231,17 @@ class WorldModel(common.Module):
       self.encoder = machine.Encoder(shapes, **config.encoder)
     elif config.encoder_type in ['slot', 'slimslot', 'slimmerslot']:
       self.encoder = machine.PreviousSlotEncoder(shapes, config.encoder_type, config.rssm.embed_dim, **config.encoder)
+    elif 'grid' in config.encoder_type:
+      assert self.config.encoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
+      """
+      grid_default
+      grid_dvweak
+      grid_dvstrong
+      grid_sa
+      grid_saslim
+      grid_sadebug
+      """
+      self.encoder = machine.GridEncoder(shapes, config.encoder_type, config.pos_encode_type, config.rssm.embed_dim, **config.encoder)
     else:
       raise NotImplementedError
 
@@ -302,6 +334,7 @@ class WorldModel(common.Module):
     embed = self.encoder(data)
     ###########################################################
     # encoder to latent?
+    embed = encoder_interface(embed, self.config)
     ###########################################################
     post, prior = self.rssm.observe(
         embed, data['action'], data['is_first'], state)
@@ -416,6 +449,10 @@ class WorldModel(common.Module):
     decoder = self.heads['decoder']
     truth = nmlz.uncenter(data[key][:n])
     embed = self.encoder(data)
+    ###########################################################
+    # encoder to latent?
+    embed = encoder_interface(embed, self.config)
+    ###########################################################
     states, _ = self.rssm.observe(
         embed[:n, :t], data['action'][:n, :t], data['is_first'][:n, :t])
     post_feat = self.rssm.get_feat(states)
@@ -458,6 +495,10 @@ class WorldModel(common.Module):
     decoder = self.heads['decoder']
     truth = nmlz.uncenter(data[key][:n])
     embed = self.encoder(data)
+    ###########################################################
+    # encoder to latent?
+    embed = encoder_interface(embed, self.config)
+    ###########################################################
     states, _ = self.rssm.observe(
         embed[:n, :t], data['action'][:n, :t], data['is_first'][:n, :t])
     post_feat = self.rssm.get_feat(states)

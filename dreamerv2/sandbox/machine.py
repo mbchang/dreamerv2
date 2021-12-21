@@ -14,7 +14,7 @@ from sandbox import attention, slot_attention
 # import pathlib
 # import sys
 # sys.path.append(str(pathlib.Path(__file__).parent / 'sandbox' / 'tf_slate'))
-from sandbox.tf_slate import transformer, slot_attn
+from sandbox.tf_slate import transformer, slot_attn, dvae
 
 
 ########################################################################
@@ -34,7 +34,7 @@ class EnsembleRSSM(common.Module):
 
   def __init__(
       self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics='default', update='default', initial='default', embed_dim=16, num_slots=1):
+      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics_type='default', update_type='default', initial_type='default', embed_dim=16, num_slots=1):
     super().__init__()
     self._ensemble = ensemble
     self._stoch = stoch
@@ -48,10 +48,10 @@ class EnsembleRSSM(common.Module):
     self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
 
     self.num_slots = num_slots
-    self._dynamics_type = dynamics
-    self._update_type = update
+    self._dynamics_type = dynamics_type
+    self._update_type = update_type
     self._embed_dim = embed_dim
-    self._initial_type = initial
+    self._initial_type = initial_type
 
     if self._dynamics_type == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
@@ -415,6 +415,56 @@ class PreviousSlotEncoder(Encoder):
     x = self.encoder(x)
     # hacky reshape just for testing
     x = x.reshape(tuple(x.shape[:-2]) + (-1,))  # TODO: this should actually be given by config
+    return x
+
+
+class GridEncoder(Encoder):
+  def __init__(self, shapes, encoder_type, pos_encode_type, outdim, **kwargs):
+    super().__init__(shapes, **kwargs)
+    if encoder_type == 'grid_default':
+      pass
+    elif encoder_type == 'grid_dvweak':
+      self.encoder = dvae.dVAEWeakEncoder(in_channels=3, out_channels=outdim)
+      # TODO: you need to add position embedding to this! 
+    elif encoder_type == 'grid_dvstrong':
+      self.encoder = dvae.dVAEStrongEncoder(in_channels=3, out_channels=outdim)
+      # TODO: you need to add position embedding to this! 
+    elif encoder_type == 'grid_sa':
+      pass
+    elif encoder_type == 'grid_saslim':
+      pass
+    elif encoder_type == 'grid_sadebug':
+      pass
+    else:
+      raise NotImplementedError
+
+    if pos_encode_type == 'slate':
+      self.position_encoding = transformer.GridPositionalEncoding(
+        resolution=(16,16), dim=outdim, dropout=0.1)
+    elif pos_encode_type == 'slotattn':
+      pass
+    elif pos_encode_type == 'sinusoid':
+      pass
+    elif pos_encode_type == 'none':
+      self.position_encoding = lambda x: x
+    else:
+      raise NotImplementedError
+
+    self.token_mlp = tf.keras.Sequential([
+        tfkl.Dense(outdim, kernel_initializer='he_uniform'),
+        tfkl.ReLU(),
+        tfkl.Dense(outdim, kernel_initializer='he_uniform')])
+
+
+    # then there is the tokenwise MLP. But note that that tokenwise MLP is not used for the target in slate
+
+  def _cnn(self, data):
+    """
+    """
+    x = tf.concat(list(data.values()), -1)  # (B*T, H, W, C)
+    x = x.astype(prec.global_policy().compute_dtype)
+    x = self.encoder(x)  # (B*T, H, W, D)
+    x = self.token_mlp(self.position_encoding(x))
     return x
 
 
@@ -896,10 +946,10 @@ class CrossUpdate(common.Module):
   def __call__(self, deter, embed):
     """
       deter: (B, deter_dim)
-      embed: (B, embed_dim)
+      embed: (B, S, embed_dim)
     """
     num_slots = 1
-    deter, embed = map(lambda x: unflatten(x, num_slots), [deter, embed])  # take out later
+    deter = unflatten(deter, num_slots)
     x = self.net(deter, embed)
     x = self._act(x)
     x = flatten(x)  # take out later
@@ -919,10 +969,10 @@ class SlotUpdate(common.Module):
   def __call__(self, deter, embed):
     """
       deter: (B, deter_dim)
-      embed: (B, embed_dim)
+      embed: (B, S, embed_dim)
     """
     num_slots = 1
-    deter, embed = map(lambda x: unflatten(x, num_slots), [deter, embed])  # take out later
+    deter = unflatten(deter, num_slots)
     x, attns = self.slot_attn(embed, deter)
     x = flatten(x)  # take out later
     return x
