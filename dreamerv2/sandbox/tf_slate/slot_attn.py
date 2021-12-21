@@ -88,7 +88,7 @@ class SlotAttention(tkl.Layer, Factorized):
 class SlotAttentionWithReset(SlotAttention):
     @staticmethod
     def defaults_debug():
-        debug_args = SlotAttention.defaults()
+        debug_args = SlotAttentionWithReset.defaults()
         debug_args.num_iterations = 2
         return debug_args
 

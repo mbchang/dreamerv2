@@ -201,7 +201,7 @@ class SlotModel(layers.Layer):
         debug_args.slot_size = 16
         debug_args.lr_warmup_steps = 3
         debug_args.obs_transformer = transformer.TransformerDecoder.obs_defaults_debug()
-        debug_args.slot_attn=slot_attn.SlotAttention.defaults_debug()
+        debug_args.slot_attn=slot_attn.SlotAttentionWithReset.defaults_debug()
         debug_args.einsum_dict=False
         return debug_args
 
@@ -216,7 +216,7 @@ class SlotModel(layers.Layer):
 
             obs_transformer=transformer.TransformerDecoder.obs_defaults(),
 
-            slot_attn=slot_attn.SlotAttention.defaults(),
+            slot_attn=slot_attn.SlotAttentionWithReset.defaults(),
             slot_size=192,
 
             einsum_dict=False
@@ -370,7 +370,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
     def defaults():
         default_args = SlotModel.defaults()
         default_args.dyn_transformer = transformer.TransformerDecoder.dyn_defaults()
-        default_args.slot_attn = slot_attn.SlotAttention.dyn_defaults()
+        default_args.slot_attn = slot_attn.SlotAttentionWithReset.dyn_defaults()
         default_args.consistency_loss = True
         default_args.lr = 3e-4
         default_args.min_lr_factor = 0.2
