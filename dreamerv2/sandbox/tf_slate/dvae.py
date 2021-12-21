@@ -43,6 +43,90 @@ class ResBlock(tkl.Layer):
         return self.net(x) + x
 
 
+class dVAEWeakEncoder(tkl.Layer):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        self.net = tf.keras.Sequential([
+                Conv2dBlock(in_channels, 64, 4, 4),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                conv2d(64, out_channels, 1),
+            ])
+
+    def call(self, image):
+        return self.net(image)
+
+
+class dVAEStrongEncoder(tkl.Layer):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        # NOTE: you can probably get away with 32 filters instead
+        conv = lambda **kwargs: tf.keras.Sequential([PaddedConv2D(**kwargs), tkl.ReLU()])
+        self.net = tf.keras.Sequential([
+            conv(filters=64, kernel_size=4, strides=2, padding=1),
+            conv(filters=64, kernel_size=4, strides=2, padding=1),
+            ResBlock(chan=64),
+            PaddedConv2D(filters=out_channels, kernel_size=1),
+            ])
+
+    def call(self, image):
+        return self.net(image)
+
+
+class dVAEWeakDecoder(tkl.Layer):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        self.net = tf.keras.Sequential([
+                Conv2dBlock(in_channels, 64, 1),
+                Conv2dBlock(64, 64, 3, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64 * 2 * 2, 1),
+                PixelShuffle(2),
+                Conv2dBlock(64, 64, 3, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64 * 2 * 2, 1),
+                PixelShuffle(2),
+                conv2d(64, out_channels, 1),
+            ])
+
+    def call(self, image):
+        return self.net(image)
+
+
+class dVAEStrongDecoder(tkl.Layer):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        convT = lambda **kwargs: tf.keras.Sequential([PaddedConv2DTranspose(**kwargs), tkl.ReLU()])
+        self.net = tf.keras.Sequential([
+            PaddedConv2D(filters=64, kernel_size=1),
+            ResBlock(chan=64),
+            convT(filters=64, kernel_size=4, strides=2, padding=1),
+            convT(filters=64, kernel_size=4, strides=2, padding=1),
+            PaddedConv2D(filters=out_channels, kernel_size=1),
+            ])
+
+    def call(self, image):
+        return self.net(image)
+
+
 class dVAE(tkl.Layer):
 
     @staticmethod
@@ -50,6 +134,7 @@ class dVAE(tkl.Layer):
         debug_args = dVAE.defaults()
         debug_args.tau_steps=3
         debug_args.sm_hard=True
+        debug_args.weak=False
         return debug_args
 
     @staticmethod
@@ -77,54 +162,27 @@ class dVAE(tkl.Layer):
         if weak:
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
-                Conv2dBlock(img_channels, 64, 4, 4),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                conv2d(64, vocab_size, 1),
+                dVAEWeakEncoder(img_channels, vocab_size),
                 Rearrange('b h w c -> b c h w'),
             ])
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
-                Conv2dBlock(vocab_size, 64, 1),
-                Conv2dBlock(64, 64, 3, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64 * 2 * 2, 1),
-                PixelShuffle(2),
-                Conv2dBlock(64, 64, 3, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64, 1, 1),
-                Conv2dBlock(64, 64 * 2 * 2, 1),
-                PixelShuffle(2),
-                conv2d(64, img_channels, 1),
+                dVAEWeakDecoder(vocab_size, img_channels),
                 Rearrange('b h w c -> b c h w'),
             ])
         else:
-            # NOTE: you can probably get away with 32 filters instead
-            conv = lambda **kwargs: tf.keras.Sequential([PaddedConv2D(**kwargs), tkl.ReLU()])
-            convT = lambda **kwargs: tf.keras.Sequential([PaddedConv2DTranspose(**kwargs), tkl.ReLU()])
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
-                conv(filters=64, kernel_size=4, strides=2, padding=1),
-                conv(filters=64, kernel_size=4, strides=2, padding=1),
-                ResBlock(chan=64),
-                PaddedConv2D(filters=vocab_size, kernel_size=1),
+                dVAEStrongEncoder(img_channels, vocab_size),
                 Rearrange('b h w c -> b c h w'),
-                ])
+            ])
+            
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
-                PaddedConv2D(filters=64, kernel_size=1),
-                ResBlock(chan=64),
-                convT(filters=64, kernel_size=4, strides=2, padding=1),
-                convT(filters=64, kernel_size=4, strides=2, padding=1),
-                PaddedConv2D(filters=3, kernel_size=1),
+                dVAEStrongDecoder(vocab_size, img_channels),
                 Rearrange('b h w c -> b c h w'),
-                ])
+            ])
 
 
     def get_logits(self, image):
