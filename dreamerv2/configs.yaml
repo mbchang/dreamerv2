@@ -53,7 +53,7 @@ defaults:
     dynamics: 'default', 
     update: 'default',
     initial: 'default',
-    embed_dim: 16,  # not used for default
+    embed_dim: 64,  # not used for default
     num_slots: 1  # not used in default
   }
   encoder: {mlp_keys: '.*', cnn_keys: '.*', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [4, 4, 4, 4], mlp_layers: [400, 400, 400, 400]}
@@ -227,3 +227,10 @@ dslate:
   precision: 32
   delay_train_behavior_by: 50000
   critic_stop_grad: False
+
+slot:
+  rssm.update: slot
+  rssm.dynamics: cross
+  rssm.initial: iid
+  behavior_type: crossattn
+
