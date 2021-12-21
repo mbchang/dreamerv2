@@ -27,7 +27,7 @@ def create_expname(args):
         'fwm.optim.decay_steps': 'fds',
         'fwm.optim.min_lr': 'fmlr',
         'fwm.model.posterior_loss': 'pl',
-        'fwm.model.encoder_type': 'et',
+        'fwm.model.encoder_type': 'fet',
         'wm_only': 'wmo',
         'dataset.batch': 'B',
         'dataset.length': 'T',
@@ -77,12 +77,15 @@ def create_expname(args):
 
         'dslate.slot_model.distributional': 'latdist',
 
-        'rssm.update': 'ru',
-        'rssm.dynamics': 'rd',
-        'rssm.initial': 'ri',
+        'rssm.update_type': 'ru',
+        'rssm.dynamics_type': 'rd',
+        'rssm.initial_type': 'ri',
         'behavior_type': 'b',
 
         'data_parallel': 'dp',
+
+        'encoder_type': 'et',
+        'pos_encode_type': 'pet',
 
 
     }

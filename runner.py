@@ -5209,6 +5209,34 @@ def can_dslate_train_on_50_steps_12_21_21():
             r.generate_commands(args.for_real)
 
 
+def k1_does_dvae_weak_encoder_break_anything_12_21_21():
+    """
+        8709MiB
+
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0, 1, 4, 5])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_dvweak', 'grid_dvstrong'])
+    r.add_flag('pos_encode_type', ['slate', 'none'])
+
+    r.add_flag('logdir', ['runs/k1_does_dvae_encoder_break_anything'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -5317,7 +5345,8 @@ if __name__ == '__main__':
     # k1_test_data_parallel2_12_17_21()
     # k1_test_data_parallel3_12_17_21()
     # can_dslate_train_on_50_steps_12_20_21()
-    can_dslate_train_on_50_steps_12_21_21()
+    # can_dslate_train_on_50_steps_12_21_21()
+    k1_does_dvae_weak_encoder_break_anything_12_21_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

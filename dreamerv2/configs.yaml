@@ -50,9 +50,9 @@ defaults:
   grad_heads: [decoder, reward, discount]
   pred_discount: True
   rssm: {ensemble: 1, hidden: 1024, deter: 1024, stoch: 32, discrete: 32, act: elu, norm: none, std_act: sigmoid2, min_std: 0.1, 
-    dynamics: 'default', 
-    update: 'default',
-    initial: 'default',
+    dynamics_type: 'default', 
+    update_type: 'default',
+    initial_type: 'default',
     embed_dim: 64,  # not used for default
     num_slots: 1  # not used in default
   }
@@ -73,6 +73,7 @@ defaults:
   encoder_type: 'default'
   decoder_type: 'default'
   behavior_type: 'default'
+  pos_encode_type: 'none'
 
   # Slot Attention
   # num_slots: 1  # not used for default
@@ -229,8 +230,8 @@ dslate:
   critic_stop_grad: False
 
 slot:
-  rssm.update: slot
-  rssm.dynamics: cross
-  rssm.initial: iid
+  rssm.update_type: slot
+  rssm.dynamics_type: cross
+  rssm.initial_type: iid
   behavior_type: crossattn
 
