@@ -4347,6 +4347,10 @@ def sanity_check_with_dummy_stoch_12_16_21():
 def sanity_check_without_dummy_stoch_12_17_21():
     """
         make sure things did not break.
+
+        These were good:
+            sanity_check_without_dummy_stoch/t_vmballs_simple_box4/rmxl2_B16_T2_k5_crT_wmoT_dvwkT_dvsmhF_mtT_esdT_sgiT_sgoT_latdistF_20211217100312
+            sanity_check_without_dummy_stoch/t_vmballs_simple_box4/rmxl2_B16_T2_k5_crT_wmoT_dvwkT_dvsmhF_mtT_esdT_sgiF_sgoT_latdistF_20211217100314
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
     r.add_flag('configs', ['dmc_vision dslate'])
@@ -4477,6 +4481,10 @@ def sanity_check_without_dummy_stoch_12_17_21():
 def sanity_check_without_dummy_stoch_grace_12_17_21():
     """
         make sure things did not break.
+
+        These were good:
+            sanity_check_without_dummy_stoch/t_vmballs_simple_box4/rmxl2_B16_T2_k5_crT_wmoT_dvwkT_dvsmhF_mtT_esdT_sgiT_sgoT_latdistF_20211217100312
+            sanity_check_without_dummy_stoch/t_vmballs_simple_box4/rmxl2_B16_T2_k5_crT_wmoT_dvwkT_dvsmhF_mtT_esdT_sgiF_sgoT_latdistF_20211217100314
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
     r.add_flag('configs', ['dmc_vision dslate'])
@@ -4989,6 +4997,219 @@ def k1_test_data_parallel3_12_17_21():
     r.generate_commands(args.for_real)
 
 
+"""
+Here is a configuation of dynamic slate that works best right now.
+- 
+"""
+
+def can_dslate_train_on_50_steps_12_20_21():
+    """
+        sanity_check_without_dummy_stoch/t_vmballs_simple_box4/rmxl2_B16_T2_k5_crT_wmoT_dvwkT_dvsmhF_mtT_esdT_sgiT_sgoT_latdistF_20211217100312
+
+        What does not fit:
+            B=2, T=50
+
+        What fits:
+            B=2, T=25: 4601MiB
+            B=2, T=40: 8697MiB
+            B=2, T=45: 8701MiB
+
+        Trying:
+            B=2, T=45:
+
+        wait actually it seems like 
+            B=2, T=50 does work 8701
+            B=4, T=50 8825
+            B=8, T=50, 8701
+
+        no, that didn't work because I had curr=True
+
+
+        See how much we can push it with batch size of 2.
+
+        When you are waiting for the experiments to finish running, you should be writing and coding.
+
+        NOTE that I got rid of the prefill!
+
+        I should do monotrain=False but somehow it stalls if I do monotrain=False
+
+        ok I can fit B=4, T=50, with mono_train=False
+
+        It turns out that B=4, T=50 failed
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2,3,6,7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    # r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [4])
+
+    r.add_flag('wm_only', ['True'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [2e-4, 3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [False, True])
+    r.add_flag('dslate.curr_every', [2000])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [True])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('dslate.mono_train', [False])
+    r.add_flag('dslate.slot_model.einsum_dict', [True])
+    r.add_flag('dslate.stop_gradient_input', [True])
+    r.add_flag('dslate.stop_gradient_output', [True])
+
+    r.add_flag('dslate.dvae.sm_hard', [False])
+    r.add_flag('dslate.slot_model.distributional', [False])
+
+    r.add_flag('data_parallel', [False])
+
+    r.add_flag('logdir', ['runs/can_dslate_train_on_50_steps'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.curr',
+        'dslate.curr_every',
+        'wm_only',
+        'dslate.dvae.weak',
+        'dslate.dvae.sm_hard',
+
+        'dslate.mono_train',
+        'dslate.slot_model.einsum_dict',
+        'dslate.stop_gradient_input',
+        'dslate.stop_gradient_output',
+        'dslate.slot_model.distributional',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [50]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+
+def can_dslate_train_on_50_steps_12_21_21():
+    """
+        sanity_check_without_dummy_stoch/t_vmballs_simple_box4/rmxl2_B16_T2_k5_crT_wmoT_dvwkT_dvsmhF_mtT_esdT_sgiT_sgoT_latdistF_20211217100312
+
+        What does not fit:
+            B=2, T=50
+
+        What fits:
+            B=2, T=25: 4601MiB
+            B=2, T=40: 8697MiB
+            B=2, T=45: 8701MiB
+
+        Trying:
+            B=2, T=45:
+
+        wait actually it seems like 
+            B=2, T=50 does work 8701
+            B=4, T=50 8825
+            B=8, T=50, 8701
+
+        no, that didn't work because I had curr=True
+
+
+        See how much we can push it with batch size of 2.
+
+        When you are waiting for the experiments to finish running, you should be writing and coding.
+
+        NOTE that I got rid of the prefill!
+
+        I should do monotrain=False but somehow it stalls if I do monotrain=False
+
+        ok I can fit B=4, T=50, with mono_train=False
+
+        It turns out that B=4, T=50 failed
+
+        Ok, so during pretraining, B=2, T=50 works and costs 8725MiB only. So I wonder where the OOM would come from (if it does come) later. 
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2,3,6,7])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    # r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [2])
+
+    r.add_flag('wm_only', ['True'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [2e-4, 3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [False])
+    r.add_flag('dslate.curr_every', [2000])
+    r.add_flag('critic_stop_grad', [False])
+    r.add_flag('dslate.dvae.weak', [True])
+    r.add_flag('delay_train_behavior_by', [0])
+    r.add_flag('dslate.slot_model.d_model', [128])
+    r.add_flag('dslate.slot_model.slot_size', [128])
+
+    r.add_flag('dslate.mono_train', [False])
+    r.add_flag('dslate.slot_model.einsum_dict', [True])
+    r.add_flag('dslate.stop_gradient_input', [True])
+    r.add_flag('dslate.stop_gradient_output', [True])
+
+    r.add_flag('dslate.dvae.sm_hard', [False])
+    r.add_flag('dslate.slot_model.distributional', [False])
+
+    r.add_flag('data_parallel', [False])
+
+    r.add_flag('logdir', ['runs/can_dslate_train_on_50_steps'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.curr',
+        'dslate.curr_every',
+        'wm_only',
+        'dslate.dvae.weak',
+        'dslate.dvae.sm_hard',
+        'dslate.slot_model.lr',
+
+        # 'dslate.mono_train',
+        # 'dslate.slot_model.einsum_dict',
+        # 'dslate.stop_gradient_input',
+        # 'dslate.stop_gradient_output',
+        # 'dslate.slot_model.distributional',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [50]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            r.generate_commands(args.for_real)
+
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -5094,7 +5315,9 @@ if __name__ == '__main__':
     # k1_crossattn_behavior_12_17_21()
     # k1_how_much_reduction_do_we_get_with_rssmhidden_instead_of_head_units_12_17_21()
     # k1_test_data_parallel2_12_17_21()
-    k1_test_data_parallel3_12_17_21()
+    # k1_test_data_parallel3_12_17_21()
+    # can_dslate_train_on_50_steps_12_20_21()
+    can_dslate_train_on_50_steps_12_21_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
