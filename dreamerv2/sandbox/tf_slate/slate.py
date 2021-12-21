@@ -44,7 +44,7 @@ class SLATE(layers.Layer):
         debug_args.dvae = dvae.dVAE.defaults_debug()
         debug_args.slot_model = slot_model.SlotModel.defaults_debug()
 
-        debug_args.mono_train = True
+        debug_args.mono_train = False
 
         debug_args.stop_gradient_input = True
         debug_args.stop_gradient_output = True
