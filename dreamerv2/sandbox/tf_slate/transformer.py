@@ -190,7 +190,7 @@ class TransformerDecoderBlock(tkl.Layer):
         """
         if self.masked:
             T = input.shape[1]
-            mask = tf.experimental.numpy.triu(tf.ones((T, T)), k=1)  # float, not bool
+            mask = tf.cast(tf.experimental.numpy.triu(tf.ones((T, T)), k=1), encoder_output.dtype)  # float, not bool
         else:
             mask = None
         
@@ -231,6 +231,16 @@ class TransformerDecoder(tkl.Layer):
             num_heads=4,
             dropout=0.1,
             masked=True,
+            ))
+        return default_args
+
+    @staticmethod
+    def obs_cross_defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=4,
+            num_heads=4,
+            dropout=0.1,
+            masked=False,
             ))
         return default_args
 
