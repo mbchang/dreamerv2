@@ -252,6 +252,9 @@ class WorldModel(common.Module):
     elif config.decoder_type in ['slot', 'slimmerslot']:
       decoder_in_dim = config.rssm.deter//self.config.rssm.num_slots + config.rssm.stoch//self.config.rssm.num_slots * config.rssm.discrete
       self.heads['decoder'] = machine.PreviousSlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
+    elif 'grid' in config.decoder_type:
+        assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
+        self.heads['decoder'] = machine.GridDecoder(shapes, config.decoder_type, config.pos_encode_type, config.rssm.embed_dim, **config.decoder)
     else:
       raise NotImplementedError
 

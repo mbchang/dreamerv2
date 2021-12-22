@@ -555,6 +555,121 @@ class Decoder(common.Module):
       dists[key] = self.get(f'dense_{key}', DistLayer, shape)(x)
     return dists
 
+
+class GridDecoder(Decoder):
+  def __init__(self, shapes, decoder_type, pos_encode_type, token_dim, **kwargs):
+    super().__init__(shapes, **kwargs)
+
+    self.resolution = [16,16]
+    self.token_dim = token_dim
+
+    if decoder_type == 'grid_default':
+      pass
+    elif decoder_type == 'grid_dvweak':
+      self.decoder = dvae.dVAEWeakDecoder(in_channels=self.token_dim, out_channels=3)
+      # TODO: you need to add position embedding to this! 
+    elif decoder_type == 'grid_dvstrong':
+      self.decoder = dvae.dVAEStrongDecoder(in_channels=self.token_dim, out_channels=3)
+      # TODO: you need to add position embedding to this! 
+    elif decoder_type == 'grid_sa':
+      pass
+    elif decoder_type == 'grid_saslim':
+      pass
+    elif decoder_type == 'grid_sadebug':
+      pass
+    else:
+      raise NotImplementedError
+
+    if pos_encode_type == 'slate':
+      self.position_encoding = transformer.GridPositionalEncoding(
+        resolution=self.resolution, dim=self.token_dim, dropout=0.1)
+    elif pos_encode_type == 'slotattn':
+      pass
+    elif pos_encode_type == 'sinusoid':
+      pass
+    elif pos_encode_type == 'none':
+      self.position_encoding = lambda x: x
+    else:
+      raise NotImplementedError
+
+    # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.obs_cross_defaults())
+    self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_eight_heads_defaults())
+
+    self.token_mlp = tf.keras.Sequential([
+        tfkl.Dense(self.token_dim, kernel_initializer='he_uniform'),
+        tfkl.ReLU(),
+        tfkl.Dense(self.token_dim, kernel_initializer='he_uniform')])
+
+
+    # then there is the tokenwise MLP. But note that that tokenwise MLP is not used for the target in slate
+
+  def _cnn(self, features):
+    """
+      (16, 10, deter + num_tokens * stoch_size)
+      (16, 10, hiddim) --> the discrete latents select codebook vectors and sum them
+      (160, 1, 1, hiddim)  
+      --> start with a 1x1, and then you end up distributing that across space.
+
+      0 (B, 5, 5, 16)
+      1 (B, 13, 13, 8)
+      2 (B, 30, 30, 4)
+      3 (B, 64, 64, 3)
+
+      actual:
+
+      features: (B, T, deter + num_tokens * stoch_size)
+      x: (B, T, 1536)
+      x: (B*T, 1, 1, 1536)
+      x: (B*T, 5, 5, 192)
+      x: (B*T, 13, 13, 96)
+      x: (B*T, 30, 30, 48)
+      x: (B*T, 64, 64, 3)
+      x: (B, T, 64, 64, 3)
+      means: [(B, T, 64, 64, 3)]
+    """
+    # import ipdb; ipdb.set_trace(context=20)
+    channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
+    #############################################################
+    batch_dims = features.shape[:2]  # (B, T) or (H, B*T)
+    x = self.get('convin', tfkl.Dense, self.token_dim)(features)
+
+    # 1. reshape features into slots
+    num_slots = 1
+    x = eo.rearrange(x, '... (k d) -> (...) k d', k=num_slots)
+    # 2. create queries by applying position encodings to zeros, then token_mlp
+    bsize = x.shape[0]
+    queries = tf.zeros([bsize] + self.resolution + [self.token_dim], dtype=x.dtype)
+    queries = self.token_mlp(self.position_encoding(queries))
+    queries = eo.rearrange(queries, '... h w d -> ... (h w) d')
+    # 3. tf_dec --> (16x16)
+    grid = self.tf_dec(queries, x)
+    grid = eo.rearrange(grid, '... (h w) d -> ... h w d', h=self.resolution[0], w=self.resolution[1])
+    # 4. apply cnn decoder
+    x = self.decoder(grid)
+    x = x.reshape(batch_dims + x.shape[1:])  # (B, T, H, W, C)
+
+    # ***********************************************************
+    # ConvT = tfkl.Conv2DTranspose
+    # x = self.get('convin', tfkl.Dense, 32 * self._cnn_depth)(features)
+    # x = eo.rearrange(x, '... d -> (...) 1 1 d')
+    # for i, kernel in enumerate(self._cnn_kernels):
+    #   depth = 2 ** (len(self._cnn_kernels) - i - 2) * self._cnn_depth
+    #   act, norm = self._act, self._norm
+    #   if i == len(self._cnn_kernels) - 1:
+    #     depth, act, norm = sum(channels.values()), tf.identity, 'none'
+    #   x = self.get(f'conv{i}', ConvT, depth, kernel, 2)(x)
+    #   x = self.get(f'convnorm{i}', NormLayer, norm)(x)
+    #   x = act(x)
+    # x = x.reshape(features.shape[:-1] + x.shape[1:])  # (B, T, H, W, C)
+    #############################################################
+    means = tf.split(x, list(channels.values()), -1)  # [(B, T, H, W, C)]
+    dists = {
+        key: tfd.Independent(tfd.Normal(mean, 1), 3)
+        for (key, shape), mean in zip(channels.items(), means)}
+    return dists
+
+
+
 """
 TODO:
   - make the output shape of the decoder configurable

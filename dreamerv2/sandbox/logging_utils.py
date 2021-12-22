@@ -86,6 +86,7 @@ def create_expname(args):
 
         'encoder_type': 'et',
         'pos_encode_type': 'pet',
+        'decoder_type': 'dt',
 
 
     }

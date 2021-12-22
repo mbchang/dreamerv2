@@ -5209,7 +5209,7 @@ def can_dslate_train_on_50_steps_12_21_21():
             r.generate_commands(args.for_real)
 
 
-def k1_does_dvae_weak_encoder_break_anything_12_21_21():
+def k1_does_dvae_encoder_break_anything_12_21_21():
     """
         8709MiB
 
@@ -5236,6 +5236,71 @@ def k1_does_dvae_weak_encoder_break_anything_12_21_21():
     ]
     r.add_flag('watch', [' '.join(to_watch)])
     r.generate_commands(args.for_real)
+
+
+def k1_does_dvae_decoder_break_anything_12_21_21():
+    """
+        n6
+
+        requires two GPUs
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=['0,1', '2,3'])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['default'])
+    r.add_flag('decoder_type', ['grid_dvweak', 'grid_dvstrong'])
+    r.add_flag('pos_encode_type', ['slate'])
+    r.add_flag('data_parallel', [True])
+
+    r.add_flag('logdir', ['runs/k1_does_dvae_decoder_break_anything'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+def k1_does_dvae_decoder_break_anything_geb_12_21_21():
+    """
+        n6
+
+        requires two GPUs
+
+        two_blocks_eight_heads_defaults
+
+        this fits, but just barely.
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=['0,1'])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_dvweak'])
+    r.add_flag('decoder_type', ['grid_dvweak'])
+    r.add_flag('pos_encode_type', ['slate'])
+    r.add_flag('data_parallel', [True])
+
+    r.add_flag('logdir', ['runs/k1_does_dvae_decoder_break_anything_2b8h'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 
 if __name__ == '__main__':
@@ -5346,7 +5411,9 @@ if __name__ == '__main__':
     # k1_test_data_parallel3_12_17_21()
     # can_dslate_train_on_50_steps_12_20_21()
     # can_dslate_train_on_50_steps_12_21_21()
-    k1_does_dvae_weak_encoder_break_anything_12_21_21()
+    # k1_does_dvae_encoder_break_anything_12_21_21()
+    # k1_does_dvae_decoder_break_anything_12_21_21()
+    k1_does_dvae_decoder_break_anything_geb_12_21_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
