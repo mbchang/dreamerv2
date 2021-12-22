@@ -134,7 +134,7 @@ class dVAE(tkl.Layer):
         debug_args = dVAE.defaults()
         debug_args.tau_steps=3
         debug_args.sm_hard=True
-        debug_args.weak=False
+        debug_args.weak=True
         return debug_args
 
     @staticmethod
