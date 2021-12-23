@@ -179,7 +179,7 @@ def main():
           config.atari_grayscale)
       env = common.OneHotAction(env)
     elif suite == 'crafter':
-      raise NotImplementedError('did you set the seed?')
+      # raise NotImplementedError('did you set the seed?')
       assert config.action_repeat == 1
       outdir = logdir / 'crafter' if mode == 'train' else None
       reward = bool(['noreward', 'reward'].index(task)) or mode == 'eval'

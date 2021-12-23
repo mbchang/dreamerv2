@@ -5310,10 +5310,13 @@ def shallower_transformer_12_21_21():
 
 
         TODO: record the memory usage:
-            nb2, nh8 (id 11027):
-            nb4, nh8 (id 11079):
-            nb2, nh4 (id 11053):
-            nb4, nh4 (id 11103):
+            nb2, nh8 (id 11027): 2557MiB
+            nb4, nh8 (id 11079): 4605MiB
+            nb2, nh4 (id 11053): 2557MiB
+            nb4, nh4 (id 11103): 2557MiB
+
+        but it seems like having a shallower transformer actually doesn't decrease the memory usage that much. 
+        Next we should try simplifying the encoder and decoder and seeing if they hurt
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1,5])
     r.add_flag('configs', ['dmc_vision dslate'])
