@@ -424,7 +424,7 @@ class GridEncoder(Encoder):
     if encoder_type == 'grid_default':
       pass
     elif encoder_type == 'grid_dvweak':
-      self.encoder = dvae.dVAEWeakEncoder(in_channels=3, out_channels=outdim)
+      self.encoder = dvae.dVAEShallowWeakEncoder(in_channels=3, out_channels=outdim)
       # TODO: you need to add position embedding to this! 
     elif encoder_type == 'grid_dvstrong':
       self.encoder = dvae.dVAEStrongEncoder(in_channels=3, out_channels=outdim)
@@ -566,7 +566,7 @@ class GridDecoder(Decoder):
     if decoder_type == 'grid_default':
       pass
     elif decoder_type == 'grid_dvweak':
-      self.decoder = dvae.dVAEWeakDecoder(in_channels=self.token_dim, out_channels=3)
+      self.decoder = dvae.dVAEShallowWeakDecoder(in_channels=self.token_dim, out_channels=3)
       # TODO: you need to add position embedding to this! 
     elif decoder_type == 'grid_dvstrong':
       self.decoder = dvae.dVAEStrongDecoder(in_channels=self.token_dim, out_channels=3)
