@@ -197,8 +197,9 @@ class TransformerDecoderBlock(tkl.Layer):
         self.self_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.self_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
         
-        self.encoder_decoder_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
-        self.encoder_decoder_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
+        # self.encoder_decoder_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
+        # self.encoder_decoder_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
+        self.cross_attention = CrossAttentionBlock(d_model, num_heads, dropout, gain)
         
         self.ffn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
         self.ffn = tf.keras.Sequential([
@@ -230,13 +231,27 @@ class TransformerDecoderBlock(tkl.Layer):
             x = self.self_attn(x, x, x, mask)
             input = input + x
         
-        x = self.encoder_decoder_attn_layer_norm(input)
-        x = self.encoder_decoder_attn(x, encoder_output, encoder_output)
-        input = input + x
+        # x = self.encoder_decoder_attn_layer_norm(input)
+        # x = self.encoder_decoder_attn(x, encoder_output, encoder_output)
+        # input = input + x
+        input = self.cross_attention(input, encoder_output)
         
         x = self.ffn_layer_norm(input)
         x = self.ffn(x)
         return input + x
+
+
+class CrossAttentionBlock(tkl.Layer):
+    def __init__(self, d_model, num_heads, dropout, gain):
+        super().__init__()
+        self.encoder_decoder_attn_layer_norm = tkl.LayerNormalization(epsilon=1e-5)
+        self.encoder_decoder_attn = MultiHeadAttention(d_model, num_heads, dropout, gain)
+
+    def call(self, input, encoder_output):
+        x = self.encoder_decoder_attn_layer_norm(input)
+        x = self.encoder_decoder_attn(x, encoder_output, encoder_output)
+        input = input + x
+        return input
 
 
 class TransformerDecoder(tkl.Layer):
