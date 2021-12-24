@@ -91,6 +91,33 @@ class GridPositionalEncoding(tkl.Layer):
         return self.dropout(input + self.pe, training=training)
 
 
+def build_grid(resolution):
+  ranges = [np.linspace(0., 1., num=res) for res in resolution]
+  grid = np.meshgrid(*ranges, sparse=False, indexing="ij")
+  grid = np.stack(grid, axis=-1)
+  grid = np.reshape(grid, [resolution[0], resolution[1], -1])
+  grid = np.expand_dims(grid, axis=0)
+  grid = grid.astype(np.float32)
+  return np.concatenate([grid, 1.0 - grid], axis=-1)
+
+
+class CoordConvPositionalEncoding(tkl.Layer):
+  """Adds soft positional embedding with learnable projection."""
+
+  def __init__(self, resolution, dim):
+    """Builds the soft position embedding layer.
+
+    Args:
+      dim: Size of input feature dimension.
+      resolution: Tuple of integers specifying width and height of grid.
+    """
+    super().__init__()
+    self.dense = tkl.Dense(dim, use_bias=True)
+    self.grid = build_grid(resolution)
+
+  def call(self, inputs):
+    return inputs + self.dense(self.grid)
+
 
 class TransformerEncoderBlock(nn.Module):
     
@@ -309,6 +336,16 @@ class TransformerDecoder(tkl.Layer):
         default_args = ml_collections.ConfigDict(dict(
             num_blocks=2,
             num_heads=8,
+            dropout=0.1,
+            masked=False,
+            ))
+        return default_args
+
+    @staticmethod
+    def two_blocks_four_heads_defaults():
+        default_args = ml_collections.ConfigDict(dict(
+            num_blocks=2,
+            num_heads=4,
             dropout=0.1,
             masked=False,
             ))
