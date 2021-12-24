@@ -190,7 +190,7 @@ class dVAE(tkl.Layer):
 
             sm_hard=True,
 
-            shallow=False,
+            shallow=True,
             ))
         return default_args
     
