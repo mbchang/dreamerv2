@@ -96,6 +96,8 @@ def create_expname(args):
 
         'dslate.dvae.shallow': 'dsh',
 
+        'dslate.dvae.cnn_type': 'ct',
+
         'dslate.dvae.tau_steps': 'ts',
         'dslate.slot_model.lr_warmup_steps': 'lws',
 
