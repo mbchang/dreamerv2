@@ -64,6 +64,23 @@ class dVAEWeakEncoder(tkl.Layer):
         return self.net(image)
 
 
+class dVAEShallowWeakEncoder(tkl.Layer):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        self.net = tf.keras.Sequential([
+                Conv2dBlock(in_channels, 64, 4, 4),
+                Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64, 1, 1),
+                conv2d(64, out_channels, 1),
+            ])
+
+    def call(self, image):
+        return self.net(image)
+
+
 class dVAEStrongEncoder(tkl.Layer):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -99,6 +116,27 @@ class dVAEWeakDecoder(tkl.Layer):
                 Conv2dBlock(64, 64, 3, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
+                Conv2dBlock(64, 64 * 2 * 2, 1),
+                PixelShuffle(2),
+                conv2d(64, out_channels, 1),
+            ])
+
+    def call(self, image):
+        return self.net(image)
+
+
+class dVAEShallowWeakDecoder(tkl.Layer):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        self.net = tf.keras.Sequential([
+                Conv2dBlock(in_channels, 64, 1),
+                Conv2dBlock(64, 64, 3, 1, 1),
+                Conv2dBlock(64, 64 * 2 * 2, 1),
+                PixelShuffle(2),
+                Conv2dBlock(64, 64, 3, 1, 1),
                 Conv2dBlock(64, 64 * 2 * 2, 1),
                 PixelShuffle(2),
                 conv2d(64, out_channels, 1),
@@ -151,26 +189,41 @@ class dVAE(tkl.Layer):
             weak=True,
 
             sm_hard=True,
+
+            shallow=False,
             ))
         return default_args
     
-    def __init__(self, vocab_size, img_channels, weak, sm_hard):
+    def __init__(self, vocab_size, img_channels, weak, sm_hard, shallow):
         super().__init__()
         self.vocab_size = vocab_size
         self.sm_hard = sm_hard
         
         if weak:
-            self.encoder = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
-                dVAEWeakEncoder(img_channels, vocab_size),
-                Rearrange('b h w c -> b c h w'),
-            ])
-            
-            self.decoder = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
-                dVAEWeakDecoder(vocab_size, img_channels),
-                Rearrange('b h w c -> b c h w'),
-            ])
+            if shallow:
+                self.encoder = tf.keras.Sequential([
+                    Rearrange('b c h w -> b h w c'),
+                    dVAEShallowWeakEncoder(img_channels, vocab_size),
+                    Rearrange('b h w c -> b c h w'),
+                ])
+                
+                self.decoder = tf.keras.Sequential([
+                    Rearrange('b c h w -> b h w c'),
+                    dVAEShallowWeakDecoder(vocab_size, img_channels),
+                    Rearrange('b h w c -> b c h w'),
+                ])            
+            else:
+                self.encoder = tf.keras.Sequential([
+                    Rearrange('b c h w -> b h w c'),
+                    dVAEWeakEncoder(img_channels, vocab_size),
+                    Rearrange('b h w c -> b c h w'),
+                ])
+                
+                self.decoder = tf.keras.Sequential([
+                    Rearrange('b c h w -> b h w c'),
+                    dVAEWeakDecoder(vocab_size, img_channels),
+                    Rearrange('b h w c -> b c h w'),
+                ])
         else:
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),

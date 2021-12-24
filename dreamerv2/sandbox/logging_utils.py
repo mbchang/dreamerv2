@@ -91,6 +91,11 @@ def create_expname(args):
         'dslate.slot_model.obs_transformer.num_blocks': 'otnb',
         'dslate.slot_model.obs_transformer.num_heads': 'otnh',
 
+        'dslate.slot_model.dyn_transformer.num_blocks': 'dtnb',
+        'dslate.slot_model.dyn_transformer.num_heads': 'dtnh',
+
+        'dslate.dvae.shallow': 'dsh',
+
 
     }
     watcher = watch(args.watch, abbrvs)

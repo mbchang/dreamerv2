@@ -5307,13 +5307,14 @@ def shallower_transformer_12_21_21():
     """
         use shallower transformer for decoder
 
-
+        number of heads does not increase parameter count
+        n2 has 6/7 the number of parameters as nb4
 
         TODO: record the memory usage:
-            nb2, nh8 (id 11027): 2557MiB
-            nb4, nh8 (id 11079): 4605MiB
-            nb2, nh4 (id 11053): 2557MiB
-            nb4, nh4 (id 11103): 2557MiB
+            nb2, nh8 (id 11027): 2557MiB (2939205 parameters)
+            nb4, nh8 (id 11079): 4605MiB (3466309 parameters)
+            nb2, nh4 (id 11053): 2557MiB (2939205 parameters)
+            nb4, nh4 (id 11103): 2557MiB (3466309 parameters)
 
         but it seems like having a shallower transformer actually doesn't decrease the memory usage that much. 
         Next we should try simplifying the encoder and decoder and seeing if they hurt
@@ -5384,6 +5385,116 @@ def shallower_transformer_12_21_21():
             r.add_flag('eval_dataset.seed_steps', [t])
 
             r.generate_commands(args.for_real)
+
+def shallower_encoder_decoder_12_21_21():
+    """
+        I'm observing that shallower encoder and decoder don't actually affect much. But what does affect memory capacity is the hidden dimension.
+
+        dim 128: 2557 (2378309 parameters)
+        dim 96: 2557 (1505701 parameters)
+        dim 64: 1533 (992904 parameters)
+        dim 32: 1533 (442469 parameters)
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1,2,3,5])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['True'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.slot_model.decay_steps', [30000])
+    r.add_flag('dslate.curr', [True])
+    r.add_flag('dslate.curr_every', [20000])
+    r.add_flag('dslate.dvae.weak', [True])
+    r.add_flag('delay_train_behavior_by', [0])
+
+    r.add_flag('dslate.slot_model.einsum_dict', [True])
+
+    r.add_flag('dslate.dvae.sm_hard', [False])
+
+    r.add_flag('dslate.dvae.shallow', [True])
+    r.add_flag('dslate.slot_model.obs_transformer.num_blocks', [2, 4])
+    r.add_flag('dslate.slot_model.dyn_transformer.num_blocks', [2, 4])
+
+    r.add_flag('logdir', ['runs/shallower_encoder_decoder'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.curr',
+        'dslate.curr_every',
+        'wm_only',
+        'dslate.dvae.weak',
+        'dslate.dvae.sm_hard',
+        'dslate.slot_model.lr',
+        'dslate.slot_model.d_model',
+
+        'dslate.dvae.shallow',
+        'dslate.slot_model.obs_transformer.num_blocks',
+        'dslate.slot_model.dyn_transformer.num_blocks',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [2]
+    coeffs = [1]
+    dims = [128, 96, 64, 32]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+
+            for dim in dims:
+                r.add_flag('dslate.slot_model.d_model', [dim])
+                r.add_flag('dslate.slot_model.slot_size', [dim])
+
+                r.generate_commands(args.for_real)
+
+
+def k1_does_dvae_decoder_break_anything_grace_12_22_21():
+    """
+        grace
+
+        requires two GPUs
+
+        two_blocks_eight_heads_defaults
+
+        this fits, but just barely.
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=['6,7'])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_dvstrong'])
+    r.add_flag('decoder_type', ['grid_dvstrong'])
+    r.add_flag('pos_encode_type', ['slate'])
+    r.add_flag('data_parallel', [True])
+
+    r.add_flag('logdir', ['runs/k1_does_dvae_decoder_break_anything_2b8h'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 
 
@@ -5498,7 +5609,9 @@ if __name__ == '__main__':
     # k1_does_dvae_encoder_break_anything_12_21_21()
     # k1_does_dvae_decoder_break_anything_12_21_21()
     # k1_does_dvae_decoder_break_anything_geb_12_21_21()
-    shallower_transformer_12_21_21()
+    # shallower_transformer_12_21_21()
+    # shallower_encoder_decoder_12_21_21()
+    k1_does_dvae_decoder_break_anything_grace_12_22_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
