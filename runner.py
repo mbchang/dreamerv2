@@ -5686,6 +5686,69 @@ def k1_generic_encoder_decoder_coordconv_break_anything_n6_12_23_21():
     r.generate_commands(args.for_real)
 
 
+def how_does_number_of_slotattn_iterations_affect_slate_12_23_21():
+    """
+        ids: 142261, 142272, 142379
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision dslate'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('prefill', [20000])
+    r.add_flag('dataset.batch', [16])
+
+    r.add_flag('wm_only', ['True'])
+
+    r.add_flag('dslate.slot_model.slot_attn.num_slots', [5])
+    r.add_flag('dslate.slot_model.consistency_loss', [True])
+    r.add_flag('dslate.slot_model.slot_attn.temp', [1.0])
+    r.add_flag('dslate.slot_model.lr', [3e-4])
+    r.add_flag('dslate.slot_model.min_lr_factor', [0.1])
+    r.add_flag('dslate.curr', [True])
+    r.add_flag('delay_train_behavior_by', [0])
+
+    r.add_flag('dslate.dvae.sm_hard', [False])
+    r.add_flag('dslate.dvae.cnn_type', ['generic'])
+    r.add_flag('dslate.slot_model.obs_transformer.num_blocks', [4])
+    r.add_flag('dslate.slot_model.dyn_transformer.num_blocks', [2])
+
+    r.add_flag('dslate.slot_model.d_model', [64])
+    r.add_flag('dslate.slot_model.slot_size', [64])
+    r.add_flag('dslate.slot_model.slot_attn.num_iterations', [1,2,4])
+
+
+    r.add_flag('logdir', ['runs/how_does_number_of_slotattn_iterations_affect_slate'])
+    to_watch = [
+        'replay.maxlen',
+        'dataset.batch',
+        'dataset.length',
+        'dslate.slot_model.slot_attn.num_slots',
+        'dslate.curr',
+        'wm_only',
+        'dslate.dvae.cnn_type',
+        'dslate.dvae.sm_hard',
+        'dslate.slot_model.d_model',
+
+        'dslate.slot_model.obs_transformer.num_blocks',
+        'dslate.slot_model.dyn_transformer.num_blocks',
+
+        'dslate.slot_model.slot_attn.num_iterations',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [2]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -5803,7 +5866,8 @@ if __name__ == '__main__':
     # does_changing_warmup_peaktime_change_bump_12_23_21()
     # does_slate_work_with_generic_encoder_decoder_12_23_21()
     # k1_generic_encoder_decoder_coordconv_break_anything_12_23_21()
-    k1_generic_encoder_decoder_coordconv_break_anything_n6_12_23_21()
+    # k1_generic_encoder_decoder_coordconv_break_anything_n6_12_23_21()
+    how_does_number_of_slotattn_iterations_affect_slate_12_23_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
