@@ -421,8 +421,8 @@ class PreviousSlotEncoder(Encoder):
 class GridEncoder(Encoder):
   def __init__(self, shapes, encoder_type, pos_encode_type, outdim, **kwargs):
     super().__init__(shapes, **kwargs)
-    if encoder_type == 'grid_default':
-      pass
+    if encoder_type == 'grid_generic':
+      self.encoder = dvae.GenericEncoder(in_channels=3, out_channels=outdim)
     elif encoder_type == 'grid_dvweak':
       self.encoder = dvae.dVAEShallowWeakEncoder(in_channels=3, out_channels=outdim)
       # TODO: you need to add position embedding to this! 
@@ -438,11 +438,13 @@ class GridEncoder(Encoder):
     else:
       raise NotImplementedError
 
+    self.resolution = (16,16)
     if pos_encode_type == 'slate':
       self.position_encoding = transformer.GridPositionalEncoding(
-        resolution=(16,16), dim=outdim, dropout=0.1)
-    elif pos_encode_type == 'slotattn':
-      pass
+        resolution=self.resolution, dim=outdim)
+    elif pos_encode_type == 'coordconv':
+      self.position_encoding = transformer.CoordConvPositionalEncoding(
+        resolution=self.resolution, dim=outdim)
     elif pos_encode_type == 'sinusoid':
       pass
     elif pos_encode_type == 'none':
@@ -563,8 +565,8 @@ class GridDecoder(Decoder):
     self.resolution = [16,16]
     self.token_dim = token_dim
 
-    if decoder_type == 'grid_default':
-      pass
+    if decoder_type == 'grid_generic':
+      self.decoder = dvae.GenericDecoder(in_channels=self.token_dim, out_channels=3)
     elif decoder_type == 'grid_dvweak':
       self.decoder = dvae.dVAEShallowWeakDecoder(in_channels=self.token_dim, out_channels=3)
       # TODO: you need to add position embedding to this! 
@@ -582,9 +584,10 @@ class GridDecoder(Decoder):
 
     if pos_encode_type == 'slate':
       self.position_encoding = transformer.GridPositionalEncoding(
-        resolution=self.resolution, dim=self.token_dim, dropout=0.1)
-    elif pos_encode_type == 'slotattn':
-      pass
+        resolution=self.resolution, dim=self.token_dim)
+    elif pos_encode_type == 'coordconv':
+      self.position_encoding = transformer.CoordConvPositionalEncoding(
+        resolution=self.resolution, dim=self.token_dim)
     elif pos_encode_type == 'sinusoid':
       pass
     elif pos_encode_type == 'none':
@@ -593,7 +596,8 @@ class GridDecoder(Decoder):
       raise NotImplementedError
 
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.obs_cross_defaults())
-    self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_eight_heads_defaults())
+    # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_eight_heads_defaults())
+    self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
 
     self.token_mlp = tf.keras.Sequential([
         tfkl.Dense(self.token_dim, kernel_initializer='he_uniform'),
