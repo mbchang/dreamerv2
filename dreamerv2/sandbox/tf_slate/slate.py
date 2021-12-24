@@ -83,7 +83,7 @@ class SLATE(layers.Layer):
         self.args = args
         self.num_tokens = (args.image_size // 4) ** 2
 
-        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak, args.dvae.sm_hard, args.dvae.shallow)
+        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.sm_hard, args.dvae.cnn_type)
         self.slot_model = slot_model.SlotModel(args.vocab_size, self.num_tokens, args.slot_model)
 
         self.configure_optimizers(self.args)
@@ -317,7 +317,7 @@ class DynamicSLATE(SLATE):
         self.args = args
         self.global_config = global_config  # a hack that we will remove once we integrate with RSSM
 
-        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.weak, args.dvae.sm_hard, args.dvae.shallow)
+        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.sm_hard, args.dvae.cnn_type)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
         self.num_tokens = (args.image_size // 4) ** 2
