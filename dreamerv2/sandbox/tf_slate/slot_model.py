@@ -219,7 +219,7 @@ class SlotModel(layers.Layer):
             slot_attn=slot_attn.SlotAttentionWithReset.defaults(),
             slot_size=192,
 
-            einsum_dict=False
+            einsum_dict=True
             ))
         return default_args
 

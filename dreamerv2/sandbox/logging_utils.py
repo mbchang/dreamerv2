@@ -96,6 +96,9 @@ def create_expname(args):
 
         'dslate.dvae.shallow': 'dsh',
 
+        'dslate.dvae.tau_steps': 'ts',
+        'dslate.slot_model.lr_warmup_steps': 'lws',
+
 
     }
     watcher = watch(args.watch, abbrvs)
