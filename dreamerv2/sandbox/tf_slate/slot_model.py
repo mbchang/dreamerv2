@@ -175,8 +175,9 @@ class CrossAttnHead(DistSlotHead):
 
         TODO: get rid of the hacky case analysis. Essentially you want to be able to bottle if necessary, otherwise don't bottle.
         """
-        num_slots = 1
-        slots = eo.rearrange(slots, '... (k d) -> ... k d', k=num_slots)
+        # import ipdb;ipdb.set_trace(context=20)
+        # num_slots = 1
+        # slots = eo.rearrange(slots, '... (k d) -> ... k d', k=num_slots)
 
         slots = self.encoder(slots)
         if len(slots.shape) == 3:

@@ -218,10 +218,11 @@ class WorldModel(common.Module):
     self.config = config
     self.tfstep = tfstep
 
-    if config.rssm.num_slots > 1:
-      from sandbox import slots_machine as machine
-    else:
-      from sandbox import machine
+    # if config.rssm.num_slots > 1:
+    #   from sandbox import slots_machine as machine
+    # else:
+    #   from sandbox import machine
+    from sandbox import machine
 
     self.rssm = machine.EnsembleRSSM(**config.rssm)
 
@@ -459,15 +460,15 @@ class WorldModel(common.Module):
     states, _ = self.rssm.observe(
         embed[:n, :t], data['action'][:n, :t], data['is_first'][:n, :t])
     post_feat = self.rssm.get_feat(states)
-    if self.config.rssm.num_slots > 1:
-      post_feat = rearrange(post_feat, '... k featdim -> ... (k featdim)')
+    # if self.config.rssm.num_slots > 1:
+    #   post_feat = rearrange(post_feat, '... k featdim -> ... (k featdim)')
     recon = decoder(post_feat)[key].mode()[:n]
     if self.config.dataset.length > t:
       init = {k: v[:, -1] for k, v in states.items()}
       prior = self.rssm.imagine(data['action'][:n, t:], init)
       prior_feat = self.rssm.get_feat(prior)
-      if self.config.rssm.num_slots > 1:
-        prior_feat = rearrange(prior_feat, '... k featdim -> ... (k featdim)')
+      # if self.config.rssm.num_slots > 1:
+      #   prior_feat = rearrange(prior_feat, '... k featdim -> ... (k featdim)')
       openl = decoder(prior_feat)[key].mode()
       model = tf.concat([nmlz.uncenter(recon[:, :t]), nmlz.uncenter(openl)], 1)
 
@@ -548,10 +549,14 @@ class WorldModel(common.Module):
     data = self.preprocess(data)
     for key in self.heads['decoder'].cnn_keys:
       name = key.replace('/', '_')
-      if self.config.rssm.num_slots > 1:
-        generate_video = self.slot_video_pred
-      else:
-        generate_video = self.video_pred
+      # if self.config.rssm.num_slots > 1:
+      #   generate_video = self.slot_video_pred
+      # else:
+      #   generate_video = self.video_pred
+      # if self.config.rssm.num_slots > 1:
+      #   generate_video = self.slot_video_pred
+      # else:
+      generate_video = self.video_pred
       output = generate_video(data, key)
       report[f'openl_{name}'] = output['video']
       report[f'recon_loss_{name}'] = output['recon_loss']
