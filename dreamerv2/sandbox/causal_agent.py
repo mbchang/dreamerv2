@@ -460,15 +460,11 @@ class WorldModel(common.Module):
     states, _ = self.rssm.observe(
         embed[:n, :t], data['action'][:n, :t], data['is_first'][:n, :t])
     post_feat = self.rssm.get_feat(states)
-    # if self.config.rssm.num_slots > 1:
-    #   post_feat = rearrange(post_feat, '... k featdim -> ... (k featdim)')
     recon = decoder(post_feat)[key].mode()[:n]
     if self.config.dataset.length > t:
       init = {k: v[:, -1] for k, v in states.items()}
       prior = self.rssm.imagine(data['action'][:n, t:], init)
       prior_feat = self.rssm.get_feat(prior)
-      # if self.config.rssm.num_slots > 1:
-      #   prior_feat = rearrange(prior_feat, '... k featdim -> ... (k featdim)')
       openl = decoder(prior_feat)[key].mode()
       model = tf.concat([nmlz.uncenter(recon[:, :t]), nmlz.uncenter(openl)], 1)
 
@@ -490,7 +486,6 @@ class WorldModel(common.Module):
       imag_loss=imag_loss,
       )
     return output
-    # return rearrange(video, 'b t h w c -> t h (b w) c')
 
   @tf.function
   def slot_video_pred(self, data, key):

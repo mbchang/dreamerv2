@@ -102,23 +102,13 @@ class EnsembleRSSM(common.Module):
           deter=self.dynamics._cell.get_initial_state(None, batch_size, dtype)  # initialized to zero
           )
       if self._initial_type == 'fixed':
-        ###########################################
         broadcast = lambda x: eo.repeat(x, 'b ... -> b k ...', k=self.num_slots)
         state = tf.nest.map_structure(broadcast, state)
-        deter = self.initial_deter
-        # **********************
-        # deter = flatten(self.initial_deter)
-        ###########################################
-        state['deter'] = state['deter'] + tf.cast(deter, dtype)
-
+        state['deter'] = state['deter'] + tf.cast(self.initial_deter, dtype)
       elif self._initial_type == 'iid':
         deter = self.slots_mu + tf.exp(self.slots_log_sigma) * tf.random.normal([batch_size, self.num_slots, self._deter])
-        ###########################################
         broadcast = lambda x: eo.repeat(x, 'b ... -> b k ...', k=self.num_slots)
         state = tf.nest.map_structure(broadcast, state)
-        # **********************
-        # deter = flatten(deter)
-        ###########################################
         state['deter'] = state['deter'] + tf.cast(deter, dtype)
       elif self._initial_type != 'default':
         raise NotImplementedError
@@ -1005,40 +995,16 @@ class CrossDynamics(common.Module):
       transformer.TransformerDecoder.one_block_one_head_defaults()
       )
 
-  # def __call__(self, prev_deter, prev_stoch, prev_action):
-  #   num_slots = 1
-  #   prev_deter, prev_stoch = map(lambda x: unflatten(x, num_slots), [prev_deter, prev_stoch])
-  #   prev_action = unflatten(prev_action, 1)
-
-  #   stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
-  #   # act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)  # TODO: this should have no bias. 
-  #   act_embed =  self.get('act_embed', tfkl.Dense, self._hidden, use_bias=False)(prev_action)  # TODO: this should have no bias. 
-  #   context = tf.concat([stoch_embed, act_embed], 1)  # (B, K+1, H)
-
-  #   deter = self.net(prev_deter, context)
-  #   deter = flatten(deter)  # take out later
-  #   return deter, deter
-
-
-
   def __call__(self, prev_deter, prev_stoch, prev_action):
     """
       prev_deter: (B, K, deter_dim)
       prev_stoch: (B, K, num_stoch, stoch_dim)
       prev_action: (B, A)
     """
-    # import ipdb; ipdb.set_trace(context=20)
-    # num_slots = 1
-    # prev_deter, prev_stoch = map(lambda x: unflatten(x, num_slots), [prev_deter, prev_stoch])
-    prev_action = unflatten(prev_action, 1)
-
     stoch_embed = self.get('stoch_embed', tfkl.Dense, self._hidden)(prev_stoch)
-    # act_embed =  self.get('act_embed', tfkl.Dense, self._hidden)(prev_action)  # TODO: this should have no bias. 
-    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden, use_bias=False)(prev_action)  # TODO: this should have no bias. 
+    act_embed =  self.get('act_embed', tfkl.Dense, self._hidden, use_bias=False)(unflatten(prev_action, 1))
     context = tf.concat([stoch_embed, act_embed], 1)  # (B, K+1, H)
-
     deter = self.net(prev_deter, context)
-    # deter = flatten(deter)  # take out later
     return deter, deter
 
 
@@ -1193,27 +1159,12 @@ class SlotUpdate(common.Module):
       self._hidden, 
       slot_attn.SlotAttention.savi_defaults())
 
-  # def __call__(self, deter, embed):
-  #   """
-  #     deter: (B, deter_dim)
-  #     embed: (B, S, embed_dim)
-  #   """
-  #   num_slots = 1
-  #   deter = unflatten(deter, num_slots)
-  #   x, attns = self.slot_attn(embed, deter)
-  #   x = flatten(x)  # take out later
-  #   return x
-
   def __call__(self, deter, embed):
     """
       deter: (B, K, deter_dim)
       embed: (B, K, S, embed_dim)
     """
-    # import ipdb; ipdb.set_trace(context=20)
-    # num_slots = 1
-    # deter = unflatten(deter, num_slots)
     x, attns = self.slot_attn(embed, deter)
-    # x = flatten(x)  # take out later
     return x
 
 
