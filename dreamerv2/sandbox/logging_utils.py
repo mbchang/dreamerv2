@@ -88,6 +88,7 @@ def create_expname(args):
         'pos_encode_type': 'pet',
         'decoder_type': 'dt',
 
+        'dslate.slot_model.obs_cross_transformer.num_blocks': 'octnb',
         'dslate.slot_model.obs_transformer.num_blocks': 'otnb',
         'dslate.slot_model.obs_transformer.num_heads': 'otnh',
 

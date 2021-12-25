@@ -257,6 +257,25 @@ class FFNLayer(tkl.Layer):
         return input + x
 
 
+class CrossAttentionBlock(tkl.Layer):
+    
+    def __init__(self, d_model, num_heads, dropout=0., gain=1.):
+        super().__init__()
+        self.cross_attention = CrossAttentionLayer(d_model, num_heads, dropout, gain)
+        self.ffn = FFNLayer(d_model, num_heads, dropout, gain)
+
+    
+    def call(self, input, encoder_output):
+        """
+        input: batch_size x target_len x d_model
+        encoder_output: batch_size x source_len x d_model
+        return: batch_size x target_len x d_model
+        """
+        input = self.cross_attention(input, encoder_output)
+        input = self.ffn(input)
+        return input
+
+
 class TransformerDecoder(tkl.Layer):
 
     @staticmethod
@@ -380,6 +399,39 @@ class TransformerDecoder(tkl.Layer):
         if num_blocks > 0:
             gain = (3 * num_blocks) ** (-0.5)
             self.blocks = [TransformerDecoderBlock(d_model, num_heads, dropout, gain, masked, is_first=True)] + [TransformerDecoderBlock(d_model, num_heads, dropout, gain, masked, is_first=False) for _ in range(num_blocks - 1)]
+        else:
+            self.blocks = []
+        
+        self.layer_norm = tkl.LayerNormalization(epsilon=1e-5)
+    
+    
+    def call(self, input, encoder_output):
+        """
+        input: batch_size x target_len x d_model
+        encoder_output: batch_size x source_len x d_model
+        return: batch_size x target_len x d_model
+        """
+        for block in self.blocks:
+            input = block(input, encoder_output)
+        
+        return self.layer_norm(input)
+
+
+
+class CrossAttentionStack(tkl.Layer):
+    """ NOTE that the difference between this and the TransformerDecoder is that we are not doing layer norm on the first input """
+    
+    def __init__(self, d_model, cfg):
+        super().__init__()
+
+        num_blocks = cfg.num_blocks
+        num_heads = cfg.num_heads
+        dropout = cfg.dropout
+        masked = cfg.masked
+
+        if num_blocks > 0:
+            gain = (3 * num_blocks) ** (-0.5)
+            self.blocks = [CrossAttentionBlock(d_model, num_heads, dropout, gain) for _ in range(num_blocks)]
         else:
             self.blocks = []
         

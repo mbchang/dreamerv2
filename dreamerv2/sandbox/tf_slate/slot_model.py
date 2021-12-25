@@ -215,11 +215,14 @@ class SlotModel(layers.Layer):
             dropout=0.1,
 
             obs_transformer=transformer.TransformerDecoder.obs_defaults(),
+            obs_cross_transformer=transformer.TransformerDecoder.obs_cross_defaults(),
 
             slot_attn=slot_attn.SlotAttentionWithReset.defaults(),
             slot_size=192,
 
-            einsum_dict=True
+            einsum_dict=True,
+
+            decoder_type='tfdec',  # or crsatn
             ))
         return default_args
 
@@ -248,7 +251,12 @@ class SlotModel(layers.Layer):
         self.slot_proj = linear(args.slot_size, args.d_model, bias=False)
 
         # decoder
-        self.tf_dec = transformer.TransformerDecoder(args.d_model, args.obs_transformer)
+        if args.decoder_type == 'tfdec':
+            self.tf_dec = transformer.TransformerDecoder(args.d_model, args.obs_transformer)
+        elif args.decoder_type == 'crsatn':
+            self.tf_dec = transformer.CrossAttentionStack(args.d_model, args.obs_cross_transformer)
+        else:
+            raise NotImplementedError
         self.out = linear(args.d_model, self.vocab_size, bias=False)
 
         self.training = False
