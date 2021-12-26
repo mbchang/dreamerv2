@@ -243,7 +243,7 @@ class WorldModel(common.Module):
       grid_saslim
       grid_sadebug
       """
-      self.encoder = machine.GridEncoder(shapes, config.encoder_type, config.pos_encode_type, config.rssm.embed_dim, **config.encoder)
+      self.encoder = machine.GridEncoder(shapes, config.encoder_type, config.pos_encode_type, config.rssm.embed_dim, config.rssm.resolution, **config.encoder)
     else:
       raise NotImplementedError
 
@@ -256,7 +256,7 @@ class WorldModel(common.Module):
       self.heads['decoder'] = machine.PreviousSlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
     elif 'grid' in config.decoder_type:
         assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
-        self.heads['decoder'] = machine.GridDecoder(shapes, config.decoder_type, config.pos_encode_type, config.rssm.embed_dim, **config.decoder)
+        self.heads['decoder'] = machine.GridDecoder(shapes, config.decoder_type, config.pos_encode_type, config.rssm.embed_dim, config.rssm.resolution, **config.decoder)
     else:
       raise NotImplementedError
 
@@ -264,8 +264,8 @@ class WorldModel(common.Module):
       self.heads['reward'] = common.MLP([], **config.reward_head)
       if config.pred_discount:
         self.heads['discount'] = common.MLP([], **config.discount_head)
-    elif self.config.behavior_type in ['selfattn', 'crossattn']:
-      head_type = sm.SelfAttnHead if self.config.behavior_type == 'selfattn' else sm.CrossAttnHead
+    elif self.config.behavior_type in ['sa', 'ca']:
+      head_type = sm.SelfAttnHead if self.config.behavior_type == 'sa' else sm.CrossAttnHead
       self.heads['reward'] = head_type(
         shape=[], 
         # slot_size=self.config.reward_head.units,
@@ -579,8 +579,8 @@ class ActorCritic(common.Module):
         self._updates = tf.Variable(0, tf.int64)
       else:
         self._target_critic = self.critic
-    elif self.config.behavior_type in ['selfattn', 'crossattn']:
-      head_type = sm.SelfAttnHead if self.config.behavior_type == 'selfattn' else sm.CrossAttnHead
+    elif self.config.behavior_type in ['sa', 'ca']:
+      head_type = sm.SelfAttnHead if self.config.behavior_type == 'sa' else sm.CrossAttnHead
       self.actor = head_type(
         shape=act_space.shape[0],
         # slot_size=self.config.actor.units,

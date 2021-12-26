@@ -5869,6 +5869,80 @@ def is_cross_attention_sufficient_for_slate_no_mask_12_23_21():
             r.generate_commands(args.for_real)
 
 
+def does_k_greater_than_one_learn_at_all_12_25_21():
+    """
+
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_g'])
+    r.add_flag('decoder_type', ['grid_g_dec', 'grid_g_ca'])
+    r.add_flag('pos_encode_type', ['slate', 'coordconv'])
+    # r.add_flag('data_parallel', [True])
+    r.add_flag('rssm.num_slots', [1,5])
+
+    r.add_flag('logdir', ['runs/does_k_greater_than_one_learn_at_all'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+        'rssm.num_slots',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+
+def does_k_greater_than_one_learn_at_all_monolithic_reference_12_25_21():
+    """
+
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+
+    r.add_flag('logdir', ['runs/does_k_greater_than_one_learn_at_all_monolithic_reference'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'decoder_type',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+
+
+
 
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
@@ -5990,7 +6064,9 @@ if __name__ == '__main__':
     # k1_generic_encoder_decoder_coordconv_break_anything_n6_12_23_21()
     # how_does_number_of_slotattn_iterations_affect_slate_12_23_21()
     # is_cross_attention_sufficient_for_slate_12_23_21()
-    is_cross_attention_sufficient_for_slate_no_mask_12_23_21()
+    # is_cross_attention_sufficient_for_slate_no_mask_12_23_21()
+    # does_k_greater_than_one_learn_at_all_12_25_21()
+    does_k_greater_than_one_learn_at_all_monolithic_reference_12_25_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

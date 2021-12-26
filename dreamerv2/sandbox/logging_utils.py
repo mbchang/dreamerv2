@@ -45,6 +45,7 @@ def create_expname(args):
 
         'slate.slot_model.slot_attn.num_slots': 'k',
         'dslate.slot_model.slot_attn.num_slots': 'k',
+        'rssm.num_slots': 'k',
 
         'dslate.slot_model.consistency_loss': 'cl',
 

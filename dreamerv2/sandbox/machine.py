@@ -18,13 +18,17 @@ from sandbox.tf_slate import transformer, slot_attn, dvae
 
 
 ########################################################################
-## Tensor utils
+## utils
 ########################################################################
 def unflatten(x, num_slots):
     return eo.rearrange(x, '... (k d) -> ... k d', k=num_slots)
 
 def flatten(x):
     return eo.rearrange(x, '... k d -> ... (k d)')
+
+def split_at_n(text, delimiter, n):
+  groups = text.split(delimiter)
+  return delimiter.join(groups[:n]), delimiter.join(groups[n:])
 
 ########################################################################
 ## Tensor utils
@@ -34,7 +38,7 @@ class EnsembleRSSM(common.Module):
 
   def __init__(
       self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics_type='default', update_type='default', initial_type='default', embed_dim=16, num_slots=1):
+      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics_type='default', update_type='default', initial_type='default', embed_dim=16, num_slots=1, resolution=(16,16)):
     super().__init__()
     self._ensemble = ensemble
     self._stoch = stoch
@@ -52,6 +56,7 @@ class EnsembleRSSM(common.Module):
     self._update_type = update_type
     self._embed_dim = embed_dim
     self._initial_type = initial_type
+    self._resolution = resolution
 
     if self._dynamics_type == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
@@ -105,11 +110,15 @@ class EnsembleRSSM(common.Module):
         broadcast = lambda x: eo.repeat(x, 'b ... -> b k ...', k=self.num_slots)
         state = tf.nest.map_structure(broadcast, state)
         state['deter'] = state['deter'] + tf.cast(self.initial_deter, dtype)
+        if self.num_slots > 1:
+          state['attns'] = tf.zeros([batch_size, np.prod(self._resolution), self.num_slots], dtype=dtype)
       elif self._initial_type == 'iid':
         deter = self.slots_mu + tf.exp(self.slots_log_sigma) * tf.random.normal([batch_size, self.num_slots, self._deter])
         broadcast = lambda x: eo.repeat(x, 'b ... -> b k ...', k=self.num_slots)
         state = tf.nest.map_structure(broadcast, state)
         state['deter'] = state['deter'] + tf.cast(deter, dtype)
+        if self.num_slots > 1:
+          state['attns'] = tf.zeros([batch_size, np.prod(self._resolution), self.num_slots], dtype=dtype)
       elif self._initial_type != 'default':
         raise NotImplementedError
     else:
@@ -217,12 +226,17 @@ class EnsembleRSSM(common.Module):
     prior = self.img_step(prev_state, prev_action, sample)
     ###########################################################
     # replace this with slot attention
-    x = self.update(prior['deter'], embed)
+    if self.num_slots > 1:
+      x, attns = self.update(prior['deter'], embed, return_attns=True)
+    else:
+      x = self.update(prior['deter'], embed)
     ###########################################################
     stats = self._suff_stats_layer('obs_dist', x)
     dist = self.get_dist(stats)
     stoch = dist.sample() if sample else dist.mode()
     post = {'stoch': stoch, 'deter': prior['deter'], **stats}
+    if self.num_slots > 1:
+      post['attns'] = attns  # (B, H*W, K)
     return post, prior
 
   @tf.function
@@ -242,6 +256,8 @@ class EnsembleRSSM(common.Module):
     dist = self.get_dist(stats)
     stoch = dist.sample() if sample else dist.mode()
     prior = {'stoch': stoch, 'deter': deter, **stats}
+    if self.num_slots > 1:
+      prior['attns'] = self._cast(tf.zeros([prev_action.shape[0], 256, self.num_slots]))
     return prior
 
   def _suff_stats_ensemble(self, inp):
@@ -421,9 +437,9 @@ class PreviousSlotEncoder(Encoder):
 
 
 class GridEncoder(Encoder):
-  def __init__(self, shapes, encoder_type, pos_encode_type, outdim, **kwargs):
+  def __init__(self, shapes, encoder_type, pos_encode_type, outdim, resolution, **kwargs):
     super().__init__(shapes, **kwargs)
-    if encoder_type == 'grid_generic':
+    if encoder_type == 'grid_g':
       self.encoder = dvae.GenericEncoder(in_channels=3, out_channels=outdim)
     elif encoder_type == 'grid_dvweak':
       self.encoder = dvae.dVAEShallowWeakEncoder(in_channels=3, out_channels=outdim)
@@ -440,7 +456,7 @@ class GridEncoder(Encoder):
     else:
       raise NotImplementedError
 
-    self.resolution = (16,16)
+    self.resolution = resolution
     if pos_encode_type == 'slate':
       self.position_encoding = transformer.GridPositionalEncoding(
         resolution=self.resolution, dim=outdim)
@@ -561,13 +577,15 @@ class Decoder(common.Module):
 
 
 class GridDecoder(Decoder):
-  def __init__(self, shapes, decoder_type, pos_encode_type, token_dim, **kwargs):
+  def __init__(self, shapes, decoder_type, pos_encode_type, token_dim, resolution, **kwargs):
     super().__init__(shapes, **kwargs)
 
-    self.resolution = [16,16]
+    self.resolution = resolution
     self.token_dim = token_dim
 
-    if decoder_type == 'grid_generic':
+    decoder_type, transformer_type = split_at_n(decoder_type, '_', 2)
+
+    if decoder_type == 'grid_g':
       self.decoder = dvae.GenericDecoder(in_channels=self.token_dim, out_channels=3)
     elif decoder_type == 'grid_dvweak':
       self.decoder = dvae.dVAEShallowWeakDecoder(in_channels=self.token_dim, out_channels=3)
@@ -599,8 +617,15 @@ class GridDecoder(Decoder):
 
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.obs_cross_defaults())
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_eight_heads_defaults())
+
+    if transformer_type == 'dec':
+      self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
+    elif transformer_type == 'ca':
+      self.tf_dec = transformer.CrossAttentionStack(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
+    else:
+      raise NotImplementedError
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
-    self.tf_dec = transformer.CrossAttentionStack(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
+    # self.tf_dec = transformer.CrossAttentionStack(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
 
     self.token_mlp = tf.keras.Sequential([
         tfkl.Dense(self.token_dim, kernel_initializer='he_uniform'),
@@ -644,7 +669,7 @@ class GridDecoder(Decoder):
     x = eo.rearrange(x, '... k d -> (...) k d')
     # 2. create queries by applying position encodings to zeros, then token_mlp
     bsize = x.shape[0]
-    queries = tf.zeros([bsize] + self.resolution + [self.token_dim], dtype=x.dtype)
+    queries = tf.zeros([bsize] + list(self.resolution) + [self.token_dim], dtype=x.dtype)
     queries = self.token_mlp(self.position_encoding(queries))
     queries = eo.rearrange(queries, '... h w d -> ... (h w) d')
     # 3. tf_dec --> (16x16)
@@ -1092,13 +1117,16 @@ class SlotUpdate(common.Module):
       self._hidden, 
       slot_attn.SlotAttention.savi_defaults())
 
-  def __call__(self, deter, embed):
+  def __call__(self, deter, embed, return_attns=False):
     """
       deter: (B, K, deter_dim)
       embed: (B, K, S, embed_dim)
     """
     x, attns = self.slot_attn(embed, deter)
-    return x
+    if return_attns:
+      return x, attns
+    else:
+      return x
 
 
 class SlimAttentionUpdate(common.Module):
