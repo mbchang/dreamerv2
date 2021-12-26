@@ -356,7 +356,6 @@ class WorldModel(common.Module):
     for name, head in self.heads.items():
       grad_head = (name in self.config.grad_heads)
       inp = feat if grad_head else tf.stop_gradient(feat)
-      # import ipdb;ipdb.set_trace(context=20)
       out = head(inp)
       dists = out if isinstance(out, dict) else {name: out}
       for key, dist in dists.items():
