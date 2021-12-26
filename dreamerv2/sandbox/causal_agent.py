@@ -1,4 +1,5 @@
 from einops import rearrange
+from loguru import logger as lgr
 import tensorflow as tf
 from tensorflow.keras import mixed_precision as prec
 
@@ -460,24 +461,21 @@ class WorldModel(common.Module):
     states, _ = self.rssm.observe(
         embed[:n, :t], data['action'][:n, :t], data['is_first'][:n, :t])
     post_feat = self.rssm.get_feat(states)
-    recon = decoder(post_feat)[key].mode()[:n]
+    recon_dist = decoder(post_feat)[key]
+    recon = recon_dist.mode()[:n]
     if self.config.dataset.length > t:
       init = {k: v[:, -1] for k, v in states.items()}
       prior = self.rssm.imagine(data['action'][:n, t:], init)
       prior_feat = self.rssm.get_feat(prior)
-      openl = decoder(prior_feat)[key].mode()
+      openl_dist = decoder(prior_feat)[key]
+      openl = openl_dist.mode()
       model = tf.concat([nmlz.uncenter(recon[:, :t]), nmlz.uncenter(openl)], 1)
-
-      recon_loss = -tf.cast(decoder(post_feat)[key].log_prob(data[key][:n, :t]), tf.float32).mean()
-      imag_loss = -tf.cast(decoder(prior_feat)[key].log_prob(data[key][:n, t:]), tf.float32).mean()
-
+      recon_loss = -tf.cast(recon_dist.log_prob(data[key][:n, :t]), tf.float32).mean()
+      imag_loss = -tf.cast(openl_dist.log_prob(data[key][:n, t:]), tf.float32).mean()
     else:
       model = nmlz.uncenter(recon[:, :t])
-
       recon_loss = -tf.cast(decoder(post_feat)[key].log_prob(data[key][:n, :t]), tf.float32).mean()
       imag_loss = tf.zeros(1, dtype=tf.float32)
-
-
     error = (model - truth + 1) / 2
     video = tf.concat([truth, model, error], 2)
     output = dict(
@@ -485,6 +483,7 @@ class WorldModel(common.Module):
       recon_loss=recon_loss,
       imag_loss=imag_loss,
       )
+    lgr.debug(f'Recon loss: {recon_loss}. Imag loss: {imag_loss}.')
     return output
 
   @tf.function
@@ -540,9 +539,11 @@ class WorldModel(common.Module):
 
   @tf.function
   def report(self, data):
+    import time
     report = {}
     data = self.preprocess(data)
     for key in self.heads['decoder'].cnn_keys:
+      t0 = time.time()
       name = key.replace('/', '_')
       # if self.config.rssm.num_slots > 1:
       #   generate_video = self.slot_video_pred
@@ -556,6 +557,7 @@ class WorldModel(common.Module):
       report[f'openl_{name}'] = output['video']
       report[f'recon_loss_{name}'] = output['recon_loss']
       report[f'imag_loss_{name}'] = output['imag_loss']
+      lgr.debug(f'Generating video took {time.time()-t0} seconds.')
     return report
 
 
