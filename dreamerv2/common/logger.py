@@ -24,6 +24,7 @@ class Logger:
       name = f'{prefix}_{name}' if prefix else name
       value = np.array(value)
       if len(value.shape) not in (0, 2, 3, 4):
+        import ipdb; ipdb.set_trace(context=20)
         raise ValueError(
             f"Shape {value.shape} for name '{name}' cannot be "
             "interpreted as scalar, image, or video.")

@@ -450,6 +450,10 @@ class WorldModel(common.Module):
   def video_pred(self, data, key):
     n = self.config.eval_dataset.batch
     t = self.config.eval_dataset.seed_steps
+    nll = lambda dist, x: -tf.cast(dist.log_prob(x), tf.float32).mean()
+    recon_nll = lambda dist, x: nll(dist, x[:n, :t])
+    imag_nll = lambda dist, x: nll(dist, x[:n, t:])
+
     decoder = self.heads['decoder']
     truth = nmlz.uncenter(data[key][:n])
     embed = self.encoder(data)
@@ -462,27 +466,29 @@ class WorldModel(common.Module):
     post_feat = self.rssm.get_feat(states)
     recon_dist = decoder(post_feat)[key]
     recon = recon_dist.mode()[:n]
+    recon_loss = recon_nll(recon_dist, data[key])
+    recon_reward_loss = recon_nll(self.heads['reward'](post_feat), data['reward'])
+    model = nmlz.uncenter(recon[:, :t])
+    imag_loss = tf.constant(0, dtype=tf.float32)
+    imag_reward_loss = tf.constant(0, dtype=tf.float32)
     if self.config.dataset.length > t:
       init = {k: v[:, -1] for k, v in states.items()}
       prior = self.rssm.imagine(data['action'][:n, t:], init)
       prior_feat = self.rssm.get_feat(prior)
       openl_dist = decoder(prior_feat)[key]
       openl = openl_dist.mode()
-      model = tf.concat([nmlz.uncenter(recon[:, :t]), nmlz.uncenter(openl)], 1)
-      recon_loss = -tf.cast(recon_dist.log_prob(data[key][:n, :t]), tf.float32).mean()
-      imag_loss = -tf.cast(openl_dist.log_prob(data[key][:n, t:]), tf.float32).mean()
-    else:
-      model = nmlz.uncenter(recon[:, :t])
-      recon_loss = -tf.cast(decoder(post_feat)[key].log_prob(data[key][:n, :t]), tf.float32).mean()
-      imag_loss = tf.zeros(1, dtype=tf.float32)
+      model = tf.concat([model, nmlz.uncenter(openl)], 1)
+      imag_loss += imag_nll(openl_dist, data[key])
+      imag_reward_loss +=  imag_nll(self.heads['reward'](prior_feat), data['reward'])
     error = (model - truth + 1) / 2
     video = tf.concat([truth, model, error], 2)
     output = dict(
       video=rearrange(video, 'b t h w c -> t h (b w) c'),
       recon_loss=recon_loss,
       imag_loss=imag_loss,
+      recon_reward_loss=recon_reward_loss,
+      imag_reward_loss=imag_reward_loss,
       )
-    lgr.debug(f'Recon loss: {recon_loss}. Imag loss: {imag_loss}.')
     return output
 
   @tf.function
@@ -538,18 +544,17 @@ class WorldModel(common.Module):
 
   @tf.function
   def report(self, data):
-    import time
     report = {}
     data = self.preprocess(data)
     for key in self.heads['decoder'].cnn_keys:
-      t0 = time.time()
       name = key.replace('/', '_')
       generate_video = self.video_pred
       output = generate_video(data, key)
       report[f'openl_{name}'] = output['video']
       report[f'recon_loss_{name}'] = output['recon_loss']
       report[f'imag_loss_{name}'] = output['imag_loss']
-      lgr.debug(f'Generating video took {time.time()-t0} seconds.')
+      report[f'recon_reward_loss_{name}'] = output['recon_reward_loss']
+      report[f'imag_reward_loss_{name}'] = output['imag_reward_loss']
     return report
 
 

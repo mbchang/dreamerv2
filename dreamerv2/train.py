@@ -341,8 +341,7 @@ def main():
       report = strategy.run(agnt.report, args=(next(report_dataset),))  # DISTRIBUTED
       report = {key: strategy.reduce(tf.distribute.ReduceOp.MEAN, report[key], axis=None) for key in report}  # DISTRIBUTED
       wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
-      logger.add({key: report[key] for key in report if 'openl' in key}, prefix='train')
-      # logger.add(report, prefix='train')
+      logger.add(report, prefix='train')
       logger.write(fps=True)
       wandb.log({'fps': logger._compute_fps()}, step=step.value)
   train_driver.on_step(train_step)
@@ -356,8 +355,7 @@ def main():
     report = {key: strategy.reduce(tf.distribute.ReduceOp.MEAN, report[key], axis=None) for key in report}
     ########################################
     wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
-    logger.add({key: report[key] for key in report if 'openl' in key}, prefix='eval')
-    # logger.add(report, prefix='eval')
+    logger.add(report, prefix='eval')
     eval_driver(eval_policy, episodes=config.eval_eps)
     lgr.info('Start training.')
     train_driver(train_policy, steps=config.eval_every)
