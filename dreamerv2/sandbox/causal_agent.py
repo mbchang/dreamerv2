@@ -545,13 +545,6 @@ class WorldModel(common.Module):
     for key in self.heads['decoder'].cnn_keys:
       t0 = time.time()
       name = key.replace('/', '_')
-      # if self.config.rssm.num_slots > 1:
-      #   generate_video = self.slot_video_pred
-      # else:
-      #   generate_video = self.video_pred
-      # if self.config.rssm.num_slots > 1:
-      #   generate_video = self.slot_video_pred
-      # else:
       generate_video = self.video_pred
       output = generate_video(data, key)
       report[f'openl_{name}'] = output['video']
