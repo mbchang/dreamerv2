@@ -133,6 +133,7 @@ class SlotAttention(tkl.Layer, Factorized):
             attn = attn / tf.math.reduce_sum(attn, axis=-2, keepdims=True)  # nan appeared here. We do not want to divide by 0. THis means that attn should not round to 0. This means that attn should be float32. Can we convert back to float16 after this step?
 
             attn = tf.cast(attn, dtype)
+            attn_vis = tf.cast(attn_vis, dtype)
 
 
 
