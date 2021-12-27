@@ -225,7 +225,12 @@ class WorldModel(common.Module):
     #   from sandbox import machine
     from sandbox import machine
 
-    self.rssm = machine.EnsembleRSSM(**config.rssm)
+    # import ipdb; ipdb.set_trace(context=20)
+    if 'slot' in self.config:
+      from sandbox import slot_machine
+      self.rssm = slot_machine.SlotEnsembleRSSM(**config.rssm)
+    else:
+      self.rssm = machine.EnsembleRSSM(**config.rssm)
 
     # self.rssm.register_num_slots(self.config.num_slots)  # TODO later this may vary based on the episode
 
