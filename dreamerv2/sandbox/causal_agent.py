@@ -364,6 +364,15 @@ class WorldModel(common.Module):
         losses[key] = -like.mean()
     model_loss = sum(
         self.config.loss_scales.get(k, 1.0) * v for k, v in losses.items())
+
+
+    try:
+      tf.debugging.check_numerics(model_loss, 'model_loss')
+    except Exception as e:
+      lgr.debug(e)
+      import ipdb; ipdb.set_trace(context=20)
+
+
     outs = dict(
         embed=embed, feat=feat, post=post,
         prior=prior, likes=likes, kl=kl_value)

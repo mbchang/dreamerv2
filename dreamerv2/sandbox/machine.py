@@ -237,6 +237,19 @@ class EnsembleRSSM(common.Module):
     post = {'stoch': stoch, 'deter': prior['deter'], **stats}
     if self.num_slots > 1:
       post['attns'] = attns  # (B, H*W, K)
+
+    try:
+      tf.debugging.check_numerics(prior['stoch'], 'prior_stoch')
+      tf.debugging.check_numerics(prior['logit'], 'prior_logit')
+      tf.debugging.check_numerics(post['stoch'], 'post_stoch')
+      tf.debugging.check_numerics(post['logit'], 'post_logit')
+      tf.debugging.check_numerics(post['deter'], 'deter')
+      tf.debugging.check_numerics(post['attns'], 'attns')
+    except Exception as e:
+      lgr.debug(e)
+      import ipdb; ipdb.set_trace(context=20)
+
+
     return post, prior
 
   @tf.function

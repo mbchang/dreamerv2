@@ -104,7 +104,11 @@ class Optimizer(tf.Module):
       self._once = False
 
     # Check loss.
-    tf.debugging.check_numerics(loss, self._name + '_loss')
+    try:
+      tf.debugging.check_numerics(loss, self._name + '_loss')
+    except Exception as e:
+      lgr.debug(e)
+      import ipdb; ipdb.set_trace(context=20)
     metrics[f'{self._name}_loss'] = loss
 
     # Compute scaled gradient.

@@ -60,7 +60,7 @@ class SlotAttention(tkl.Layer, Factorized):
         k = ((self.slot_size // self.num_heads) ** (-0.5) / self.temp) * k
         
         # Multiple rounds of attention.
-        for _ in range(self.num_iterations):
+        for i in range(self.num_iterations):
             slots_prev = slots
             slots = self.norm_slots(slots)
             
@@ -75,13 +75,60 @@ class SlotAttention(tkl.Layer, Factorized):
             
             # Weighted mean.
             attn = attn + self.epsilon
-            attn = attn / tf.math.reduce_sum(attn, axis=-2, keepdims=True)
+            """
+            nan happened here at attn[-4] (the -4th example in the batch)
+
+            <tf.Tensor: shape=(1, 256, 5), dtype=float16, numpy=
+            array([[[0., 1., 0., 0., 0.],
+                    [0., 1., 0., 0., 0.],
+                    [0., 1., 0., 0., 0.],
+                    ...,
+                    [0., 1., 0., 0., 0.],
+                    [0., 1., 0., 0., 0.],
+                    [0., 1., 0., 0., 0.]]], dtype=float16)>
+
+            then, for tf.math.reduce_sum(attn, axis=-2, keepdims=True), we had (we assigned the variable bb to that)
+
+            ipdb> bb[:,0,0]
+            <tf.Tensor: shape=(16, 5), dtype=float16, numpy=
+            array([[3.9673e-04, 3.5840e+00, 5.1719e+01, 1.9725e+02, 1.4316e+00],
+                   [2.5588e+02, 1.9073e-02, 4.7485e-02, 2.2675e-02, 9.3460e-03],
+                   [7.6123e-01, 4.4116e-01, 1.0891e-03, 2.2275e+02, 2.9422e+01],
+                   [8.8196e-02, 2.5412e+02, 1.0566e+00, 1.0699e-01, 6.3672e-01],
+                   [5.1308e-04, 8.0764e-05, 2.0728e-01, 1.3804e-04, 2.5600e+02],
+                   [1.1387e-03, 4.3082e-04, 4.1188e+01, 5.1956e-03, 2.1862e+02],
+                   [2.5475e+02, 7.4196e-03, 3.5703e+00, 3.9978e-02, 4.5800e-04],
+                   [3.4928e-05, 3.2656e+00, 1.0156e-01, 2.5338e+02, 2.8076e-02],
+                   [9.2834e-02, 3.6438e-02, 2.3560e-02, 2.5588e+02, 4.8518e-05],
+                   [4.1504e-02, 2.5588e+02, 6.2622e-02, 1.4183e-02, 1.2964e-01],
+                   [2.0398e-01, 1.4270e-01, 2.4707e-01, 2.5488e+02, 5.4541e-01],
+                   [3.3569e-04, 5.3673e-03, 2.8229e-04, 2.5512e+02, 1.8457e+00],
+                   [2.9316e-03, 2.5600e+02, 1.5795e-05, 0.0000e+00, 2.3842e-07],
+                   [1.1873e-04, 2.6709e-01, 2.5575e+02, 4.5121e-05, 4.4159e-02],
+                   [2.5366e-01, 7.1094e+00, 2.5212e+02, 1.1814e-04, 4.2081e-05],
+                   [1.8740e-04, 2.4155e-02, 1.7500e-04, 4.6344e+01, 2.1262e+02]],
+                  dtype=float16)>
+
+            so the denominator was 0. Why was the denominaotr 0?
+
+            Perhaps the epsilon was not big enough. Because it was just summing over a bunch of zeros.
+
+            I've found the problem.
+            """
+
+            attn = attn / tf.math.reduce_sum(attn, axis=-2, keepdims=True)  # nan appeared here
             updates = tf.einsum('bhts,bhtd->bhsd', attn, v)
             updates = eo.rearrange(updates, 'b h s d -> b s (h d)')
 
             # Slot update.
             slots, _ = bottle(self.gru)(updates, slots_prev)
             slots = slots + self.mlp(self.norm_mlp(slots))
+
+            try:
+              tf.debugging.check_numerics(slots, 'slots')
+            except Exception as e:
+              lgr.debug(e)
+              import ipdb; ipdb.set_trace(context=20)
         
         return slots, attn_vis
 
