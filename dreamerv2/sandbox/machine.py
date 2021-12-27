@@ -244,7 +244,6 @@ class EnsembleRSSM(common.Module):
       tf.debugging.check_numerics(post['stoch'], 'post_stoch')
       tf.debugging.check_numerics(post['logit'], 'post_logit')
       tf.debugging.check_numerics(post['deter'], 'deter')
-      tf.debugging.check_numerics(post['attns'], 'attns')
     except Exception as e:
       lgr.debug(e)
       import ipdb; ipdb.set_trace(context=20)
