@@ -22,6 +22,7 @@ def create_expname(args):
         'fwm.optim.learning_rate': 'flr',
         'dslate.slot_model.lr': 'flr',
         'slate.slot_model.lr': 'flr',
+        'model_opt.lr': 'mlr',
 
         'fwm.optim.warmup_steps': 'fws',
         'fwm.optim.decay_steps': 'fds',
@@ -35,6 +36,7 @@ def create_expname(args):
         'fwm.model.update_step.temp': 'tp',
         'dslate.slot_model.slot_attn.temp': 'tp',
         'slate.slot_model.slot_attn.temp': 'tp',
+        'slot.rssm.slot_update.temp': 'tp',
 
         'eval_dataset.length': 'eT',
         'eval_dataset.seed_steps': 'ss',
@@ -90,8 +92,12 @@ def create_expname(args):
         'decoder_type': 'dt',
 
         'dslate.slot_model.obs_cross_transformer.num_blocks': 'octnb',
+        'slot.decoder.ca_config.num_blocks': 'octnb',
+
         'dslate.slot_model.obs_transformer.num_blocks': 'otnb',
+        'slot.decoder.dec_config.num_blocks': 'otnb',
         'dslate.slot_model.obs_transformer.num_heads': 'otnh',
+
 
         'dslate.slot_model.dyn_transformer.num_blocks': 'dtnb',
         'dslate.slot_model.dyn_transformer.num_heads': 'dtnh',
@@ -104,6 +110,10 @@ def create_expname(args):
         'dslate.slot_model.lr_warmup_steps': 'lws',
 
         'dslate.slot_model.slot_attn.num_iterations': 'ni',
+        'slot.rssm.slot_update.num_iterations': 'ni',
+
+        'slot.decoder.transformer_type': 'dtf',
+
 
 
     }

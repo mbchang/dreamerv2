@@ -70,7 +70,6 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
 
     self._dynamics_type = config.dynamics_type
     self._update_type = config.update_type
-    # self._embed_dim = config.embed_dim
     self._initial_type = config.initial_type
     self.num_slots = config.num_slots
     self._resolution = resolution
@@ -145,8 +144,8 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
       is_first: (B)
     """
     post, prior = machine.EnsembleRSSM.obs_step(self, prev_state, prev_action, embed, is_first, sample)
-    if self.num_slots > 1:
-      post['attns'] = attns  # (B, H*W, K)
+    # if self.num_slots > 1:
+    #   post['attns'] = attns  # (B, H*W, K)
     try:
       tf.debugging.check_numerics(prior['stoch'], 'prior_stoch')
       tf.debugging.check_numerics(prior['logit'], 'prior_logit')
@@ -161,8 +160,8 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
   @tf.function
   def img_step(self, prev_state, prev_action, sample=True):
     prior = machine.EnsembleRSSM.img_step(self, prev_state, prev_action, sample)
-    if self.num_slots > 1:
-      prior['attns'] = self._cast(tf.zeros([prev_action.shape[0], 256, self.num_slots]))
+    # if self.num_slots > 1:
+    #   prior['attns'] = self._cast(tf.zeros([prev_action.shape[0], 256, self.num_slots]))
     return prior
 
   def register_num_slots(self, num_slots):
