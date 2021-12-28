@@ -16,8 +16,6 @@ from sandbox.tf_slate import slot_model as sm
 def encoder_interface(embed, config):
     ###########################################################
     # encoder to latent?
-    # import ipdb;ipdb.set_trace(context=20)
-    # if 'grid' in config.encoder_type:
     if 'slot' in config:
       # embed: ... H, W, C
       if config.rssm.update_type in ['slot', 'cross']:
@@ -216,10 +214,16 @@ class CausalAgent(common.Module):
 
 class WorldModel(common.Module):
   @staticmethod
+  def slot_defaults_debug():
+    debug_args = WorldModel.slot_defaults()
+    debug_args.token_dim = 8
+    return debug_args
+
+  @staticmethod
   def slot_defaults():
       default_args = ml_collections.ConfigDict(dict(
         pos_encode_type='coordconv',
-        token_dim=8,  # 64
+        token_dim=64,
         resolution=[16,16],
       ))
       return default_args
@@ -244,9 +248,6 @@ class WorldModel(common.Module):
       self.encoder = slot_machine.GridEncoder(
         shapes=shapes,
         obs_itf=config.slot.obs_itf,
-        # pos_encode_type=config.slot.obs_itf.pos_encode_type, 
-        # token_dim=config.slot.obs_itf.token_dim, 
-        # resolution=config.rssm.resolution, 
         slot_config=config.slot.encoder, 
         **config.encoder)
 
@@ -254,9 +255,6 @@ class WorldModel(common.Module):
       self.heads['decoder'] = slot_machine.GridDecoder(
         shapes=shapes, 
         obs_itf=config.slot.obs_itf,
-        # pos_encode_type=config.slot.obs_itf.pos_encode_type, 
-        # token_dim=config.slot.obs_itf.token_dim, 
-        # resolution=config.rssm.resolution, 
         slot_config=config.slot.decoder, 
         **config.decoder)
 
@@ -570,6 +568,11 @@ class WorldModel(common.Module):
 
 
 class ActorCritic(common.Module):
+  @staticmethod
+  def slot_defaults_debug():
+    debug_args = ActorCritic.slot_defaults()
+    return debug_args
+
   @staticmethod
   def slot_defaults():
       default_args = ml_collections.ConfigDict(dict(

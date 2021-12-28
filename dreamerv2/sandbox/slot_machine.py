@@ -42,13 +42,18 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
   # TODO: create your default config here!
 
   @staticmethod
+  def defaults_debug():
+    debug_args = SlotEnsembleRSSM.defaults()
+    return debug_args
+
+  @staticmethod
   def defaults():
-      default_args = ml_collections.ConfigDict(dict(
-        cross_dynamics=CrossDynamics.defaults(),
-        slot_update=SlotUpdate.defaults(),
-        cross_update=CrossUpdate.defaults(),
-          ))
-      return default_args
+    default_args = ml_collections.ConfigDict(dict(
+      cross_dynamics=CrossDynamics.defaults(),
+      slot_update=SlotUpdate.defaults(),
+      cross_update=CrossUpdate.defaults(),
+        ))
+    return default_args
 
   def __init__(self, config, slot_config, resolution):
     common.Module.__init__(self)
@@ -171,13 +176,17 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
 
 class GridEncoder(Encoder):
   @staticmethod
+  def defaults_debug():
+    debug_args = GridEncoder.defaults()
+    return debug_args
+
+  @staticmethod
   def defaults():
       default_args = ml_collections.ConfigDict(dict(
         encoder_type='grid_g',
           ))
       return default_args
 
-  # def __init__(self, shapes, pos_encode_type, outdim, resolution, slot_config,**kwargs):
   def __init__(self, shapes, obs_itf, slot_config,**kwargs):
     super().__init__(shapes, **kwargs)
 
@@ -241,17 +250,22 @@ class GridEncoder(Encoder):
 
 class GridDecoder(Decoder):
   @staticmethod
+  def defaults_debug():
+    debug_args = GridDecoder.defaults()
+    debug_args.transformer_type = 'ca'
+    return debug_args
+
+  @staticmethod
   def defaults():
       default_args = ml_collections.ConfigDict(dict(
           decoder_type='grid_g',
-          transformer_type='ca',
+          transformer_type='dec',
 
           dec_config=transformer.TransformerDecoder.two_blocks_four_heads_defaults(),
           ca_config=transformer.TransformerDecoder.two_blocks_four_heads_defaults(),
           ))
       return default_args
 
-  # def __init__(self, shapes, pos_encode_type, token_dim, resolution, slot_config, **kwargs):
   def __init__(self, shapes, obs_itf, slot_config, **kwargs):
     super().__init__(shapes, **kwargs)
 

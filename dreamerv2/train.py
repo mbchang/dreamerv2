@@ -66,13 +66,22 @@ def add_programmatically_generated_configs(parsed, configs):
       configs['defaults']['slot_behavior'] = SlotActorCritic.defaults().to_dict()
   elif 'slot' in parsed.configs:
     from sandbox import slot_machine, causal_agent
-    configs['defaults']['slot'] = dict(
-      rssm=slot_machine.SlotEnsembleRSSM.defaults().to_dict(),
-      obs_itf=causal_agent.WorldModel.slot_defaults().to_dict(),
-      encoder=slot_machine.GridEncoder.defaults().to_dict(),
-      decoder=slot_machine.GridDecoder.defaults().to_dict(),
-      behavior=causal_agent.ActorCritic.slot_defaults().to_dict(),  # or maybe I should subclass?
-      )
+    if 'debug' in parsed.configs:
+      configs['defaults']['slot'] = dict(
+        rssm=slot_machine.SlotEnsembleRSSM.defaults_debug().to_dict(),
+        obs_itf=causal_agent.WorldModel.slot_defaults_debug().to_dict(),
+        encoder=slot_machine.GridEncoder.defaults_debug().to_dict(),
+        decoder=slot_machine.GridDecoder.defaults_debug().to_dict(),
+        behavior=causal_agent.ActorCritic.slot_defaults_debug().to_dict(),  # or maybe I should subclass?
+        )
+    else:
+      configs['defaults']['slot'] = dict(
+        rssm=slot_machine.SlotEnsembleRSSM.defaults().to_dict(),
+        obs_itf=causal_agent.WorldModel.slot_defaults().to_dict(),
+        encoder=slot_machine.GridEncoder.defaults().to_dict(),
+        decoder=slot_machine.GridDecoder.defaults().to_dict(),
+        behavior=causal_agent.ActorCritic.slot_defaults().to_dict(),  # or maybe I should subclass?
+        )
   configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   return configs
 
