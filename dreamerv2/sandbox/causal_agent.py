@@ -221,45 +221,20 @@ class WorldModel(common.Module):
     self.config = config
     self.tfstep = tfstep
 
-    # if config.rssm.num_slots > 1:
-    #   from sandbox import slots_machine as machine
-    # else:
-    #   from sandbox import machine
-    from sandbox import machine
-
-    # import ipdb; ipdb.set_trace(context=20)
     if 'slot' in self.config:
       from sandbox import slot_machine
-      # self.rssm = slot_machine.SlotEnsembleRSSM(**config.rssm)
       self.rssm = slot_machine.SlotEnsembleRSSM(config.rssm, config.slot.rssm)
     else:
-      # self.rssm = machine.EnsembleRSSM(**config.rssm)
+      from sandbox import machine
       self.rssm = machine.EnsembleRSSM(config.rssm)
 
     # self.rssm.register_num_slots(self.config.num_slots)  # TODO later this may vary based on the episode
 
     self.heads = {}
-
-    # if config.encoder_type == 'default':
-    #   self.encoder = machine.Encoder(shapes, **config.encoder)
-    # elif config.encoder_type in ['slot', 'slimslot', 'slimmerslot']:
-    #   self.encoder = machine.PreviousSlotEncoder(shapes, config.encoder_type, config.rssm.embed_dim, **config.encoder)
-    # elif 'grid' in config.encoder_type:
-    # import ipdb;ipdb.set_trace(cont)
-
     if 'slot' in self.config:
       assert self.config.encoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
-      """
-      grid_default
-      grid_dvweak
-      grid_dvstrong
-      grid_sa
-      grid_saslim
-      grid_sadebug
-      """
       self.encoder = slot_machine.GridEncoder(
         shapes=shapes, 
-        # encoder_type=config.encoder_type, 
         pos_encode_type=config.pos_encode_type, 
         outdim=config.rssm.embed_dim, 
         resolution=config.rssm.resolution, 
@@ -269,7 +244,6 @@ class WorldModel(common.Module):
       assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
       self.heads['decoder'] = slot_machine.GridDecoder(
         shapes=shapes, 
-        # decoder_type=config.decoder_type, 
         pos_encode_type=config.pos_encode_type, 
         token_dim=config.rssm.embed_dim, 
         resolution=config.rssm.resolution, 
@@ -279,27 +253,6 @@ class WorldModel(common.Module):
     else:
       self.encoder = machine.Encoder(shapes, **config.encoder)
       self.heads['decoder'] = machine.Decoder(shapes, **config.decoder)
-      # raise NotImplementedError
-
-    # self.heads = {}
-
-    # if config.decoder_type == 'default':
-    #   self.heads['decoder'] = machine.Decoder(shapes, **config.decoder)
-    # # elif config.decoder_type in ['slot', 'slimmerslot']:
-    # #   decoder_in_dim = config.rssm.deter//self.config.rssm.num_slots + config.rssm.stoch//self.config.rssm.num_slots * config.rssm.discrete
-    # #   self.heads['decoder'] = machine.PreviousSlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
-    # elif 'grid' in config.decoder_type:
-    #     assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
-    #     self.heads['decoder'] = slot_machine.GridDecoder(
-    #       shapes=shapes, 
-    #       decoder_type=config.decoder_type, 
-    #       pos_encode_type=config.pos_encode_type, 
-    #       token_dim=config.rssm.embed_dim, 
-    #       resolution=config.rssm.resolution, 
-    #       slot_config=config.slot.decoder, 
-    #       **config.decoder)
-    # else:
-    #   raise NotImplementedError
 
     if self.config.behavior_type == 'default':
       self.heads['reward'] = common.MLP([], **config.reward_head)
@@ -309,14 +262,12 @@ class WorldModel(common.Module):
       head_type = sm.SelfAttnHead if self.config.behavior_type == 'sa' else sm.CrossAttnHead
       self.heads['reward'] = head_type(
         shape=[], 
-        # slot_size=self.config.reward_head.units,
         slot_size=self.config.rssm.hidden,
         dist_cfg=dict(dist=self.config.reward_head.dist),
         cfg=head_type.defaults())
       if config.pred_discount:
         self.heads['discount'] = head_type(
           shape=[],
-          # slot_size=self.config.discount_head.units,
           slot_size=self.config.rssm.hidden,
           dist_cfg=dict(dist=self.config.discount_head.dist),
           cfg=head_type.defaults())

@@ -177,7 +177,6 @@ class GridEncoder(Encoder):
           ))
       return default_args
 
-  # def __init__(self, shapes, encoder_type, pos_encode_type, outdim, resolution, slot_config,**kwargs):
   def __init__(self, shapes, pos_encode_type, outdim, resolution, slot_config,**kwargs):
     super().__init__(shapes, **kwargs)
 
@@ -249,19 +248,14 @@ class GridDecoder(Decoder):
           ))
       return default_args
 
-  # def __init__(self, shapes, decoder_type, pos_encode_type, token_dim, resolution, **kwargs):
-  # def __init__(self, shapes, decoder_type, pos_encode_type, token_dim, resolution, slot_config, **kwargs):
   def __init__(self, shapes, pos_encode_type, token_dim, resolution, slot_config, **kwargs):
     super().__init__(shapes, **kwargs)
 
     self.resolution = resolution
     self.token_dim = token_dim
 
-    # decoder_type, transformer_type = split_at_n(decoder_type, '_', 2)
     decoder_type = slot_config.decoder_type
     transformer_type = slot_config.transformer_type
-
-    # print(decoder_type, transformer_type)
 
     if decoder_type == 'grid_g':
       self.decoder = dvae.GenericDecoder(in_channels=self.token_dim, out_channels=3)
