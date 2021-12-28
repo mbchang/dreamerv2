@@ -39,8 +39,6 @@ def split_at_n(text, delimiter, n):
 
 class SlotEnsembleRSSM(machine.EnsembleRSSM):
 
-  # TODO: create your default config here!
-
   @staticmethod
   def defaults_debug():
     debug_args = SlotEnsembleRSSM.defaults()
