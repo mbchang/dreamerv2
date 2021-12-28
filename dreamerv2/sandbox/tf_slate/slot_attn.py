@@ -178,7 +178,7 @@ class SlotAttentionWithReset(SlotAttention):
             num_slots=3,
             num_slot_heads=1,
             epsilon=1e-8,
-            temp=0.5
+            temp=1.0
             ))
         return default_args
 
