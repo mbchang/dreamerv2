@@ -250,7 +250,14 @@ class WorldModel(common.Module):
       grid_saslim
       grid_sadebug
       """
-      self.encoder = machine.GridEncoder(shapes, config.encoder_type, config.pos_encode_type, config.rssm.embed_dim, config.rssm.resolution, **config.encoder)
+      self.encoder = slot_machine.GridEncoder(
+        shapes=shapes, 
+        encoder_type=config.encoder_type, 
+        pos_encode_type=config.pos_encode_type, 
+        outdim=config.rssm.embed_dim, 
+        resolution=config.rssm.resolution, 
+        slot_config=config.slot.encoder, 
+        **config.encoder)
     else:
       raise NotImplementedError
 
@@ -263,7 +270,14 @@ class WorldModel(common.Module):
       self.heads['decoder'] = machine.PreviousSlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
     elif 'grid' in config.decoder_type:
         assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
-        self.heads['decoder'] = machine.GridDecoder(shapes, config.decoder_type, config.pos_encode_type, config.rssm.embed_dim, config.rssm.resolution, **config.decoder)
+        self.heads['decoder'] = slot_machine.GridDecoder(
+          shapes=shapes, 
+          decoder_type=config.decoder_type, 
+          pos_encode_type=config.pos_encode_type, 
+          token_dim=config.rssm.embed_dim, 
+          resolution=config.rssm.resolution, 
+          slot_config=config.slot.decoder, 
+          **config.decoder)
     else:
       raise NotImplementedError
 

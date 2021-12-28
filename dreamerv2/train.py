@@ -67,7 +67,10 @@ def add_programmatically_generated_configs(parsed, configs):
   elif 'slot' in parsed.configs:
     from sandbox import slot_machine
     configs['defaults']['slot'] = dict(
-      rssm=slot_machine.SlotEnsembleRSSM.defaults().to_dict()
+      rssm=slot_machine.SlotEnsembleRSSM.defaults().to_dict(),
+      encoder=slot_machine.GridEncoder.defaults().to_dict(),
+      decoder=slot_machine.GridDecoder.defaults().to_dict(),
+      behavior=dict(),
       )
   configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   return configs

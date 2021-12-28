@@ -170,8 +170,18 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
 #############################################################
 
 class GridEncoder(Encoder):
-  def __init__(self, shapes, encoder_type, pos_encode_type, outdim, resolution, **kwargs):
+  @staticmethod
+  def defaults():
+      default_args = ml_collections.ConfigDict(dict(
+        encoder_type='grid_g',
+          ))
+      return default_args
+
+  def __init__(self, shapes, encoder_type, pos_encode_type, outdim, resolution, slot_config, **kwargs):
     super().__init__(shapes, **kwargs)
+
+    encoder_type = slot_config.encoder_type
+
     if encoder_type == 'grid_g':
       self.encoder = dvae.GenericEncoder(in_channels=3, out_channels=outdim)
     elif encoder_type == 'grid_dvweak':
@@ -227,13 +237,27 @@ class GridEncoder(Encoder):
 
 
 class GridDecoder(Decoder):
-  def __init__(self, shapes, decoder_type, pos_encode_type, token_dim, resolution, **kwargs):
+  @staticmethod
+  def defaults():
+      default_args = ml_collections.ConfigDict(dict(
+          decoder_type='grid_g',
+          transformer_type='ca',
+
+          dec_config=transformer.TransformerDecoder.two_blocks_four_heads_defaults(),
+          ca_config=transformer.TransformerDecoder.two_blocks_four_heads_defaults(),
+          ))
+      return default_args
+
+  # def __init__(self, shapes, decoder_type, pos_encode_type, token_dim, resolution, **kwargs):
+  def __init__(self, shapes, decoder_type, pos_encode_type, token_dim, resolution, slot_config, **kwargs):
     super().__init__(shapes, **kwargs)
 
     self.resolution = resolution
     self.token_dim = token_dim
 
-    decoder_type, transformer_type = split_at_n(decoder_type, '_', 2)
+    # decoder_type, transformer_type = split_at_n(decoder_type, '_', 2)
+    decoder_type = slot_config.decoder_type
+    transformer_type = slot_config.transformer_type
 
     if decoder_type == 'grid_g':
       self.decoder = dvae.GenericDecoder(in_channels=self.token_dim, out_channels=3)
@@ -269,9 +293,9 @@ class GridDecoder(Decoder):
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_eight_heads_defaults())
 
     if transformer_type == 'dec':
-      self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
+      self.tf_dec = transformer.TransformerDecoder(self.token_dim, slot_config.dec_config)
     elif transformer_type == 'ca':
-      self.tf_dec = transformer.CrossAttentionStack(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
+      self.tf_dec = transformer.CrossAttentionStack(self.token_dim, slot_config.ca_config)
     else:
       raise NotImplementedError
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
