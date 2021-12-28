@@ -400,8 +400,6 @@ class CrossDynamics(common.Module):
     self._cell = GRUCell(self._deter, norm=True)
 
     self.net = transformer.TransformerDecoder(self._hidden, slot_config)
-      # transformer.TransformerDecoder.one_block_one_head_defaults()
-      # )
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
     """
