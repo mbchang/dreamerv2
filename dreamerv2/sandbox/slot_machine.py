@@ -16,6 +16,7 @@ from sandbox import attention, slot_attention
 # sys.path.append(str(pathlib.Path(__file__).parent / 'sandbox' / 'tf_slate'))
 from sandbox.tf_slate import transformer, slot_attn, dvae
 from sandbox import machine
+from sandbox.machine import MLP, GRUCell, DistLayer, NormLayer, get_act, Encoder, Decoder
 
 
 ########################################################################
@@ -97,7 +98,8 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
     elif self._initial_type != 'default':
       raise NotImplementedError
 
-    # assert self.num_slots == 1
+    # # assert self.num_slots == 1
+    # assert False
 
 
   def initial(self, batch_size):
@@ -143,28 +145,31 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
       embed: (B, X)
       is_first: (B)
     """
-    # if is_first[idx] then we reset prev_state[idx] and zero prev_action[idx]
-    zero_first = lambda x: tf.einsum('b,b...->b...', 1.0 - is_first.astype(x.dtype), x)
-    zero_not_first = lambda x: tf.einsum('b,b...->b...', is_first.astype(x.dtype), x)
+    # # if is_first[idx] then we reset prev_state[idx] and zero prev_action[idx]
+    # zero_first = lambda x: tf.einsum('b,b...->b...', 1.0 - is_first.astype(x.dtype), x)
+    # zero_not_first = lambda x: tf.einsum('b,b...->b...', is_first.astype(x.dtype), x)
 
-    prev_action = zero_first(prev_action)
-    prev_state = tf.nest.map_structure(
-      lambda x, y: zero_first(x) + zero_not_first(y).astype(x.dtype),
-      prev_state, self.initial(tf.shape(prev_action)[0])
-      )
+    # prev_action = zero_first(prev_action)
+    # prev_state = tf.nest.map_structure(
+    #   lambda x, y: zero_first(x) + zero_not_first(y).astype(x.dtype),
+    #   prev_state, self.initial(tf.shape(prev_action)[0])
+    #   )
 
-    prior = self.img_step(prev_state, prev_action, sample)
-    ###########################################################
-    # replace this with slot attention
-    if self.num_slots > 1:
-      x, attns = self.update(prior['deter'], embed, return_attns=True)
-    else:
-      x = self.update(prior['deter'], embed)
-    ###########################################################
-    stats = self._suff_stats_layer('obs_dist', x)
-    dist = self.get_dist(stats)
-    stoch = dist.sample() if sample else dist.mode()
-    post = {'stoch': stoch, 'deter': prior['deter'], **stats}
+    # prior = self.img_step(prev_state, prev_action, sample)
+    # ###########################################################
+    # # replace this with slot attention
+    # if self.num_slots > 1:
+    #   x, attns = self.update(prior['deter'], embed, return_attns=True)
+    # else:
+    #   x = self.update(prior['deter'], embed)
+    # ###########################################################
+    # stats = self._suff_stats_layer('obs_dist', x)
+    # dist = self.get_dist(stats)
+    # stoch = dist.sample() if sample else dist.mode()
+    # post = {'stoch': stoch, 'deter': prior['deter'], **stats}
+
+    post, prior = machine.EnsembleRSSM.obs_step(self, prev_state, prev_action, embed, is_first, sample)
+
     if self.num_slots > 1:
       post['attns'] = attns  # (B, H*W, K)
 
@@ -183,21 +188,25 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
 
   @tf.function
   def img_step(self, prev_state, prev_action, sample=True):
-    prev_stoch = self._cast(prev_state['stoch'])
-    prev_action = self._cast(prev_action)
-    if self._discrete:
-      prev_stoch = eo.rearrange(prev_stoch, '... s v -> ... (s v)')
-    ###########################################################
-    # replace with this transformer
-    x, deter = self.dynamics(prev_state['deter'], prev_stoch, prev_action)
-    ###########################################################
-    # choose one from the ensemble to generate a dist
-    stats = self._suff_stats_ensemble(x)
-    index = tf.random.uniform((), 0, self._ensemble, tf.int32)
-    stats = {k: v[index] for k, v in stats.items()}
-    dist = self.get_dist(stats)
-    stoch = dist.sample() if sample else dist.mode()
-    prior = {'stoch': stoch, 'deter': deter, **stats}
+    # prev_stoch = self._cast(prev_state['stoch'])
+    # prev_action = self._cast(prev_action)
+    # if self._discrete:
+    #   prev_stoch = eo.rearrange(prev_stoch, '... s v -> ... (s v)')
+    # ###########################################################
+    # # replace with this transformer
+    # x, deter = self.dynamics(prev_state['deter'], prev_stoch, prev_action)
+    # ###########################################################
+    # # choose one from the ensemble to generate a dist
+    # stats = self._suff_stats_ensemble(x)
+    # index = tf.random.uniform((), 0, self._ensemble, tf.int32)
+    # stats = {k: v[index] for k, v in stats.items()}
+    # dist = self.get_dist(stats)
+    # stoch = dist.sample() if sample else dist.mode()
+    # prior = {'stoch': stoch, 'deter': deter, **stats}
+
+    prior = machine.EnsembleRSSM.img_step(self, prev_state, prev_action, sample)
+
+
     if self.num_slots > 1:
       prior['attns'] = self._cast(tf.zeros([prev_action.shape[0], 256, self.num_slots]))
     return prior
@@ -211,89 +220,89 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
 # Encoder
 #############################################################
 
-class Encoder(common.Module):
+# class Encoder(common.Module):
 
-  def __init__(
-      self, shapes, cnn_keys=r'.*', mlp_keys=r'.*', act='elu', norm='none',
-      cnn_depth=48, cnn_kernels=(4, 4, 4, 4), mlp_layers=[400, 400, 400, 400]):
-    self.shapes = shapes
-    self.cnn_keys = [
-        k for k, v in shapes.items() if re.match(cnn_keys, k) and len(v) == 3]
-    self.mlp_keys = [
-        k for k, v in shapes.items() if re.match(mlp_keys, k) and len(v) == 1]
-    lgr.info('Encoder CNN inputs:', list(self.cnn_keys))
-    lgr.info('Encoder MLP inputs:', list(self.mlp_keys))
-    self._act = get_act(act)
-    self._norm = norm
-    self._cnn_depth = cnn_depth
-    self._cnn_kernels = cnn_kernels
-    self._mlp_layers = mlp_layers
+#   def __init__(
+#       self, shapes, cnn_keys=r'.*', mlp_keys=r'.*', act='elu', norm='none',
+#       cnn_depth=48, cnn_kernels=(4, 4, 4, 4), mlp_layers=[400, 400, 400, 400]):
+#     self.shapes = shapes
+#     self.cnn_keys = [
+#         k for k, v in shapes.items() if re.match(cnn_keys, k) and len(v) == 3]
+#     self.mlp_keys = [
+#         k for k, v in shapes.items() if re.match(mlp_keys, k) and len(v) == 1]
+#     lgr.info('Encoder CNN inputs:', list(self.cnn_keys))
+#     lgr.info('Encoder MLP inputs:', list(self.mlp_keys))
+#     self._act = get_act(act)
+#     self._norm = norm
+#     self._cnn_depth = cnn_depth
+#     self._cnn_kernels = cnn_kernels
+#     self._mlp_layers = mlp_layers
 
-  @tf.function
-  def __call__(self, data):
-    """
-      (B, T, 64, 64, 3) --> (B, T, 1536)
-    """
-    key, shape = list(self.shapes.items())[0]
-    batch_dims = data[key].shape[:-len(shape)]
-    data = {
-        k: tf.reshape(v, (-1,) + tuple(v.shape)[len(batch_dims):])
-        for k, v in data.items()}
-    outputs = []
-    if self.cnn_keys:
-      outputs.append(self._cnn({k: data[k] for k in self.cnn_keys}))
-    if self.mlp_keys:
-      outputs.append(self._mlp({k: data[k] for k in self.mlp_keys}))
-    output = tf.concat(outputs, -1)
-    return output.reshape(batch_dims + output.shape[1:])
+#   @tf.function
+#   def __call__(self, data):
+#     """
+#       (B, T, 64, 64, 3) --> (B, T, 1536)
+#     """
+#     key, shape = list(self.shapes.items())[0]
+#     batch_dims = data[key].shape[:-len(shape)]
+#     data = {
+#         k: tf.reshape(v, (-1,) + tuple(v.shape)[len(batch_dims):])
+#         for k, v in data.items()}
+#     outputs = []
+#     if self.cnn_keys:
+#       outputs.append(self._cnn({k: data[k] for k in self.cnn_keys}))
+#     if self.mlp_keys:
+#       outputs.append(self._mlp({k: data[k] for k in self.mlp_keys}))
+#     output = tf.concat(outputs, -1)
+#     return output.reshape(batch_dims + output.shape[1:])
 
-  def _cnn(self, data):
-    """
-      (B*T, 64, 64, 3) --> (B*T, F, F, 384)
-      384 = 2**3 * 48
+#   def _cnn(self, data):
+#     """
+#       (B*T, 64, 64, 3) --> (B*T, F, F, 384)
+#       384 = 2**3 * 48
 
-      debug: 
-      (B*T, 64, 64, 3)
-      (B*T, 31, 31, 4)
-      (B*T, 14, 14, 8)
-      (B*T, 6, 6, 16)
-      (B*T, 2, 2, 32)
-      (B*T, 2*2*32) = (B*T, 128)
+#       debug: 
+#       (B*T, 64, 64, 3)
+#       (B*T, 31, 31, 4)
+#       (B*T, 14, 14, 8)
+#       (B*T, 6, 6, 16)
+#       (B*T, 2, 2, 32)
+#       (B*T, 2*2*32) = (B*T, 128)
 
-      actual:
-      (B*T, 64, 64, 3)
-      (B*T, 31, 31, 48)
-      (B*T, 14, 14, 96)
-      (B*T, 6, 6, 192)
-      (B*T, 2, 2, 384) = (B*T, 1536)
+#       actual:
+#       (B*T, 64, 64, 3)
+#       (B*T, 31, 31, 48)
+#       (B*T, 14, 14, 96)
+#       (B*T, 6, 6, 192)
+#       (B*T, 2, 2, 384) = (B*T, 1536)
 
-      what I'd want
+#       what I'd want
 
-      (B*T, 64, 64, 3)
-      (B*T, 31, 31, 48)
-      (B*T, 14, 14, 96)
-      position encoding
-      (B*T, 14, 14, 96)
-      (B*T, 14, 14, 96)
+#       (B*T, 64, 64, 3)
+#       (B*T, 31, 31, 48)
+#       (B*T, 14, 14, 96)
+#       position encoding
+#       (B*T, 14, 14, 96)
+#       (B*T, 14, 14, 96)
 
-    """
-    x = tf.concat(list(data.values()), -1)  # (B*T, H, W, C)
-    x = x.astype(prec.global_policy().compute_dtype)
-    for i, kernel in enumerate(self._cnn_kernels):
-      depth = 2 ** i * self._cnn_depth
-      x = self.get(f'conv{i}', tfkl.Conv2D, depth, kernel, 2)(x)
-      x = self.get(f'convnorm{i}', NormLayer, self._norm)(x)
-      x = self._act(x)
-    return eo.rearrange(x, '... h w c -> ... (h w c)')
+#     """
+#     x = tf.concat(list(data.values()), -1)  # (B*T, H, W, C)
+#     x = x.astype(prec.global_policy().compute_dtype)
+#     for i, kernel in enumerate(self._cnn_kernels):
+#       depth = 2 ** i * self._cnn_depth
+#       x = self.get(f'conv{i}', tfkl.Conv2D, depth, kernel, 2)(x)
+#       x = self.get(f'convnorm{i}', NormLayer, self._norm)(x)
+#       x = self._act(x)
+#     return eo.rearrange(x, '... h w c -> ... (h w c)')
 
-  def _mlp(self, data):
-    x = tf.concat(list(data.values()), -1)
-    x = x.astype(prec.global_policy().compute_dtype)
-    for i, width in enumerate(self._mlp_layers):
-      x = self.get(f'dense{i}', tfkl.Dense, width)(x)
-      x = self.get(f'densenorm{i}', NormLayer, self._norm)(x)
-      x = self._act(x)
-    return x
+#   def _mlp(self, data):
+#     x = tf.concat(list(data.values()), -1)
+#     x = x.astype(prec.global_policy().compute_dtype)
+#     for i, width in enumerate(self._mlp_layers):
+#       x = self.get(f'dense{i}', tfkl.Dense, width)(x)
+#       x = self.get(f'densenorm{i}', NormLayer, self._norm)(x)
+#       x = self._act(x)
+#     return x
 
 """
 TODO:
@@ -383,87 +392,87 @@ class GridEncoder(Encoder):
 #############################################################
 
 
-class Decoder(common.Module):
+# class Decoder(common.Module):
 
-  def __init__(
-      self, shapes, cnn_keys=r'.*', mlp_keys=r'.*', act='elu', norm='none',
-      cnn_depth=48, cnn_kernels=(4, 4, 4, 4), mlp_layers=[400, 400, 400, 400]):
-    self._shapes = shapes
-    self.cnn_keys = [
-        k for k, v in shapes.items() if re.match(cnn_keys, k) and len(v) == 3]
-    self.mlp_keys = [
-        k for k, v in shapes.items() if re.match(mlp_keys, k) and len(v) == 1]
-    lgr.info('Decoder CNN outputs:', list(self.cnn_keys))
-    lgr.info('Decoder MLP outputs:', list(self.mlp_keys))
-    self._act = get_act(act)
-    self._norm = norm
-    self._cnn_depth = cnn_depth
-    self._cnn_kernels = cnn_kernels
-    self._mlp_layers = mlp_layers
+#   def __init__(
+#       self, shapes, cnn_keys=r'.*', mlp_keys=r'.*', act='elu', norm='none',
+#       cnn_depth=48, cnn_kernels=(4, 4, 4, 4), mlp_layers=[400, 400, 400, 400]):
+#     self._shapes = shapes
+#     self.cnn_keys = [
+#         k for k, v in shapes.items() if re.match(cnn_keys, k) and len(v) == 3]
+#     self.mlp_keys = [
+#         k for k, v in shapes.items() if re.match(mlp_keys, k) and len(v) == 1]
+#     lgr.info('Decoder CNN outputs:', list(self.cnn_keys))
+#     lgr.info('Decoder MLP outputs:', list(self.mlp_keys))
+#     self._act = get_act(act)
+#     self._norm = norm
+#     self._cnn_depth = cnn_depth
+#     self._cnn_kernels = cnn_kernels
+#     self._mlp_layers = mlp_layers
 
-  def __call__(self, features):
-    features = tf.cast(features, prec.global_policy().compute_dtype)
-    outputs = {}
-    if self.cnn_keys:
-      outputs.update(self._cnn(features))
-    if self.mlp_keys:
-      outputs.update(self._mlp(features))
-    return outputs
+#   def __call__(self, features):
+#     features = tf.cast(features, prec.global_policy().compute_dtype)
+#     outputs = {}
+#     if self.cnn_keys:
+#       outputs.update(self._cnn(features))
+#     if self.mlp_keys:
+#       outputs.update(self._mlp(features))
+#     return outputs
 
-  def _cnn(self, features):
-    """
-      (16, 10, deter + num_tokens * stoch_size)
-      (16, 10, hiddim) --> the discrete latents select codebook vectors and sum them
-      (160, 1, 1, hiddim)  
-      --> start with a 1x1, and then you end up distributing that across space.
+#   def _cnn(self, features):
+#     """
+#       (16, 10, deter + num_tokens * stoch_size)
+#       (16, 10, hiddim) --> the discrete latents select codebook vectors and sum them
+#       (160, 1, 1, hiddim)  
+#       --> start with a 1x1, and then you end up distributing that across space.
 
-      0 (B, 5, 5, 16)
-      1 (B, 13, 13, 8)
-      2 (B, 30, 30, 4)
-      3 (B, 64, 64, 3)
+#       0 (B, 5, 5, 16)
+#       1 (B, 13, 13, 8)
+#       2 (B, 30, 30, 4)
+#       3 (B, 64, 64, 3)
 
-      actual:
+#       actual:
 
-      features: (B, T, deter + num_tokens * stoch_size)
-      x: (B, T, 1536)
-      x: (B*T, 1, 1, 1536)
-      x: (B*T, 5, 5, 192)
-      x: (B*T, 13, 13, 96)
-      x: (B*T, 30, 30, 48)
-      x: (B*T, 64, 64, 3)
-      x: (B, T, 64, 64, 3)
-      means: [(B, T, 64, 64, 3)]
-    """
-    channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
-    ConvT = tfkl.Conv2DTranspose
-    x = self.get('convin', tfkl.Dense, 32 * self._cnn_depth)(features)
-    x = eo.rearrange(x, '... d -> (...) 1 1 d')
-    for i, kernel in enumerate(self._cnn_kernels):
-      depth = 2 ** (len(self._cnn_kernels) - i - 2) * self._cnn_depth
-      act, norm = self._act, self._norm
-      if i == len(self._cnn_kernels) - 1:
-        depth, act, norm = sum(channels.values()), tf.identity, 'none'
-      x = self.get(f'conv{i}', ConvT, depth, kernel, 2)(x)
-      x = self.get(f'convnorm{i}', NormLayer, norm)(x)
-      x = act(x)
-    x = x.reshape(features.shape[:-1] + x.shape[1:])  # (B, T, H, W, C)
-    means = tf.split(x, list(channels.values()), -1)  # [(B, T, H, W, C)]
-    dists = {
-        key: tfd.Independent(tfd.Normal(mean, 1), 3)
-        for (key, shape), mean in zip(channels.items(), means)}
-    return dists
+#       features: (B, T, deter + num_tokens * stoch_size)
+#       x: (B, T, 1536)
+#       x: (B*T, 1, 1, 1536)
+#       x: (B*T, 5, 5, 192)
+#       x: (B*T, 13, 13, 96)
+#       x: (B*T, 30, 30, 48)
+#       x: (B*T, 64, 64, 3)
+#       x: (B, T, 64, 64, 3)
+#       means: [(B, T, 64, 64, 3)]
+#     """
+#     channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
+#     ConvT = tfkl.Conv2DTranspose
+#     x = self.get('convin', tfkl.Dense, 32 * self._cnn_depth)(features)
+#     x = eo.rearrange(x, '... d -> (...) 1 1 d')
+#     for i, kernel in enumerate(self._cnn_kernels):
+#       depth = 2 ** (len(self._cnn_kernels) - i - 2) * self._cnn_depth
+#       act, norm = self._act, self._norm
+#       if i == len(self._cnn_kernels) - 1:
+#         depth, act, norm = sum(channels.values()), tf.identity, 'none'
+#       x = self.get(f'conv{i}', ConvT, depth, kernel, 2)(x)
+#       x = self.get(f'convnorm{i}', NormLayer, norm)(x)
+#       x = act(x)
+#     x = x.reshape(features.shape[:-1] + x.shape[1:])  # (B, T, H, W, C)
+#     means = tf.split(x, list(channels.values()), -1)  # [(B, T, H, W, C)]
+#     dists = {
+#         key: tfd.Independent(tfd.Normal(mean, 1), 3)
+#         for (key, shape), mean in zip(channels.items(), means)}
+#     return dists
 
-  def _mlp(self, features):
-    shapes = {k: self._shapes[k] for k in self.mlp_keys}
-    x = features
-    for i, width in enumerate(self._mlp_layers):
-      x = self.get(f'dense{i}', tfkl.Dense, width)(x)
-      x = self.get(f'densenorm{i}', NormLayer, self._norm)(x)
-      x = self._act(x)
-    dists = {}
-    for key, shape in shapes.items():
-      dists[key] = self.get(f'dense_{key}', DistLayer, shape)(x)
-    return dists
+#   def _mlp(self, features):
+#     shapes = {k: self._shapes[k] for k in self.mlp_keys}
+#     x = features
+#     for i, width in enumerate(self._mlp_layers):
+#       x = self.get(f'dense{i}', tfkl.Dense, width)(x)
+#       x = self.get(f'densenorm{i}', NormLayer, self._norm)(x)
+#       x = self._act(x)
+#     dists = {}
+#     for key, shape in shapes.items():
+#       dists[key] = self.get(f'dense_{key}', DistLayer, shape)(x)
+#     return dists
 
 
 class GridDecoder(Decoder):
@@ -673,129 +682,129 @@ class PreviousSlotDecoder(Decoder):
 # Layers
 #############################################################
 
-class MLP(common.Module):
+# class MLP(common.Module):
 
-  def __init__(self, shape, layers, units, act='elu', norm='none', **out):
-    self._shape = (shape,) if isinstance(shape, int) else shape
-    self._layers = layers
-    self._units = units
-    self._norm = norm
-    self._act = get_act(act)
-    self._out = out
+#   def __init__(self, shape, layers, units, act='elu', norm='none', **out):
+#     self._shape = (shape,) if isinstance(shape, int) else shape
+#     self._layers = layers
+#     self._units = units
+#     self._norm = norm
+#     self._act = get_act(act)
+#     self._out = out
 
-  def __call__(self, features):
-    x = tf.cast(features, prec.global_policy().compute_dtype)
-    x = x.reshape([-1, x.shape[-1]])
-    for index in range(self._layers):
-      x = self.get(f'dense{index}', tfkl.Dense, self._units)(x)
-      x = self.get(f'norm{index}', NormLayer, self._norm)(x)
-      x = self._act(x)
-    x = x.reshape(features.shape[:-1] + [x.shape[-1]])
-    return self.get('out', DistLayer, self._shape, **self._out)(x)
-
-
-class GRUCell(tf.keras.layers.AbstractRNNCell):
-
-  def __init__(self, size, norm=False, act='tanh', update_bias=-1, **kwargs):
-    super().__init__()
-    self._size = size
-    self._act = get_act(act)
-    self._norm = norm
-    self._update_bias = update_bias
-    self._layer = tfkl.Dense(3 * size, use_bias=norm is not None, **kwargs)
-    if norm:
-      self._norm = tfkl.LayerNormalization(dtype=tf.float32)
-
-  @property
-  def state_size(self):
-    return self._size
-
-  @tf.function
-  def call(self, inputs, state):
-    state = state[0]  # Keras wraps the state in a list.
-    parts = self._layer(tf.concat([inputs, state], -1))
-    if self._norm:
-      dtype = parts.dtype
-      parts = tf.cast(parts, tf.float32)
-      parts = self._norm(parts)
-      parts = tf.cast(parts, dtype)
-    reset, cand, update = tf.split(parts, 3, -1)
-    reset = tf.nn.sigmoid(reset)
-    cand = self._act(reset * cand)
-    update = tf.nn.sigmoid(update + self._update_bias)
-    output = update * cand + (1 - update) * state
-    return output, [output]
+#   def __call__(self, features):
+#     x = tf.cast(features, prec.global_policy().compute_dtype)
+#     x = x.reshape([-1, x.shape[-1]])
+#     for index in range(self._layers):
+#       x = self.get(f'dense{index}', tfkl.Dense, self._units)(x)
+#       x = self.get(f'norm{index}', NormLayer, self._norm)(x)
+#       x = self._act(x)
+#     x = x.reshape(features.shape[:-1] + [x.shape[-1]])
+#     return self.get('out', DistLayer, self._shape, **self._out)(x)
 
 
-class DistLayer(common.Module):
+# class GRUCell(tf.keras.layers.AbstractRNNCell):
 
-  def __init__(
-      self, shape, dist='mse', min_std=0.1, init_std=0.0):
-    self._shape = shape
-    self._dist = dist
-    self._min_std = min_std
-    self._init_std = init_std
+#   def __init__(self, size, norm=False, act='tanh', update_bias=-1, **kwargs):
+#     super().__init__()
+#     self._size = size
+#     self._act = get_act(act)
+#     self._norm = norm
+#     self._update_bias = update_bias
+#     self._layer = tfkl.Dense(3 * size, use_bias=norm is not None, **kwargs)
+#     if norm:
+#       self._norm = tfkl.LayerNormalization(dtype=tf.float32)
 
-  def __call__(self, inputs):
-    out = self.get('out', tfkl.Dense, np.prod(self._shape))(inputs)
-    out = tf.reshape(out, tf.concat([tf.shape(inputs)[:-1], self._shape], 0))
-    out = tf.cast(out, tf.float32)
-    if self._dist in ('normal', 'tanh_normal', 'trunc_normal'):
-      std = self.get('std', tfkl.Dense, np.prod(self._shape))(inputs)
-      std = tf.reshape(std, tf.concat([tf.shape(inputs)[:-1], self._shape], 0))
-      std = tf.cast(std, tf.float32)
-    if self._dist == 'mse':
-      dist = tfd.Normal(out, 1.0)
-      return tfd.Independent(dist, len(self._shape))
-    if self._dist == 'normal':
-      dist = tfd.Normal(out, std)
-      return tfd.Independent(dist, len(self._shape))
-    if self._dist == 'binary':
-      dist = tfd.Bernoulli(out)
-      return tfd.Independent(dist, len(self._shape))
-    if self._dist == 'tanh_normal':
-      mean = 5 * tf.tanh(out / 5)
-      std = tf.nn.softplus(std + self._init_std) + self._min_std
-      dist = tfd.Normal(mean, std)
-      dist = tfd.TransformedDistribution(dist, common.TanhBijector())
-      dist = tfd.Independent(dist, len(self._shape))
-      return common.SampleDist(dist)
-    if self._dist == 'trunc_normal':
-      std = 2 * tf.nn.sigmoid((std + self._init_std) / 2) + self._min_std
-      dist = common.TruncNormalDist(tf.tanh(out), std, -1, 1)
-      return tfd.Independent(dist, 1)
-    if self._dist == 'onehot':
-      return common.OneHotDist(out)
-    raise NotImplementedError(self._dist)
+#   @property
+#   def state_size(self):
+#     return self._size
+
+#   @tf.function
+#   def call(self, inputs, state):
+#     state = state[0]  # Keras wraps the state in a list.
+#     parts = self._layer(tf.concat([inputs, state], -1))
+#     if self._norm:
+#       dtype = parts.dtype
+#       parts = tf.cast(parts, tf.float32)
+#       parts = self._norm(parts)
+#       parts = tf.cast(parts, dtype)
+#     reset, cand, update = tf.split(parts, 3, -1)
+#     reset = tf.nn.sigmoid(reset)
+#     cand = self._act(reset * cand)
+#     update = tf.nn.sigmoid(update + self._update_bias)
+#     output = update * cand + (1 - update) * state
+#     return output, [output]
 
 
-class NormLayer(common.Module):
+# class DistLayer(common.Module):
 
-  def __init__(self, name):
-    if name == 'none':
-      self._layer = None
-    elif name == 'layer':
-      self._layer = tfkl.LayerNormalization()
-    else:
-      raise NotImplementedError(name)
+#   def __init__(
+#       self, shape, dist='mse', min_std=0.1, init_std=0.0):
+#     self._shape = shape
+#     self._dist = dist
+#     self._min_std = min_std
+#     self._init_std = init_std
 
-  def __call__(self, features):
-    if not self._layer:
-      return features
-    return self._layer(features)
+#   def __call__(self, inputs):
+#     out = self.get('out', tfkl.Dense, np.prod(self._shape))(inputs)
+#     out = tf.reshape(out, tf.concat([tf.shape(inputs)[:-1], self._shape], 0))
+#     out = tf.cast(out, tf.float32)
+#     if self._dist in ('normal', 'tanh_normal', 'trunc_normal'):
+#       std = self.get('std', tfkl.Dense, np.prod(self._shape))(inputs)
+#       std = tf.reshape(std, tf.concat([tf.shape(inputs)[:-1], self._shape], 0))
+#       std = tf.cast(std, tf.float32)
+#     if self._dist == 'mse':
+#       dist = tfd.Normal(out, 1.0)
+#       return tfd.Independent(dist, len(self._shape))
+#     if self._dist == 'normal':
+#       dist = tfd.Normal(out, std)
+#       return tfd.Independent(dist, len(self._shape))
+#     if self._dist == 'binary':
+#       dist = tfd.Bernoulli(out)
+#       return tfd.Independent(dist, len(self._shape))
+#     if self._dist == 'tanh_normal':
+#       mean = 5 * tf.tanh(out / 5)
+#       std = tf.nn.softplus(std + self._init_std) + self._min_std
+#       dist = tfd.Normal(mean, std)
+#       dist = tfd.TransformedDistribution(dist, common.TanhBijector())
+#       dist = tfd.Independent(dist, len(self._shape))
+#       return common.SampleDist(dist)
+#     if self._dist == 'trunc_normal':
+#       std = 2 * tf.nn.sigmoid((std + self._init_std) / 2) + self._min_std
+#       dist = common.TruncNormalDist(tf.tanh(out), std, -1, 1)
+#       return tfd.Independent(dist, 1)
+#     if self._dist == 'onehot':
+#       return common.OneHotDist(out)
+#     raise NotImplementedError(self._dist)
 
 
-def get_act(name):
-  if name == 'none':
-    return tf.identity
-  if name == 'mish':
-    return lambda x: x * tf.math.tanh(tf.nn.softplus(x))
-  elif hasattr(tf.nn, name):
-    return getattr(tf.nn, name)
-  elif hasattr(tf, name):
-    return getattr(tf, name)
-  else:
-    raise NotImplementedError(name)
+# class NormLayer(common.Module):
+
+#   def __init__(self, name):
+#     if name == 'none':
+#       self._layer = None
+#     elif name == 'layer':
+#       self._layer = tfkl.LayerNormalization()
+#     else:
+#       raise NotImplementedError(name)
+
+#   def __call__(self, features):
+#     if not self._layer:
+#       return features
+#     return self._layer(features)
+
+
+# def get_act(name):
+#   if name == 'none':
+#     return tf.identity
+#   if name == 'mish':
+#     return lambda x: x * tf.math.tanh(tf.nn.softplus(x))
+#   elif hasattr(tf.nn, name):
+#     return getattr(tf.nn, name)
+#   elif hasattr(tf, name):
+#     return getattr(tf, name)
+#   else:
+#     raise NotImplementedError(name)
 
 
 #############################################################
