@@ -17,7 +17,8 @@ def encoder_interface(embed, config):
     ###########################################################
     # encoder to latent?
     # import ipdb;ipdb.set_trace(context=20)
-    if 'grid' in config.encoder_type:
+    # if 'grid' in config.encoder_type:
+    if 'slot' in config:
       # embed: ... H, W, C
       if config.rssm.update_type in ['slot', 'cross']:
         embed = rearrange(embed, '... h w c -> ... (h w) c')
@@ -237,11 +238,16 @@ class WorldModel(common.Module):
 
     # self.rssm.register_num_slots(self.config.num_slots)  # TODO later this may vary based on the episode
 
-    if config.encoder_type == 'default':
-      self.encoder = machine.Encoder(shapes, **config.encoder)
-    elif config.encoder_type in ['slot', 'slimslot', 'slimmerslot']:
-      self.encoder = machine.PreviousSlotEncoder(shapes, config.encoder_type, config.rssm.embed_dim, **config.encoder)
-    elif 'grid' in config.encoder_type:
+    self.heads = {}
+
+    # if config.encoder_type == 'default':
+    #   self.encoder = machine.Encoder(shapes, **config.encoder)
+    # elif config.encoder_type in ['slot', 'slimslot', 'slimmerslot']:
+    #   self.encoder = machine.PreviousSlotEncoder(shapes, config.encoder_type, config.rssm.embed_dim, **config.encoder)
+    # elif 'grid' in config.encoder_type:
+    # import ipdb;ipdb.set_trace(cont)
+
+    if 'slot' in self.config:
       assert self.config.encoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
       """
       grid_default
@@ -253,34 +259,47 @@ class WorldModel(common.Module):
       """
       self.encoder = slot_machine.GridEncoder(
         shapes=shapes, 
-        encoder_type=config.encoder_type, 
+        # encoder_type=config.encoder_type, 
         pos_encode_type=config.pos_encode_type, 
         outdim=config.rssm.embed_dim, 
         resolution=config.rssm.resolution, 
         slot_config=config.slot.encoder, 
         **config.encoder)
+
+      assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
+      self.heads['decoder'] = slot_machine.GridDecoder(
+        shapes=shapes, 
+        # decoder_type=config.decoder_type, 
+        pos_encode_type=config.pos_encode_type, 
+        token_dim=config.rssm.embed_dim, 
+        resolution=config.rssm.resolution, 
+        slot_config=config.slot.decoder, 
+        **config.decoder)
+
     else:
-      raise NotImplementedError
-
-    self.heads = {}
-
-    if config.decoder_type == 'default':
+      self.encoder = machine.Encoder(shapes, **config.encoder)
       self.heads['decoder'] = machine.Decoder(shapes, **config.decoder)
-    elif config.decoder_type in ['slot', 'slimmerslot']:
-      decoder_in_dim = config.rssm.deter//self.config.rssm.num_slots + config.rssm.stoch//self.config.rssm.num_slots * config.rssm.discrete
-      self.heads['decoder'] = machine.PreviousSlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
-    elif 'grid' in config.decoder_type:
-        assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
-        self.heads['decoder'] = slot_machine.GridDecoder(
-          shapes=shapes, 
-          decoder_type=config.decoder_type, 
-          pos_encode_type=config.pos_encode_type, 
-          token_dim=config.rssm.embed_dim, 
-          resolution=config.rssm.resolution, 
-          slot_config=config.slot.decoder, 
-          **config.decoder)
-    else:
-      raise NotImplementedError
+      # raise NotImplementedError
+
+    # self.heads = {}
+
+    # if config.decoder_type == 'default':
+    #   self.heads['decoder'] = machine.Decoder(shapes, **config.decoder)
+    # # elif config.decoder_type in ['slot', 'slimmerslot']:
+    # #   decoder_in_dim = config.rssm.deter//self.config.rssm.num_slots + config.rssm.stoch//self.config.rssm.num_slots * config.rssm.discrete
+    # #   self.heads['decoder'] = machine.PreviousSlotDecoder(shapes, decoder_in_dim, config.decoder_type, **config.decoder)
+    # elif 'grid' in config.decoder_type:
+    #     assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
+    #     self.heads['decoder'] = slot_machine.GridDecoder(
+    #       shapes=shapes, 
+    #       decoder_type=config.decoder_type, 
+    #       pos_encode_type=config.pos_encode_type, 
+    #       token_dim=config.rssm.embed_dim, 
+    #       resolution=config.rssm.resolution, 
+    #       slot_config=config.slot.decoder, 
+    #       **config.decoder)
+    # else:
+    #   raise NotImplementedError
 
     if self.config.behavior_type == 'default':
       self.heads['reward'] = common.MLP([], **config.reward_head)

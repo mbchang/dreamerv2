@@ -71,8 +71,8 @@ defaults:
   critic_stop_grad: False
 
   # Testing out Encoders and Decoders
-  encoder_type: 'default'
-  decoder_type: 'default'
+  # encoder_type: 'default'
+  # decoder_type: 'default'
   behavior_type: 'default'
   pos_encode_type: 'slate'
 
