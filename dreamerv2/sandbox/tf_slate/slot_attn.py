@@ -69,23 +69,13 @@ class SlotAttention(tkl.Layer, Factorized):
             q = eo.rearrange(self.project_q(slots), 'b s (head d) -> b head s d', head=self.num_heads)
             attn_logits = tf.einsum('bhtd,bhsd->bhts', k, q)
 
-            # import ipdb; ipdb.set_trace(context=20)
-            # dtype = prec.global_policy().compute_dtype
-
             dtype = attn_logits.dtype
             attn_logits = tf.cast(attn_logits, tf.float32)
-
 
             attn = eo.rearrange(
                  tf.nn.softmax(eo.rearrange(attn_logits, 'b h t s -> b t (h s)'), axis=-1),
                  'b t (h s) -> b h t s', h=self.num_heads
                 )
-
-            # attn = eo.rearrange(
-            #     tkl.Softmax(dtype='float32', axis=-1)(eo.rearrange(attn_logits, 'b h t s -> b t (h s)')),
-            #     'b t (h s) -> b h t s', h=self.num_heads
-            # )
-
             attn_vis = eo.reduce(attn, 'b h t s -> b t s', 'sum')
             
             # Weighted mean.
@@ -135,8 +125,6 @@ class SlotAttention(tkl.Layer, Factorized):
 
             attn = tf.cast(attn, dtype)
             attn_vis = tf.cast(attn_vis, dtype)
-
-
 
             updates = tf.einsum('bhts,bhtd->bhsd', attn, v)
             updates = eo.rearrange(updates, 'b h s d -> b s (h d)')
