@@ -341,7 +341,6 @@ class GridDecoder(Decoder):
       when slot-based:
       
     """
-    # import ipdb; ipdb.set_trace(context=20)
     channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
     #############################################################
     batch_dims = features.shape[:2]  # (B, T) or (H, B*T)
