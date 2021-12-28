@@ -5942,6 +5942,230 @@ def does_k_greater_than_one_learn_at_all_monolithic_reference_12_25_21():
 
 
 
+def debug_nans_eps1eneg7_12_25_21():
+    """
+        NOTE THAT I HARDCODED THIS!
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_g'])
+    r.add_flag('decoder_type', ['grid_g_ca'])
+    r.add_flag('pos_encode_type', ['slate'])
+    # r.add_flag('data_parallel', [True])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('log_every', [5])
+
+    r.add_flag('logdir', ['runs/debug_nans'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+        'rssm.num_slots',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+def debug_nans_temp1_iter2_12_27_21():
+    """
+        NOTE THAT I HARDCODED THIS!
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_g'])
+    r.add_flag('decoder_type', ['grid_g_ca'])
+    r.add_flag('pos_encode_type', ['slate'])
+    # r.add_flag('data_parallel', [True])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('log_every', [5])
+
+    r.add_flag('logdir', ['runs/debug_nans_temp1_iter2'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+        'rssm.num_slots',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+def debug_nans_temp1_iter3_12_27_21():
+    """
+        NOTE THAT I HARDCODED THIS!
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_g'])
+    r.add_flag('decoder_type', ['grid_g_ca'])
+    r.add_flag('pos_encode_type', ['slate'])
+    # r.add_flag('data_parallel', [True])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('log_every', [5])
+
+    r.add_flag('logdir', ['runs/debug_nans_temp1_iter3'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+        'rssm.num_slots',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+
+def debug_nans_castfloat32_12_27_21():
+    """
+        NOTE THAT I HARDCODED THIS!
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_g'])
+    r.add_flag('decoder_type', ['grid_g_ca'])
+    r.add_flag('pos_encode_type', ['slate'])
+    # r.add_flag('data_parallel', [True])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('log_every', [5])
+
+    r.add_flag('logdir', ['runs/debug_nans_castfloat32'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+        'rssm.num_slots',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+def debug_nans_castfloat32_all_12_27_21():
+    """
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2,3])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('encoder_type', ['grid_g'])
+    r.add_flag('decoder_type', ['grid_g_ca', 'grid_g_dec'])
+    r.add_flag('pos_encode_type', ['slate', 'coordconv'])
+    # r.add_flag('data_parallel', [True])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('log_every', [5])
+
+    r.add_flag('logdir', ['runs/debug_nans_castfloat32_all'])
+    to_watch = [
+        'rssm.update_type',
+        'rssm.dynamics_type',
+        'rssm.initial_type',
+        'behavior_type',
+        'encoder_type',
+        'pos_encode_type',
+        'decoder_type',
+        'data_parallel', 
+        'rssm.num_slots',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [1]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+
+def monolithic_sanity_12_27_21():
+    """
+        cheetah
+        simple_box4
+
+        memory cost: 8773MiB
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1])
+    r.add_flag('configs', ['dmc_vision'])
+    r.add_flag('task', ['dmc_cheetah_run', 'vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    # r.add_flag('rssm.update', ['cross'])
+
+    r.add_flag('logdir', ['runs/monolithic_sanity'])
+    to_watch = [
+        'dataset.batch',
+        'dataset.length',
+        'eval_dataset.length',
+        'eval_dataset.seed_steps',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
 
 
 if __name__ == '__main__':
@@ -6066,7 +6290,15 @@ if __name__ == '__main__':
     # is_cross_attention_sufficient_for_slate_12_23_21()
     # is_cross_attention_sufficient_for_slate_no_mask_12_23_21()
     # does_k_greater_than_one_learn_at_all_12_25_21()
-    does_k_greater_than_one_learn_at_all_monolithic_reference_12_25_21()
+    # does_k_greater_than_one_learn_at_all_monolithic_reference_12_25_21()
+    # debug_nans_12_25_21()
+    # debug_nans_eps1eneg7_12_25_21()
+    # debug_nans_temp1_12_27_21()
+    # debug_nans_temp1_iter2_12_27_21()
+    # debug_nans_temp1_iter3_12_27_21()
+    # debug_nans_castfloat32_12_27_21()
+    # debug_nans_castfloat32_all_12_27_21()
+    monolithic_sanity_12_27_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
