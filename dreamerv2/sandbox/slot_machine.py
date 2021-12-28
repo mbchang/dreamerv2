@@ -302,17 +302,12 @@ class GridDecoder(Decoder):
     else:
       raise NotImplementedError
 
-    # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.obs_cross_defaults())
-    # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_eight_heads_defaults())
-
     if self._transformer_type == 'dec':
       self.tf_dec = transformer.TransformerDecoder(self._token_dim, slot_config.dec_config)
     elif self._transformer_type == 'ca':
       self.tf_dec = transformer.CrossAttentionStack(self._token_dim, slot_config.ca_config)
     else:
       raise NotImplementedError
-    # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
-    # self.tf_dec = transformer.CrossAttentionStack(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
 
     self.token_mlp = tf.keras.Sequential([
         tfkl.Dense(self._token_dim, kernel_initializer='he_uniform'),
