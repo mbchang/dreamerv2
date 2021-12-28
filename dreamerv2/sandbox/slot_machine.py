@@ -1,6 +1,7 @@
 from loguru import logger as lgr
 import re
 import einops as eo
+import ml_collections
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers as tfkl
@@ -40,7 +41,16 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
 
   # TODO: create your default config here!
 
-  def __init__(self, config):
+  @staticmethod
+  def defaults():
+      default_args = ml_collections.ConfigDict(dict(
+        cross_dynamics=CrossDynamics.defaults(),
+        slot_update=SlotUpdate.defaults(),
+        cross_update=CrossUpdate.defaults(),
+          ))
+      return default_args
+
+  def __init__(self, config, slot_config):
     common.Module.__init__(self)
     self._ensemble = config.ensemble
     self._stoch = config.stoch
@@ -62,29 +72,17 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
 
     if self._dynamics_type == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
-    elif self._dynamics_type == 'cross_attention':
-      self.dynamics = CrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm)  # TODO: later manually set the number of slots for the specific episode
-    elif self._dynamics_type == 'separate_embedding':
-      self.dynamics = SeparateEmbeddingDynamics(self._deter, self._hidden, self._act, self._norm)
-    elif self._dynamics_type == 'slim_cross_attention':
-      self.dynamics = SlimCrossAttentionDynamics(self._deter, self._hidden, self._act, self._norm, self.num_slots)  # TODO: later manually set the number of slots for the specific episode
     elif self._dynamics_type == 'cross':
-      self.dynamics = CrossDynamics(self._deter, self._hidden, self._act, self._norm)
+      self.dynamics = CrossDynamics(self._deter, self._hidden, self._act, self._norm, slot_config.cross_dynamics)
     else:
       raise NotImplementedError
 
     if self._update_type == 'default':
       self.update = DefaultUpdate(self._hidden, self._act, self._norm)
-    elif self._update_type == 'slim_attention':
-      self.update = SlimAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim, self.num_slots)  # TODO: later manually set the number of slots for the specific episode
-      # NOTE that I am treating self._deter = self._hidden
-    elif self._update_type == 'slot_attention':
-      self.update = SlotAttentionUpdate(self._deter, self._act, self._norm, self._embed_dim, self.num_slots)  # TODO: later manually set the number of slots for the specific episode
-      # NOTE that I am treating self._deter = self._hidden
     elif self._update_type == 'cross':
-      self.update = CrossUpdate(self._hidden, self._act, self._norm)
+      self.update = CrossUpdate(self._hidden, self._act, self._norm, slot_config.cross_update)
     elif self._update_type == 'slot':
-      self.update = SlotUpdate(self._hidden, self._act, self._norm)
+      self.update = SlotUpdate(self._hidden, self._act, self._norm, slot_config.slot_update)
     else:
       raise NotImplementedError
 
@@ -356,7 +354,12 @@ class GridDecoder(Decoder):
 # Dynamics
 #############################################################
 class CrossDynamics(common.Module):
-  def __init__(self, deter, hidden, act, norm):
+  @staticmethod
+  def defaults():
+      default_args = transformer.TransformerDecoder.one_block_one_head_defaults()
+      return default_args
+
+  def __init__(self, deter, hidden, act, norm, slot_config):
     self._deter = deter
     self._hidden = hidden
     self._act = act
@@ -365,10 +368,9 @@ class CrossDynamics(common.Module):
     # just to get the initial state for now
     self._cell = GRUCell(self._deter, norm=True)
 
-    self.net = transformer.TransformerDecoder(
-      self._hidden, 
-      transformer.TransformerDecoder.one_block_one_head_defaults()
-      )
+    self.net = transformer.TransformerDecoder(self._hidden, slot_config)
+      # transformer.TransformerDecoder.one_block_one_head_defaults()
+      # )
 
   def __call__(self, prev_deter, prev_stoch, prev_action):
     """
@@ -388,58 +390,27 @@ class CrossDynamics(common.Module):
 #############################################################
 
 class CrossUpdate(common.Module):
-  def __init__(self, hidden, act, norm):
+  @staticmethod
+  def defaults():
+      default_args = transformer.TransformerDecoder.one_block_one_head_defaults()
+      return default_args
+
+  def __init__(self, hidden, act, norm, slot_config):
     self._hidden = hidden
     self._act = act
     self._norm = norm
 
-    self.net = transformer.TransformerDecoder(
-      self._hidden, 
-      transformer.TransformerDecoder.one_block_one_head_defaults()
-      )
+    self.net = transformer.TransformerDecoder(self._hidden, slot_config)
 
   def __call__(self, deter, embed):
     """
       deter: (B, deter_dim)
       embed: (B, S, embed_dim)
     """
-    num_slots = 1
-    deter = unflatten(deter, num_slots)
     x = self.net(deter, embed)
     x = self._act(x)
-    x = flatten(x)  # take out later
     return x
 
-
-# class SlotUpdate(common.Module):
-#   @staticmethod
-#   def defaults():
-#       default_args = slot_attn.SlotAttention.savi_defaults()
-#       return default_args
-
-#   def __init__(self, hidden, act, norm, slot_config):
-#     self._hidden = hidden
-#     self._act = act
-#     self._norm = norm
-
-#     # self.slot_attn = slot_attn.SlotAttention(
-#     #   self._hidden, 
-#     #   slot_attn.SlotAttention.savi_defaults())
-
-#     self.slot_attn = slot_attn.SlotAttention(
-#       self._hidden, slot_config)
-#       # slot_attn.SlotAttention.savi_defaults())
-
-#   def __call__(self, deter, embed, return_attns=False):
-#     """
-#       deter: (B, K, deter_dim)
-#       embed: (B, K, S, embed_dim)
-#     """
-#     x, attns = self.slot_attn(embed, deter)
-#     if return_attns:
-#       return x, attns
-#     else:
-#       return x
 
 class SlotUpdate(common.Module):
   @staticmethod
@@ -447,18 +418,11 @@ class SlotUpdate(common.Module):
       default_args = slot_attn.SlotAttention.savi_defaults()
       return default_args
 
-  def __init__(self, hidden, act, norm):
+  def __init__(self, hidden, act, norm, slot_config):
     self._hidden = hidden
     self._act = act
     self._norm = norm
-
-    self.slot_attn = slot_attn.SlotAttention(
-      self._hidden, 
-      slot_attn.SlotAttention.savi_defaults())
-
-    # self.slot_attn = slot_attn.SlotAttention(
-    #   self._hidden, slot_config)
-    #   # slot_attn.SlotAttention.savi_defaults())
+    self.slot_attn = slot_attn.SlotAttention(self._hidden, slot_config)
 
   def __call__(self, deter, embed, return_attns=False):
     """
@@ -466,9 +430,8 @@ class SlotUpdate(common.Module):
       embed: (B, K, S, embed_dim)
     """
     x, attns = self.slot_attn(embed, deter)
+    # TODO: should you apply an activation here?
     if return_attns:
       return x, attns
     else:
       return x
-
-

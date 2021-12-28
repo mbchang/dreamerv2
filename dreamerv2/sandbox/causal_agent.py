@@ -229,7 +229,7 @@ class WorldModel(common.Module):
     if 'slot' in self.config:
       from sandbox import slot_machine
       # self.rssm = slot_machine.SlotEnsembleRSSM(**config.rssm)
-      self.rssm = slot_machine.SlotEnsembleRSSM(config.rssm)
+      self.rssm = slot_machine.SlotEnsembleRSSM(config.rssm, config.slot.rssm)
     else:
       # self.rssm = machine.EnsembleRSSM(**config.rssm)
       self.rssm = machine.EnsembleRSSM(config.rssm)

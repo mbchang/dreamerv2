@@ -64,6 +64,11 @@ def add_programmatically_generated_configs(parsed, configs):
     else:
       configs['defaults']['dslate'] = DynamicSLATE.defaults().to_dict()
       configs['defaults']['slot_behavior'] = SlotActorCritic.defaults().to_dict()
+  elif 'slot' in parsed.configs:
+    from sandbox import slot_machine
+    configs['defaults']['slot'] = dict(
+      rssm=slot_machine.SlotEnsembleRSSM.defaults().to_dict()
+      )
   configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   return configs
 
@@ -338,10 +343,12 @@ def main():
         agnt.wm.log_weights(step)
       #############################################################
       # report = agnt.report(next(report_dataset))
+
       report = strategy.run(agnt.report, args=(next(report_dataset),))  # DISTRIBUTED
       report = {key: strategy.reduce(tf.distribute.ReduceOp.MEAN, report[key], axis=None) for key in report}  # DISTRIBUTED
       wandb.log({key: np.array(report[key], np.float64).item() for key in report if 'openl' not in key}, step=step.value)
       logger.add(report, prefix='train')
+      
       logger.write(fps=True)
       wandb.log({'fps': logger._compute_fps()}, step=step.value)
   train_driver.on_step(train_step)
