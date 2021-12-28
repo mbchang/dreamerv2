@@ -50,10 +50,8 @@ class EnsembleRSSM(common.Module):
 
     self._dynamics_type = config.dynamics_type
     self._update_type = config.update_type
-    # self._embed_dim = config.embed_dim
     self._initial_type = config.initial_type
     self.num_slots = config.num_slots
-    # self._resolution = config.resolution
 
     if self._dynamics_type == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
