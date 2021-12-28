@@ -1,5 +1,6 @@
 from einops import rearrange
 from loguru import logger as lgr
+import ml_collections
 import tensorflow as tf
 from tensorflow.keras import mixed_precision as prec
 
@@ -589,6 +590,15 @@ class WorldModel(common.Module):
 
 
 class ActorCritic(common.Module):
+  @staticmethod
+  def defaults():
+      default_args = ml_collections.ConfigDict(dict(
+        behavior_type='ca',
+
+        ca_cfg=sm.CrossAttnHead.defaults(),
+        sa_cfg=sm.SelfAttnHead.defaults(),
+          ))
+      return default_args
 
   def __init__(self, config, act_space, tfstep):
     self.config = config
@@ -611,25 +621,32 @@ class ActorCritic(common.Module):
         self._target_critic = self.critic
     elif self.config.behavior_type in ['sa', 'ca']:
       head_type = sm.SelfAttnHead if self.config.behavior_type == 'sa' else sm.CrossAttnHead
+      defaults = dict(ca=config.slot.behavior.ca_cfg, sa=config.slot.behavior.sa_cfg)
       self.actor = head_type(
         shape=act_space.shape[0],
         # slot_size=self.config.actor.units,
         slot_size=self.config.rssm.hidden,
         dist_cfg=dict(dist=self.config.actor.dist, min_std=self.config.actor.min_std),
-        cfg=head_type.defaults())
+        # cfg=head_type.defaults()
+        cfg=defaults[config.slot.behavior.behavior_type]
+        )
       self.critic = head_type(
         shape=[],
         # slot_size=self.config.critic.units,
         slot_size=self.config.rssm.hidden,
         dist_cfg=dict(dist=self.config.critic.dist),
-        cfg=head_type.defaults())
+        # cfg=head_type.defaults()
+        cfg=defaults[config.slot.behavior.behavior_type]
+        )
       if self.config.slow_target:
         self._target_critic = head_type(
           shape=[],
           # slot_size=self.config.critic.units,
           slot_size=self.config.rssm.hidden,
           dist_cfg=dict(dist=self.config.critic.dist),
-          cfg=head_type.defaults())
+          # cfg=head_type.defaults()
+          cfg=defaults[config.slot.behavior.behavior_type]
+          )
         self._updates = tf.Variable(0, tf.int64)
       else:
         self._target_critic = self.critic
