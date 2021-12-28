@@ -1,4 +1,4 @@
-from einops import rearrange
+from einops import rearrange, repeat
 from loguru import logger as lgr
 import ml_collections
 import tensorflow as tf
@@ -477,7 +477,7 @@ class WorldModel(common.Module):
     recon = recon_dist.mode()[:n]
     recon_loss = recon_nll(recon_dist, data[key])
     recon_reward_loss = recon_nll(self.heads['reward'](post_feat), data['reward'])
-    model = nmlz.uncenter(recon[:, :t])
+    model = nmlz.uncenter(recon)
     imag_loss = tf.constant(0, dtype=tf.float32)
     imag_reward_loss = tf.constant(0, dtype=tf.float32)
     if self.config.dataset.length > t:
@@ -490,9 +490,25 @@ class WorldModel(common.Module):
       imag_loss += imag_nll(openl_dist, data[key])
       imag_reward_loss +=  imag_nll(self.heads['reward'](prior_feat), data['reward'])
     error = (model - truth + 1) / 2
-    video = tf.concat([truth, model, error], 2)
+    video = tf.stack([truth, model, error], 2)
+    ###########################################################
+    # attention visualization
+    if 'slot' in self.config:
+      attns = states['attns']  # B, tau, (H W), K
+      k = attns.shape[-1]
+      h, w = self.config.slot.obs_itf.resolution  # (16, 16)
+      H, W = recon.shape[-3:-1]  # (64, 64)
+
+      attns = tf.cast(attns > 0.5, attns.dtype)
+      attn_recon = tf.repeat(tf.repeat(rearrange(attns, 'b t (h w) k -> b t k h w 1', h = h, w=w), H // h, axis=-3), W // w, axis=-2)  # (B, tau, K, H, W, 1)
+      attn_imag = repeat(tf.ones_like(attn_recon[:, 0], dtype=attns.dtype), 'b ... -> b t ...', t=openl.shape[1])
+      attn_vis = tf.concat([attn_recon, attn_imag], axis=1)  # B, T, K, H, W, C
+      data_unsqz = rearrange(nmlz.uncenter(data[key]), 'b t ... -> b t 1 ...')
+      overlay = data_unsqz * attn_vis + 1. - attn_vis
+      video = tf.concat([video, overlay], 2)  # B, T, K+3, H, W, C
+    ###########################################################    
     output = dict(
-      video=rearrange(video, 'b t h w c -> t h (b w) c'),
+      video=rearrange(video, 'b t n h w c -> t (n h) (b w) c'),
       recon_loss=recon_loss,
       imag_loss=imag_loss,
       recon_reward_loss=recon_reward_loss,
