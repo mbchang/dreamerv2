@@ -35,15 +35,7 @@ def split_at_n(text, delimiter, n):
 ########################################################################
 
 class EnsembleRSSM(common.Module):
-
-  # def __init__(
-  #     self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-  #     act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics_type='default', update_type='default', initial_type='default', embed_dim=16, num_slots=1, resolution=(16,16)):
-
   def __init__(self, config):
-      # self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      # act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics_type='default', update_type='default', initial_type='default', embed_dim=16, num_slots=1, resolution=(16,16)):
-
     super().__init__()
     self._ensemble = config.ensemble
     self._stoch = config.stoch
