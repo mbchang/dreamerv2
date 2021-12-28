@@ -20,7 +20,8 @@ class SlotAttention(tkl.Layer, Factorized):
             num_iterations=2,
             num_slot_heads=1,
             epsilon=1e-8,
-            temp=0.5  # or we can make this temp=1.0
+            # temp=0.5  # or we can make this temp=1.0
+            temp=1.0  # for SLATE we also use temp=1.0!
             ))
         return default_args
     
