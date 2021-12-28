@@ -50,7 +50,7 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
           ))
       return default_args
 
-  def __init__(self, config, slot_config):
+  def __init__(self, config, slot_config, resolution):
     common.Module.__init__(self)
     self._ensemble = config.ensemble
     self._stoch = config.stoch
@@ -65,10 +65,10 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
 
     self._dynamics_type = config.dynamics_type
     self._update_type = config.update_type
-    self._embed_dim = config.embed_dim
+    # self._embed_dim = config.embed_dim
     self._initial_type = config.initial_type
     self.num_slots = config.num_slots
-    self._resolution = config.resolution
+    self._resolution = resolution
 
     if self._dynamics_type == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
@@ -177,46 +177,49 @@ class GridEncoder(Encoder):
           ))
       return default_args
 
-  def __init__(self, shapes, pos_encode_type, outdim, resolution, slot_config,**kwargs):
+  # def __init__(self, shapes, pos_encode_type, outdim, resolution, slot_config,**kwargs):
+  def __init__(self, shapes, obs_itf, slot_config,**kwargs):
     super().__init__(shapes, **kwargs)
 
-    encoder_type = slot_config.encoder_type
+    self._token_dim = obs_itf.token_dim
+    self._pos_encode_type = obs_itf.pos_encode_type
+    self._resolution = obs_itf.resolution
+    self._encoder_type = slot_config.encoder_type
 
-    if encoder_type == 'grid_g':
-      self.encoder = dvae.GenericEncoder(in_channels=3, out_channels=outdim)
-    elif encoder_type == 'grid_dvweak':
-      self.encoder = dvae.dVAEShallowWeakEncoder(in_channels=3, out_channels=outdim)
+    if self._encoder_type == 'grid_g':
+      self.encoder = dvae.GenericEncoder(in_channels=3, out_channels=self._token_dim)
+    elif self._encoder_type == 'grid_dvweak':
+      self.encoder = dvae.dVAEShallowWeakEncoder(in_channels=3, out_channels=self._token_dim)
       # TODO: you need to add position embedding to this! 
-    elif encoder_type == 'grid_dvstrong':
-      self.encoder = dvae.dVAEStrongEncoder(in_channels=3, out_channels=outdim)
+    elif self._encoder_type == 'grid_dvstrong':
+      self.encoder = dvae.dVAEStrongEncoder(in_channels=3, out_channels=self._token_dim)
       # TODO: you need to add position embedding to this! 
-    elif encoder_type == 'grid_sa':
+    elif self._encoder_type == 'grid_sa':
       pass
-    elif encoder_type == 'grid_saslim':
+    elif self._encoder_type == 'grid_saslim':
       pass
-    elif encoder_type == 'grid_sadebug':
+    elif self._encoder_type == 'grid_sadebug':
       pass
     else:
       raise NotImplementedError
 
-    self.resolution = resolution
-    if pos_encode_type == 'slate':
+    if self._pos_encode_type == 'slate':
       self.position_encoding = transformer.GridPositionalEncoding(
-        resolution=self.resolution, dim=outdim)
-    elif pos_encode_type == 'coordconv':
+        resolution=self._resolution, dim=self._token_dim)
+    elif self._pos_encode_type == 'coordconv':
       self.position_encoding = transformer.CoordConvPositionalEncoding(
-        resolution=self.resolution, dim=outdim)
-    elif pos_encode_type == 'sinusoid':
+        resolution=self._resolution, dim=self._token_dim)
+    elif self._pos_encode_type == 'sinusoid':
       pass
-    elif pos_encode_type == 'none':
+    elif self._pos_encode_type == 'none':
       self.position_encoding = lambda x: x
     else:
       raise NotImplementedError
 
     self.token_mlp = tf.keras.Sequential([
-        tfkl.Dense(outdim, kernel_initializer='he_uniform'),
+        tfkl.Dense(self._token_dim, kernel_initializer='he_uniform'),
         tfkl.ReLU(),
-        tfkl.Dense(outdim, kernel_initializer='he_uniform')])
+        tfkl.Dense(self._token_dim, kernel_initializer='he_uniform')])
 
 
     # then there is the tokenwise MLP. But note that that tokenwise MLP is not used for the target in slate
@@ -248,41 +251,42 @@ class GridDecoder(Decoder):
           ))
       return default_args
 
-  def __init__(self, shapes, pos_encode_type, token_dim, resolution, slot_config, **kwargs):
+  # def __init__(self, shapes, pos_encode_type, token_dim, resolution, slot_config, **kwargs):
+  def __init__(self, shapes, obs_itf, slot_config, **kwargs):
     super().__init__(shapes, **kwargs)
 
-    self.resolution = resolution
-    self.token_dim = token_dim
+    self._resolution = obs_itf.resolution
+    self._token_dim = obs_itf.token_dim
+    self._pos_encode_type = obs_itf.pos_encode_type
+    self._decoder_type = slot_config.decoder_type
+    self._transformer_type = slot_config.transformer_type
 
-    decoder_type = slot_config.decoder_type
-    transformer_type = slot_config.transformer_type
-
-    if decoder_type == 'grid_g':
-      self.decoder = dvae.GenericDecoder(in_channels=self.token_dim, out_channels=3)
-    elif decoder_type == 'grid_dvweak':
-      self.decoder = dvae.dVAEShallowWeakDecoder(in_channels=self.token_dim, out_channels=3)
+    if self._decoder_type == 'grid_g':
+      self.decoder = dvae.GenericDecoder(in_channels=self._token_dim, out_channels=3)
+    elif self._decoder_type == 'grid_dvweak':
+      self.decoder = dvae.dVAEShallowWeakDecoder(in_channels=self._token_dim, out_channels=3)
       # TODO: you need to add position embedding to this! 
-    elif decoder_type == 'grid_dvstrong':
-      self.decoder = dvae.dVAEStrongDecoder(in_channels=self.token_dim, out_channels=3)
+    elif self._decoder_type == 'grid_dvstrong':
+      self.decoder = dvae.dVAEStrongDecoder(in_channels=self._token_dim, out_channels=3)
       # TODO: you need to add position embedding to this! 
-    elif decoder_type == 'grid_sa':
+    elif self._decoder_type == 'grid_sa':
       pass
-    elif decoder_type == 'grid_saslim':
+    elif self._decoder_type == 'grid_saslim':
       pass
-    elif decoder_type == 'grid_sadebug':
+    elif self._decoder_type == 'grid_sadebug':
       pass
     else:
       raise NotImplementedError
 
-    if pos_encode_type == 'slate':
+    if self._pos_encode_type == 'slate':
       self.position_encoding = transformer.GridPositionalEncoding(
-        resolution=self.resolution, dim=self.token_dim)
-    elif pos_encode_type == 'coordconv':
+        resolution=self._resolution, dim=self._token_dim)
+    elif self._pos_encode_type == 'coordconv':
       self.position_encoding = transformer.CoordConvPositionalEncoding(
-        resolution=self.resolution, dim=self.token_dim)
-    elif pos_encode_type == 'sinusoid':
+        resolution=self._resolution, dim=self._token_dim)
+    elif self._pos_encode_type == 'sinusoid':
       pass
-    elif pos_encode_type == 'none':
+    elif self._pos_encode_type == 'none':
       self.position_encoding = lambda x: x
     else:
       raise NotImplementedError
@@ -290,19 +294,19 @@ class GridDecoder(Decoder):
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.obs_cross_defaults())
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_eight_heads_defaults())
 
-    if transformer_type == 'dec':
-      self.tf_dec = transformer.TransformerDecoder(self.token_dim, slot_config.dec_config)
-    elif transformer_type == 'ca':
-      self.tf_dec = transformer.CrossAttentionStack(self.token_dim, slot_config.ca_config)
+    if self._transformer_type == 'dec':
+      self.tf_dec = transformer.TransformerDecoder(self._token_dim, slot_config.dec_config)
+    elif self._transformer_type == 'ca':
+      self.tf_dec = transformer.CrossAttentionStack(self._token_dim, slot_config.ca_config)
     else:
       raise NotImplementedError
     # self.tf_dec = transformer.TransformerDecoder(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
     # self.tf_dec = transformer.CrossAttentionStack(self.token_dim, transformer.TransformerDecoder.two_blocks_four_heads_defaults())
 
     self.token_mlp = tf.keras.Sequential([
-        tfkl.Dense(self.token_dim, kernel_initializer='he_uniform'),
+        tfkl.Dense(self._token_dim, kernel_initializer='he_uniform'),
         tfkl.ReLU(),
-        tfkl.Dense(self.token_dim, kernel_initializer='he_uniform')])
+        tfkl.Dense(self._token_dim, kernel_initializer='he_uniform')])
 
   def _cnn(self, features):
     """
@@ -335,18 +339,18 @@ class GridDecoder(Decoder):
     channels = {k: self._shapes[k][-1] for k in self.cnn_keys}
     #############################################################
     batch_dims = features.shape[:2]  # (B, T) or (H, B*T)
-    x = self.get('convin', tfkl.Dense, self.token_dim)(features)
+    x = self.get('convin', tfkl.Dense, self._token_dim)(features)
 
     # 1. reshape features into slots
     x = eo.rearrange(x, '... k d -> (...) k d')
     # 2. create queries by applying position encodings to zeros, then token_mlp
     bsize = x.shape[0]
-    queries = tf.zeros([bsize] + list(self.resolution) + [self.token_dim], dtype=x.dtype)
+    queries = tf.zeros([bsize] + list(self._resolution) + [self._token_dim], dtype=x.dtype)
     queries = self.token_mlp(self.position_encoding(queries))
     queries = eo.rearrange(queries, '... h w d -> ... (h w) d')
     # 3. tf_dec --> (16x16)
     grid = self.tf_dec(queries, x)
-    grid = eo.rearrange(grid, '... (h w) d -> ... h w d', h=self.resolution[0], w=self.resolution[1])
+    grid = eo.rearrange(grid, '... (h w) d -> ... h w d', h=self._resolution[0], w=self._resolution[1])
     # 4. apply cnn decoder
     x = self.decoder(grid)
     x = x.reshape(batch_dims + x.shape[1:])  # (B, T, H, W, C)

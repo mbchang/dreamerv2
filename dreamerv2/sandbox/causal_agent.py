@@ -215,6 +215,14 @@ class CausalAgent(common.Module):
 
 
 class WorldModel(common.Module):
+  @staticmethod
+  def slot_defaults():
+      default_args = ml_collections.ConfigDict(dict(
+        pos_encode_type='coordconv',
+        token_dim=8,  # 64
+        resolution=[16,16],
+      ))
+      return default_args
 
   def __init__(self, config, obs_space, tfstep):
     shapes = {k: tuple(v.shape) for k, v in obs_space.items()}
@@ -223,7 +231,7 @@ class WorldModel(common.Module):
 
     if 'slot' in self.config:
       from sandbox import slot_machine
-      self.rssm = slot_machine.SlotEnsembleRSSM(config.rssm, config.slot.rssm)
+      self.rssm = slot_machine.SlotEnsembleRSSM(config.rssm, config.slot.rssm, config.slot.obs_itf.resolution)
     else:
       from sandbox import machine
       self.rssm = machine.EnsembleRSSM(config.rssm)
@@ -234,19 +242,21 @@ class WorldModel(common.Module):
     if 'slot' in self.config:
       assert self.config.encoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
       self.encoder = slot_machine.GridEncoder(
-        shapes=shapes, 
-        pos_encode_type=config.pos_encode_type, 
-        outdim=config.rssm.embed_dim, 
-        resolution=config.rssm.resolution, 
+        shapes=shapes,
+        obs_itf=config.slot.obs_itf,
+        # pos_encode_type=config.slot.obs_itf.pos_encode_type, 
+        # token_dim=config.slot.obs_itf.token_dim, 
+        # resolution=config.rssm.resolution, 
         slot_config=config.slot.encoder, 
         **config.encoder)
 
       assert self.config.decoder.mlp_keys == '$^', 'I did not implement the integration of cnn grid ouput with mlp output'
       self.heads['decoder'] = slot_machine.GridDecoder(
         shapes=shapes, 
-        pos_encode_type=config.pos_encode_type, 
-        token_dim=config.rssm.embed_dim, 
-        resolution=config.rssm.resolution, 
+        obs_itf=config.slot.obs_itf,
+        # pos_encode_type=config.slot.obs_itf.pos_encode_type, 
+        # token_dim=config.slot.obs_itf.token_dim, 
+        # resolution=config.rssm.resolution, 
         slot_config=config.slot.decoder, 
         **config.decoder)
 
@@ -561,7 +571,7 @@ class WorldModel(common.Module):
 
 class ActorCritic(common.Module):
   @staticmethod
-  def defaults():
+  def slot_defaults():
       default_args = ml_collections.ConfigDict(dict(
         behavior_type='ca',
 

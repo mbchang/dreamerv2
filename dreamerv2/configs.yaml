@@ -53,9 +53,9 @@ defaults:
     dynamics_type: 'default', 
     update_type: 'default',
     initial_type: 'default',
-    embed_dim: 64,  # not used for default
+    # embed_dim: 64,  # not used for default
     num_slots: 1,  # not used in default
-    resolution: [16, 16]
+    # resolution: [16, 16]
   }
   encoder: {mlp_keys: '.*', cnn_keys: '.*', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [4, 4, 4, 4], mlp_layers: [400, 400, 400, 400]}
   decoder: {mlp_keys: '.*', cnn_keys: '.*', act: elu, norm: none, cnn_depth: 48, cnn_kernels: [5, 5, 6, 6], mlp_layers: [400, 400, 400, 400]}
@@ -74,7 +74,7 @@ defaults:
   # encoder_type: 'default'
   # decoder_type: 'default'
   behavior_type: 'default'
-  pos_encode_type: 'slate'
+  # pos_encode_type: 'slate'
 
   # Slot Attention
   # num_slots: 1  # not used for default
@@ -200,7 +200,7 @@ debug:
 
   eval_dataset: {batch: 6, seed_steps: 5, length: 30}
 
-  rssm: {hidden: 8, deter: 8, stoch: 4, discrete: 4, embed_dim: 8}
+  rssm: {hidden: 8, deter: 8, stoch: 4, discrete: 4}
   encoder: {cnn_depth: 4, mlp_layers: [8, 8], mlp_keys: '$^', cnn_keys: 'image'}
   decoder: {cnn_depth: 4, mlp_layers: [8, 8], mlp_keys: '$^', cnn_keys: 'image'}
   reward_head: {layers: 2, units: 8, act: elu, norm: none, dist: mse}

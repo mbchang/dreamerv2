@@ -68,9 +68,10 @@ def add_programmatically_generated_configs(parsed, configs):
     from sandbox import slot_machine, causal_agent
     configs['defaults']['slot'] = dict(
       rssm=slot_machine.SlotEnsembleRSSM.defaults().to_dict(),
+      obs_itf=causal_agent.WorldModel.slot_defaults().to_dict(),
       encoder=slot_machine.GridEncoder.defaults().to_dict(),
       decoder=slot_machine.GridDecoder.defaults().to_dict(),
-      behavior=causal_agent.ActorCritic.defaults().to_dict(),  # or maybe I should subclass?
+      behavior=causal_agent.ActorCritic.slot_defaults().to_dict(),  # or maybe I should subclass?
       )
   configs['defaults']['expdir'] = f'{datetime.datetime.now():%Y%m%d%H%M%S}'
   return configs
