@@ -36,27 +36,32 @@ def split_at_n(text, delimiter, n):
 
 class EnsembleRSSM(common.Module):
 
-  def __init__(
-      self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
-      act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics_type='default', update_type='default', initial_type='default', embed_dim=16, num_slots=1, resolution=(16,16)):
+  # def __init__(
+  #     self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
+  #     act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics_type='default', update_type='default', initial_type='default', embed_dim=16, num_slots=1, resolution=(16,16)):
+
+  def __init__(self, config):
+      # self, ensemble=5, stoch=30, deter=200, hidden=200, discrete=False,
+      # act='elu', norm='none', std_act='softplus', min_std=0.1, dynamics_type='default', update_type='default', initial_type='default', embed_dim=16, num_slots=1, resolution=(16,16)):
+
     super().__init__()
-    self._ensemble = ensemble
-    self._stoch = stoch
-    self._deter = deter
-    self._hidden = hidden
-    self._discrete = discrete
-    self._act = get_act(act)
-    self._norm = norm
-    self._std_act = std_act
-    self._min_std = min_std
+    self._ensemble = config.ensemble
+    self._stoch = config.stoch
+    self._deter = config.deter
+    self._hidden = config.hidden
+    self._discrete = config.discrete
+    self._act = get_act(config.act)
+    self._norm = config.norm
+    self._std_act = config.std_act
+    self._min_std = config.min_std
     self._cast = lambda x: tf.cast(x, prec.global_policy().compute_dtype)
 
-    self.num_slots = num_slots
-    self._dynamics_type = dynamics_type
-    self._update_type = update_type
-    self._embed_dim = embed_dim
-    self._initial_type = initial_type
-    self._resolution = resolution
+    self._dynamics_type = config.dynamics_type
+    self._update_type = config.update_type
+    self._embed_dim = config.embed_dim
+    self._initial_type = config.initial_type
+    self.num_slots = config.num_slots
+    self._resolution = config.resolution
 
     if self._dynamics_type == 'default':
       self.dynamics = DefaultDynamics(self._deter, self._hidden, self._act, self._norm)
