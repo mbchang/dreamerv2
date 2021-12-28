@@ -160,8 +160,8 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
   @tf.function
   def img_step(self, prev_state, prev_action, sample=True):
     prior = machine.EnsembleRSSM.img_step(self, prev_state, prev_action, sample)
-    # if self.num_slots > 1:
-    #   prior['attns'] = self._cast(tf.zeros([prev_action.shape[0], 256, self.num_slots]))
+    if self.num_slots > 1:
+      prior['attns'] = self._cast(tf.zeros([prev_action.shape[0], 256, self.num_slots]))
     return prior
 
   def register_num_slots(self, num_slots):
