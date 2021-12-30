@@ -52,21 +52,34 @@ def cosine_anneal(step, start_value, final_value, start_step, final_step):
     return value
 
 
-def tf_cosine_anneal(step, start_value, final_value, start_step, final_step):
+def tf_linear_warmup(step, start_value, final_value, start_step, final_step):
+
+    if step < start_step:
+        value = start_value
+    elif step >= final_step:
+        value = final_value
+    else:
+        a = final_value - start_value
+        b = start_value
+        progress = (step + 1 - start_step) / (final_step - start_step)
+        try:
+            value = a * tf.cast(progress, tf.float32) + b
+        except:
+            import ipdb;ipdb.set_trace(context=20)
     
-    # assert start_value >= final_value
-    # assert start_step <= final_step
+    return value
+
+def tf_cosine_anneal(step, start_value, final_value, start_step, final_step):
     
     if step < start_step:
         value = start_value
     elif step >= final_step:
         value = final_value
     else:
-        a = tf.cast(0.5 * (start_value - final_value), tf.float32)
-        b = tf.cast(0.5 * (start_value + final_value), tf.float32)
-        progress = tf.cast((step - start_step) / (final_step - start_step), tf.float32)
-        value = tf.cast(a * tf.math.cos(tf.cast(math.pi, tf.float32) * progress) + b, tf.float32)
-
+        a = 0.5 * (start_value - final_value)
+        b = 0.5 * (start_value + final_value)
+        progress = (step - start_step) / (final_step - start_step)
+        value = a * tf.cast(tf.math.cos(math.pi * progress), tf.float32) + b
     return value
 
 
@@ -85,7 +98,7 @@ class Counter():
         # self.steps = 0
 
     def value(self, step):
-        _value = min((step // self.step_every) + self.initial_value, self.final_value)
+        _value = tf.math.minimum((step // self.step_every) + self.initial_value, self.final_value)
         return _value
     
 

@@ -158,3 +158,9 @@ class Optimizer(tf.Module):
         if nontrivial:
           lgr.info('- ' + self._name + '/' + var.name)
         var.assign((1 - self._wd) * var)
+
+  def assign_lr(self, lr):
+    self._opt.lr.assign(lr)
+
+  def get_lr(self):
+    return self._opt.lr.read_value()

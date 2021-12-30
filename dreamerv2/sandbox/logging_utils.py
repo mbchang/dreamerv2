@@ -58,7 +58,9 @@ def create_expname(args):
         'dslate.slot_model.min_lr_factor': 'mlf',
 
         'dslate.curr': 'cr',
+        'slot.obs_itf.opt.curr': 'cr',
         'dslate.curr_every': 'ce',
+        'slot.obs_itf.opt.curr_every': 'ce',
 
         'dslate.slot_model.hack_is_first': 'hkif',
         'dslate.slot_model.handle_is_first': 'hnif',

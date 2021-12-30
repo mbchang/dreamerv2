@@ -153,7 +153,7 @@ class CausalAgent(common.Module):
 
 
 
-  # @tf.function
+  @tf.function
   def train(self, data, state=None):
     metrics = {}
     state, outputs, mets = self.wm.train(data, state)
@@ -198,7 +198,7 @@ class CausalAgent(common.Module):
 
 
 
-  # @tf.function --> turn this back on when you 
+  @tf.function# --> turn this back on when you 
   def report(self, data):
     return self.wm.report(data)
     # report = {}
@@ -217,14 +217,26 @@ class WorldModel(common.Module):
   def slot_defaults_debug():
     debug_args = WorldModel.slot_defaults()
     debug_args.token_dim = 8
+    debug_args.opt.curr = False
+    debug_args.opt.curr_every = 1
+    debug_args.opt.warmup_steps = 15
+    debug_args.opt.decay_steps = 15
     return debug_args
 
   @staticmethod
   def slot_defaults():
+      # TODO: instead of making this correspond to slot.obs_itf, make this be slot.wm
       default_args = ml_collections.ConfigDict(dict(
         pos_encode_type='coordconv',
         token_dim=64,
         resolution=[16,16],
+        opt=ml_collections.ConfigDict(dict(
+          curr=False,
+          curr_every=20000,
+          warmup_steps=30000,
+          min_lr_factor=0.1,
+          decay_steps=30000,
+          ))
       ))
       return default_args
 
@@ -285,12 +297,47 @@ class WorldModel(common.Module):
       assert name in self.heads, name
     self.model_opt = common.Optimizer('model', **config.model_opt)
 
+    ################################################
+    if 'slot' in self.config:
+      self.train_step = tf.Variable(0)
+      self.optcfg = self.config.slot.obs_itf.opt 
+      self.horizon_curriculum = slate_utils.Counter(
+        initial_value=2 if self.optcfg.curr else self.config.dataset.length,
+        final_value=self.config.dataset.length,
+        step_every=self.optcfg.curr_every)
+    ################################################
+
+  def get_iterates(self, step):
+    lr_warmup_factor = slate_utils.tf_linear_warmup(
+        step=step,
+        start_value=tf.constant(0., dtype=tf.float32),
+        final_value=tf.constant(1.0, dtype=tf.float32),
+        start_step=tf.constant(0, dtype=tf.int32),
+        final_step=tf.constant(self.optcfg.warmup_steps, dtype=tf.int32))
+
+    lr_decay_factor = slate_utils.tf_cosine_anneal(
+        step=step,
+        start_value=tf.constant(1.0, dtype=tf.float32),
+        final_value=tf.constant(self.optcfg.min_lr_factor, dtype=tf.float32),
+        start_step=tf.constant(self.optcfg.warmup_steps, dtype=tf.int32),
+        final_step=tf.constant(self.optcfg.warmup_steps + self.optcfg.decay_steps, dtype=tf.int32))
+
+    num_frames = self.horizon_curriculum.value(step)
+
+    iterates = dict(
+      lr_warmup_factor=lr_warmup_factor, 
+      lr_decay_factor=lr_decay_factor, 
+      num_frames=num_frames,
+      train_step=tf.identity(step))  # need to clone to avoid mutation
+    return iterates
+
+
   def train(self, data, state=None):
     """
       reward (B, T)
       is_first (B, T)
       is_last (B, T)
-      is_terminal (B, T)
+      q (B, T)
       image (B, T, H, W, C)
       orientations (B, T, D)
       height (B, T)
@@ -324,9 +371,25 @@ class WorldModel(common.Module):
         prior_ent:
         post_ent:
     """
+    # ################################################
+    # get iterates
+    iterates = self.get_iterates(self.train_step)
+    if self.config.wm_only and 'slot' in self.config and self.optcfg.curr:
+      data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+    # ################################################
+
     with tf.GradientTape() as model_tape:
       model_loss, state, outputs, metrics = self.loss(data, state)
     modules = [self.encoder, self.rssm, *self.heads.values()]
+    ################################################
+    if 'slot' in self.config:
+      # modify learning rate
+      self.model_opt.assign_lr(slate_utils.f32(iterates['lr_decay_factor'] * iterates['lr_warmup_factor'] * self.config.model_opt.lr))  # verified
+      # record the learning rate in the outputs/metrics
+      metrics.update({**iterates, **dict(model_lr=self.model_opt.get_lr())})  # verified
+      # step training step
+      self.train_step.assign_add(1)
+    ################################################
     metrics.update(self.model_opt(model_tape, model_loss, modules))
     return state, outputs, metrics
 
@@ -383,7 +446,7 @@ class WorldModel(common.Module):
     last_state = {k: v[:, -1] for k, v in post.items()}
     return model_loss, last_state, outs, metrics
 
-  @tf.function
+  # @tf.function
   def imagine(self, policy, start, is_terminal, horizon):
     """
     flattened: TensorShape([3, 2, 3, 16]) to TensorShape([6, 3, 16]) = (B*T, K, D)
@@ -568,7 +631,7 @@ class WorldModel(common.Module):
       video=rearrange(video, 'b t h w c -> t h (b w) c'))
     return output
 
-  @tf.function
+  # @tf.function
   def report(self, data):
     report = {}
     data = self.preprocess(data)
@@ -680,7 +743,7 @@ class ActorCritic(common.Module):
     self.update_slow_target()  # Variables exist after first forward pass.
     return metrics
 
-  @tf.function
+  # @tf.function
   def actor_loss(self, seq, target):
     # Actions:      0   [a1]  [a2]   a3
     #                  ^  |  ^  |  ^  |
@@ -721,7 +784,7 @@ class ActorCritic(common.Module):
     metrics['actor_ent_scale'] = ent_scale
     return actor_loss, metrics
 
-  @tf.function
+  # @tf.function
   def critic_loss(self, seq, target):
     # States:     [z0]  [z1]  [z2]   z3
     # Rewards:    [r0]  [r1]  [r2]   r3
