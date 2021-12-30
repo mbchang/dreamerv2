@@ -153,8 +153,18 @@ class CausalAgent(common.Module):
 
 
 
-  @tf.function
+  # @tf.function
   def train(self, data, state=None):
+    ################################################
+    iterates = self.wm.get_iterates(self.wm.train_step)
+    if self.config.wm_only and 'slot' in self.config and self.wm.optcfg.curr:
+      data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+      data = tf.nest.map_structure(lambda x: tf.ensure_shape(x, 
+        [x.shape[0], iterates['num_frames']] + x.shape[2:]), data)  # does not seem to help
+      tf.print(f"data['image'].shape: {data['image'].shape}")
+    # TODO: if you get a memory leak then it might be because of retracing.
+    ################################################
+
     metrics = {}
     state, outputs, mets = self.wm.train(data, state)
     metrics.update(mets)
@@ -301,10 +311,12 @@ class WorldModel(common.Module):
     if 'slot' in self.config:
       self.train_step = tf.Variable(0)
       self.optcfg = self.config.slot.obs_itf.opt 
-      self.horizon_curriculum = slate_utils.Counter(
-        initial_value=2 if self.optcfg.curr else self.config.dataset.length,
-        final_value=self.config.dataset.length,
-        step_every=self.optcfg.curr_every)
+      self.curr_initial = tf.constant(2)
+      # self.horizon_curriculum = slate_utils.Counter(
+      self.horizon_curriculum = slate_utils.DoublingCounter(
+        initial_value=tf.constant(self.curr_initial) if self.optcfg.curr else tf.constant(self.config.dataset.length),
+        final_value=tf.constant(self.config.dataset.length),
+        step_every=tf.constant(self.optcfg.curr_every))
     ################################################
 
   def get_iterates(self, step):
@@ -332,6 +344,11 @@ class WorldModel(common.Module):
     return iterates
 
 
+  # @tf.function(input_signature=(
+  #   tf.TensorSpec(shape=[None]),
+  #   tf.TensorSpec(shape=[None]))
+  # )
+  @tf.function
   def train(self, data, state=None):
     """
       reward (B, T)
@@ -373,9 +390,20 @@ class WorldModel(common.Module):
     """
     # ################################################
     # get iterates
+    print(f"Tracing with data['image'].shape: {data['image'].shape}")
     iterates = self.get_iterates(self.train_step)
-    if self.config.wm_only and 'slot' in self.config and self.optcfg.curr:
-      data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+    # if self.config.wm_only and 'slot' in self.config and self.optcfg.curr:
+    #   # if self._once:
+    #   #   data = tf.nest.map_structure(lambda x: x[:, :self.curr_initial], data)
+    #   #   self._once = False
+    #   # else:
+    #   #   # data = tf.nest.map_structure(lambda x: x[:, :self.curr_initial], data)
+    #   #   data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+    #   # import ipdb; ipdb.set_trace(context=20)
+    #   data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+    #   data = tf.nest.map_structure(lambda x: tf.ensure_shape(x, 
+    #     [x.shape[0], iterates['num_frames']] + x.shape[2:]), data)  # does not seem to help
+    #   tf.print(f"data['image'].shape: {data['image'].shape}")
     # ################################################
 
     with tf.GradientTape() as model_tape:
@@ -388,7 +416,7 @@ class WorldModel(common.Module):
       # record the learning rate in the outputs/metrics
       metrics.update({**iterates, **dict(model_lr=self.model_opt.get_lr())})  # verified
       # step training step
-      self.train_step.assign_add(1)
+      self.train_step.assign_add(tf.constant(1))
     ################################################
     metrics.update(self.model_opt(model_tape, model_loss, modules))
     return state, outputs, metrics
@@ -719,7 +747,7 @@ class ActorCritic(common.Module):
     self.critic_opt = common.Optimizer('critic', **self.config.critic_opt)
     self.rewnorm = common.StreamNorm(**self.config.reward_norm)
 
-  # @tf.function
+  @tf.function
   def train(self, world_model, start, is_terminal, reward_fn):
     metrics = {}
     hor = self.config.imag_horizon
