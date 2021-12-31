@@ -229,7 +229,8 @@ class WorldModel(common.Module):
     debug_args = WorldModel.slot_defaults()
     debug_args.token_dim = 8
     debug_args.opt.curr = False
-    debug_args.opt.curr_every = 1
+    debug_args.opt.curr_every = 3
+    debug_args.opt.curr_start = 5
     debug_args.opt.warmup_steps = 15
     debug_args.opt.decay_steps = 15
     return debug_args
@@ -243,7 +244,8 @@ class WorldModel(common.Module):
         resolution=[16,16],
         opt=ml_collections.ConfigDict(dict(
           curr=False,
-          curr_every=20000,
+          curr_every=10000,
+          curr_start=20000,
           warmup_steps=30000,
           min_lr_factor=0.1,
           decay_steps=30000,
@@ -317,7 +319,8 @@ class WorldModel(common.Module):
       self.horizon_curriculum = slate_utils.DoublingCounter(
         initial_value=tf.constant(self.curr_initial) if self.optcfg.curr else tf.constant(self.config.dataset.length),
         final_value=tf.constant(self.config.dataset.length),
-        step_every=tf.constant(self.optcfg.curr_every))
+        step_every=tf.constant(self.optcfg.curr_every),
+        start_step=tf.constant(self.optcfg.curr_start))
     ################################################
 
   def get_iterates(self, step):

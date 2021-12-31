@@ -61,6 +61,7 @@ def create_expname(args):
         'slot.obs_itf.opt.curr': 'cr',
         'dslate.curr_every': 'ce',
         'slot.obs_itf.opt.curr_every': 'ce',
+        'slot.obs_itf.opt.curr_start': 'cs',
 
         'dslate.slot_model.hack_is_first': 'hkif',
         'dslate.slot_model.handle_is_first': 'hnif',
