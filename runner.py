@@ -6608,7 +6608,7 @@ def k_greater_than_1_sweep_currstart_12_28_21():
     r.add_flag('slot.decoder.transformer_type', ['ca'])
     r.add_flag('slot.decoder.ca_config.num_blocks', [4])
     r.add_flag('model_opt.lr', [3e-4])
-    r.add_flag('wm_only', [True])
+    r.add_flag('wm_only', [False])
     r.add_flag('slot.obs_itf.opt.curr', [True])
     r.add_flag('slot.obs_itf.opt.curr_every', [5000, 10000])
 
@@ -6641,7 +6641,7 @@ def k_greater_than_1_sweep_currstart_12_28_21():
     r.add_flag('slot.decoder.transformer_type', ['ca'])
     r.add_flag('slot.decoder.ca_config.num_blocks', [4])
     r.add_flag('model_opt.lr', [3e-4])
-    r.add_flag('wm_only', [False])
+    r.add_flag('wm_only', [True])
     r.add_flag('slot.obs_itf.opt.curr', [True])
     r.add_flag('slot.obs_itf.opt.curr_every', [5000, 10000])
 
