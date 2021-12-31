@@ -6404,21 +6404,27 @@ def k_greater_than_1_sweep_warmup_12_27_21():
 
 def k_greater_than_1_sweep_curr_12_28_21():
     """
-        if there is more memory we could try curr_every 30000
+        8 jobs
+        t2:
+            34G total, 1525MiB each
+
+        seems like 2500 and 5000 may be too fast
+        might be better to have an initial period where you do t2, and then quickly increase the sequence length, and then train after that
     """
+
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3])
     r.add_flag('configs', ['dmc_vision slot'])
     r.add_flag('task', ['vmballs_simple_box4'])
     r.add_flag('agent', ['causal'])
     r.add_flag('rssm.num_slots', [5])
-    r.add_flag('slot.rssm.slot_update.num_iterations', [2, 3])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
     r.add_flag('slot.rssm.slot_update.temp', [1.0])
     r.add_flag('slot.decoder.transformer_type', ['ca'])
-    r.add_flag('slot.decoder.ca_config.num_blocks', [2,4])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
     r.add_flag('model_opt.lr', [3e-4])
     r.add_flag('wm_only', [True])
     r.add_flag('slot.obs_itf.opt.curr', [True])
-    r.add_flag('slot.obs_itf.opt.curr_every', [5000, 10000, 20000, 30000])
+    r.add_flag('slot.obs_itf.opt.curr_every', [2500, 5000, 10000, 20000])
 
     r.add_flag('logdir', ['runs/k_greater_than_1_sweep_curr'])
     to_watch = [
@@ -6435,8 +6441,76 @@ def k_greater_than_1_sweep_curr_12_28_21():
     ]
     r.add_flag('watch', [' '.join(to_watch)])
 
-    lengths = [4]
-    coeffs = [2]  # this is not causing the partially known tensorf issue
+    r.generate_commands(args.for_real)
+
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[4,5,6,7])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['dmc_cheetah_run'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_every', [2500, 5000, 10000, 20000])
+
+    r.add_flag('logdir', ['runs/k_greater_than_1_sweep_curr'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_every',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    r.generate_commands(args.for_real)
+
+
+def k_greater_than_1_sweep_curr_debug_12_30_21():
+    """
+        if there is more memory we could try curr_every 30000
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [3])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('wm_only', [True])
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_every', [5])
+    r.add_flag('log_every', [5])
+
+    r.add_flag('logdir', ['runs/k_greater_than_1_sweep_curr'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_every',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [50]
+    coeffs = [1]  # this is not causing the partially known tensorf issue
     for t in lengths:
         for coeff in coeffs:
             r.add_flag('replay.minlen', [coeff*t])
@@ -6582,6 +6656,8 @@ if __name__ == '__main__':
     # visualize_attns_12_27_21()
     # check_if_original_tf_does_not_break_anything_12_27_21()
     # k_greater_than_1_sweep_warmup_12_27_21()
+    # k_greater_than_1_sweep_curr_12_28_21()
+    # k_greater_than_1_sweep_curr_debug_12_30_21()
     k_greater_than_1_sweep_curr_12_28_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
