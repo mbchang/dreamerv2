@@ -6878,7 +6878,8 @@ def do_different_optimizers_change_things_with_epsilon_12_31_21():
 
 def adamw_automatic_and_manual_12_31_21():
     """
-        you should do a git commit first
+        you need to apply decay to weight decay too
+        actually you should be doing this for your other runs too...
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[4])
     r.add_flag('configs', ['dmc_vision slot'])
@@ -7058,7 +7059,8 @@ if __name__ == '__main__':
     # k_greater_than_1_sweep_currstart2_12_28_21()
     # k_greater_than_1_sweep_currstart3_12_28_21()
     # do_different_optimizers_change_things_12_31_21()
-    do_different_optimizers_change_things_with_epsilon_12_31_21()
+    # do_different_optimizers_change_things_with_epsilon_12_31_21()
+    adamw_automatic_and_manual_12_31_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
