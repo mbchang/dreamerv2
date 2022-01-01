@@ -394,7 +394,7 @@ class WorldModel(common.Module):
     """
     # ################################################
     # get iterates
-    lgr.debug(f"Tracing with data['image'].shape: {data['image'].shape}")
+    # lgr.debug(f"Tracing with data['image'].shape: {data['image'].shape}")
     iterates = self.get_iterates(self.train_step)
     # if self.config.wm_only and 'slot' in self.config and self.optcfg.curr:
     #   # if self._once:
