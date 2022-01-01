@@ -5,6 +5,7 @@ import re
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_addons as tfa
 from tensorflow.keras import mixed_precision as prec
 
 try:
@@ -80,6 +81,8 @@ class Optimizer(tf.Module):
         'adamax': lambda: tf.optimizers.Adamax(lr, epsilon=eps),
         'sgd': lambda: tf.optimizers.SGD(lr),
         'momentum': lambda: tf.optimizers.SGD(lr, 0.9),
+        'lamb': lambda: tfa.optimizers.LAMB(lr, epsilon=eps),
+        'radam': lambda: tfa.optimizers.RectifiedAdam(lr, epsilon=eps),
     }[opt]()
     self._mixed = (prec.global_policy().compute_dtype == tf.float16)
     if self._mixed:

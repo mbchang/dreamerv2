@@ -117,6 +117,8 @@ def create_expname(args):
 
         'slot.decoder.transformer_type': 'dtf',
 
+        'slot.obs_itf.token_dim': 'td',
+        'model_opt.opt': 'mo',
 
 
     }

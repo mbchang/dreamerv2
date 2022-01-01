@@ -6596,6 +6596,13 @@ def k_greater_than_1_sweep_curr2_12_28_21():
 def k_greater_than_1_sweep_currstart_12_28_21():
     """
         Here I am starting the curriculum at 20000
+
+        The curriculum is unnecessary if it is easy to train the transformer for 50 time-steps.
+            - transformer across time?
+            - T-Fixup
+            - implicit gradients?
+            - skip connections between encoder and decoder?
+                -> just replace the input embeddings of decoder with encoder output?
     """
 
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3])
@@ -6608,7 +6615,7 @@ def k_greater_than_1_sweep_currstart_12_28_21():
     r.add_flag('slot.decoder.transformer_type', ['ca'])
     r.add_flag('slot.decoder.ca_config.num_blocks', [4])
     r.add_flag('model_opt.lr', [3e-4])
-    r.add_flag('wm_only', [False])
+    r.add_flag('wm_only', [False])  # seems like this causes it to crash, possibly due to the repeated re-tracing? I then trained it with wm_only=True
     r.add_flag('slot.obs_itf.opt.curr', [True])
     r.add_flag('slot.obs_itf.opt.curr_every', [5000, 10000])
 
@@ -6658,6 +6665,250 @@ def k_greater_than_1_sweep_currstart_12_28_21():
         'slot.obs_itf.opt.curr_start',
         'slot.obs_itf.opt.curr_every',
 
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    r.generate_commands(args.for_real)
+
+
+def k_greater_than_1_sweep_currstart2_12_28_21():
+    """
+        Here I am starting the curriculum at 20000
+
+        The curriculum is unnecessary if it is easy to train the transformer for 50 time-steps.
+            - transformer across time?
+            - T-Fixup
+            - implicit gradients?
+            - skip connections between encoder and decoder?
+                -> just replace the input embeddings of decoder with encoder output?
+            - dropout on slot attention?
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[4,5,6,7])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['dmc_manip_reach_site', 'dmc_finger_turn_easy'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [4e-4, 5e-4])
+    r.add_flag('wm_only', [True])
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_every', [5000])
+
+    r.add_flag('logdir', ['runs/k_greater_than_1_sweep_currstart'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_start',
+        'slot.obs_itf.opt.curr_every',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    r.generate_commands(args.for_real)
+
+
+
+def k_greater_than_1_sweep_currstart3_12_28_21():
+    """
+        Here I am starting the curriculum at 20000
+
+        The curriculum is unnecessary if it is easy to train the transformer for 50 time-steps.
+            - transformer across time?
+            - T-Fixup
+            - implicit gradients?
+            - skip connections between encoder and decoder?
+                -> just replace the input embeddings of decoder with encoder output?
+    """
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('wm_only', [True])  # seems like this causes it to crash, possibly due to the repeated re-tracing? I then trained it with wm_only=True
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_start', [30000])
+    r.add_flag('slot.obs_itf.opt.curr_every', [10000, 20000])
+    r.add_flag('slot.obs_itf.token_dim', [64, 128])
+
+    r.add_flag('logdir', ['runs/k_greater_than_1_sweep_currstart'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_start',
+        'slot.obs_itf.opt.curr_every',
+        'slot.obs_itf.token_dim',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[6,7])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('wm_only', [True])  # seems like this causes it to crash, possibly due to the repeated re-tracing? I then trained it with wm_only=True
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_start', [20000])
+    r.add_flag('slot.obs_itf.opt.curr_every', [10000, 20000])
+    r.add_flag('slot.obs_itf.token_dim', [128])
+
+    r.add_flag('logdir', ['runs/k_greater_than_1_sweep_currstart'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_start',
+        'slot.obs_itf.opt.curr_every',
+        'slot.obs_itf.token_dim',
+
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    r.generate_commands(args.for_real)
+
+
+def do_different_optimizers_change_things_12_31_21():
+    """
+    """
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[6,7])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('wm_only', [True])  # seems like this causes it to crash, possibly due to the repeated re-tracing? I then trained it with wm_only=True
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_start', [30000])
+    r.add_flag('slot.obs_itf.opt.curr_every', [20000])
+    r.add_flag('model_opt.opt', ['radam', 'lamb'])
+
+    r.add_flag('logdir', ['runs/do_different_optimizers_change_things'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_start',
+        'slot.obs_itf.opt.curr_every',
+        'model_opt.opt',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    r.generate_commands(args.for_real)
+
+def do_different_optimizers_change_things_with_epsilon_12_31_21():
+    """
+    """
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1,3])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('wm_only', [True])  # seems like this causes it to crash, possibly due to the repeated re-tracing? I then trained it with wm_only=True
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_start', [30000])
+    r.add_flag('slot.obs_itf.opt.curr_every', [20000])
+    r.add_flag('model_opt.opt', ['radam', 'lamb'])
+
+    r.add_flag('logdir', ['runs/do_different_optimizers_change_things_with_epsilon'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_start',
+        'slot.obs_itf.opt.curr_every',
+        'model_opt.opt',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    r.generate_commands(args.for_real)
+
+def adamw_automatic_and_manual_12_31_21():
+    """
+        you should do a git commit first
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[4])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('wm_only', [True])  # seems like this causes it to crash, possibly due to the repeated re-tracing? I then trained it with wm_only=True
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_start', [30000])
+    r.add_flag('slot.obs_itf.opt.curr_every', [20000])
+    r.add_flag('model_opt.opt', ['adamw'])
+
+    r.add_flag('logdir', ['runs/adamw_automatic_and_manual'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_start',
+        'slot.obs_itf.opt.curr_every',
+        'model_opt.opt',
     ]
     r.add_flag('watch', [' '.join(to_watch)])
 
@@ -6803,7 +7054,11 @@ if __name__ == '__main__':
     # k_greater_than_1_sweep_curr_debug_12_30_21()
     # k_greater_than_1_sweep_curr_12_28_21()
     # k_greater_than_1_sweep_curr2_12_28_21()
-    k_greater_than_1_sweep_currstart_12_28_21()
+    # k_greater_than_1_sweep_currstart_12_28_21()
+    # k_greater_than_1_sweep_currstart2_12_28_21()
+    # k_greater_than_1_sweep_currstart3_12_28_21()
+    # do_different_optimizers_change_things_12_31_21()
+    do_different_optimizers_change_things_with_epsilon_12_31_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
