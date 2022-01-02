@@ -83,6 +83,8 @@ class Optimizer(tf.Module):
         'momentum': lambda: tf.optimizers.SGD(lr, 0.9),
         'lamb': lambda: tfa.optimizers.LAMB(lr, epsilon=eps),
         'radam': lambda: tfa.optimizers.RectifiedAdam(lr, epsilon=eps),
+        'adamw': lambda: tfa.optimizers.AdamW(learning_rate=lr, weight_decay=wd, epsilon=eps),
+        'lookahead': lambda: tfa.optimizers.Lookahead(tf.optimizers.Adam(lr, epsilon=eps)),
     }[opt]()
     self._mixed = (prec.global_policy().compute_dtype == tf.float16)
     if self._mixed:
@@ -144,6 +146,9 @@ class Optimizer(tf.Module):
     # Weight decay.
     if self._wd:
       self._apply_weight_decay(varibs)
+
+    # TODO: check if you are doing AdamW
+    # TODO: decay the weight decay too
 
     # Apply gradients.
     self._opt.apply_gradients(
