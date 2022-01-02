@@ -7,11 +7,10 @@ from tensorflow.keras import mixed_precision as prec
 import common
 import expl
 
-from sandbox import machine
+from sandbox import machine, slot_machine
 from sandbox import normalize as nmlz
 import sandbox.tf_slate.utils as slate_utils
 from sandbox.tf_slate import slot_model as sm
-
 
 def encoder_interface(embed, config):
     ###########################################################
@@ -259,7 +258,6 @@ class WorldModel(common.Module):
     self.tfstep = tfstep
 
     if 'slot' in self.config:
-      from sandbox import slot_machine
       self.rssm = slot_machine.SlotEnsembleRSSM(config.rssm, config.slot.rssm, config.slot.obs_itf.resolution)
     else:
       from sandbox import machine
@@ -475,6 +473,9 @@ class WorldModel(common.Module):
     metrics['model_kl'] = kl_value.mean()
     metrics['prior_ent'] = self.rssm.get_dist(prior).entropy().mean()
     metrics['post_ent'] = self.rssm.get_dist(post).entropy().mean()
+    if 'slot' in self.config:
+      metrics['base_ent'] = slot_machine.diagonal_gaussian(self.rssm.base_dist_params).entropy().mean()
+    # TODO: add base ent here: min_std, softplus
     last_state = {k: v[:, -1] for k, v in post.items()}
     return model_loss, last_state, outs, metrics
 

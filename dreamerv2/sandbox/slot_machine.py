@@ -33,6 +33,13 @@ def split_at_n(text, delimiter, n):
   groups = text.split(delimiter)
   return delimiter.join(groups[:n]), delimiter.join(groups[n:])
 
+def diagonal_gaussian(dist_params):
+  dist = tfd.MultivariateNormalDiag(
+    tf.cast(dist_params['mu'], tf.float32),
+    tf.cast(tf.nn.softplus(dist_params['logstd']), tf.float32))
+  return dist
+
+
 ########################################################################
 ## Tensor utils
 ########################################################################
@@ -89,8 +96,10 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
       raise NotImplementedError
 
     if self._initial_type == 'iid':
-      self.slots_mu = tf.Variable(tf.initializers.GlorotUniform()(shape=[self._deter]))
-      self.slots_log_sigma = tf.Variable(tf.initializers.GlorotUniform()(shape=[self._deter]))
+      self.base_dist_params = dict(
+        mu=tf.Variable(tf.initializers.GlorotUniform()(shape=[self._deter])),
+        logstd=tf.Variable(tf.initializers.GlorotUniform()(shape=[self._deter]))
+        )
     elif self._initial_type == 'fixed':
       # like position encoding
       self.initial_deter = tf.Variable(tf.random.truncated_normal((self.num_slots, self._deter)))
@@ -113,7 +122,7 @@ class SlotEnsembleRSSM(machine.EnsembleRSSM):
         if self.num_slots > 1:
           state['attns'] = tf.zeros([batch_size, np.prod(self._resolution), self.num_slots], dtype=dtype)
       elif self._initial_type == 'iid':
-        deter = self.slots_mu + tf.exp(self.slots_log_sigma) * tf.random.normal([batch_size, self.num_slots, self._deter])
+        deter = self.base_dist_params['mu'] + tf.exp(self.base_dist_params['logstd']) * tf.random.normal([batch_size, self.num_slots, self._deter])
         broadcast = lambda x: eo.repeat(x, 'b ... -> b k ...', k=self.num_slots)
         state = tf.nest.map_structure(broadcast, state)
         state['deter'] = state['deter'] + tf.cast(deter, dtype)
