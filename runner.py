@@ -6881,7 +6881,7 @@ def adamw_automatic_and_manual_12_31_21():
         you need to apply decay to weight decay too
         actually you should be doing this for your other runs too...
     """
-    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[4])
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[7])
     r.add_flag('configs', ['dmc_vision slot'])
     r.add_flag('task', ['vmballs_simple_box4'])
     r.add_flag('agent', ['causal'])
@@ -6898,6 +6898,44 @@ def adamw_automatic_and_manual_12_31_21():
     r.add_flag('model_opt.opt', ['adamw'])
 
     r.add_flag('logdir', ['runs/adamw_automatic_and_manual'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'wm_only',
+        'slot.obs_itf.opt.curr',
+        'slot.obs_itf.opt.curr_start',
+        'slot.obs_itf.opt.curr_every',
+        'model_opt.opt',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    r.generate_commands(args.for_real)
+
+def do_different_optimizers_change_things_with_epsilon_12_31_21():
+    """
+    """
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[3])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('wm_only', [True])  # seems like this causes it to crash, possibly due to the repeated re-tracing? I then trained it with wm_only=True
+    r.add_flag('slot.obs_itf.opt.curr', [True])
+    r.add_flag('slot.obs_itf.opt.curr_start', [30000])
+    r.add_flag('slot.obs_itf.opt.curr_every', [20000])
+    r.add_flag('model_opt.opt', ['lookahead'])
+
+    r.add_flag('logdir', ['runs/do_different_optimizers_change_things_with_epsilon'])
     to_watch = [
         'rssm.num_slots',
         'slot.rssm.slot_update.num_iterations',
@@ -7059,8 +7097,8 @@ if __name__ == '__main__':
     # k_greater_than_1_sweep_currstart2_12_28_21()
     # k_greater_than_1_sweep_currstart3_12_28_21()
     # do_different_optimizers_change_things_12_31_21()
-    # do_different_optimizers_change_things_with_epsilon_12_31_21()
-    adamw_automatic_and_manual_12_31_21()
+    do_different_optimizers_change_things_with_epsilon_12_31_21()
+    # adamw_automatic_and_manual_12_31_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
