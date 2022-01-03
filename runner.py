@@ -6954,6 +6954,130 @@ def do_different_optimizers_change_things_with_epsilon_12_31_21():
     r.generate_commands(args.for_real)
 
 
+def does_temp_or_lr_dyn_blocks_improve_segregation_12_27_21():
+    """
+        note that here we added the tf.function into agent.train()
+            seems like doing this actually prevents RAM from blowing up?
+            maybe when I have multiple tf functions I actually need to trace multiple times?
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1,2,3,4,5,6,7])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2,3])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0, 0.5, 0.1])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('slot.rssm.cross_dynamics.num_blocks', [2,1])
+    r.add_flag('model_opt.lr', [3e-4, 2.5e-4])
+
+    r.add_flag('logdir', ['runs/does_temp_or_lr_dyn_blocks_improve_segregation_try2'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'slot.rssm.cross_dynamics.num_blocks',
+        'model_opt.lr',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2,3,0,1,6,7,4,5])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2,3])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0, 0.5, 0.1])
+    r.add_flag('slot.decoder.transformer_type', ['dec'])
+    r.add_flag('slot.decoder.dec_config.num_blocks', [4])
+    r.add_flag('slot.rssm.cross_dynamics.num_blocks', [2,1])
+    r.add_flag('model_opt.lr', [3e-4, 2.5e-4])
+
+    r.add_flag('logdir', ['runs/does_temp_or_lr_dyn_blocks_improve_segregation_try2'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.dec_config.num_blocks',
+        'slot.rssm.cross_dynamics.num_blocks',
+        'model_opt.lr',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+def how_good_of_predictions_can_we_get_for_k1_on_balls_12_27_21():
+    """
+        later: test gru for dynamics
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [1])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+
+    r.add_flag('logdir', ['runs/how_good_of_predictions_can_we_get_for_k1_on_balls'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[1])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [1])
+    r.add_flag('slot.decoder.transformer_type', ['dec'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+
+    r.add_flag('logdir', ['runs/how_good_of_predictions_can_we_get_for_k1_on_balls'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+    r.generate_commands(args.for_real)
+
+
+
+
 if __name__ == '__main__':
     # perceiver_test_10_6_2021()
     # train_model_sanity()
@@ -7097,8 +7221,10 @@ if __name__ == '__main__':
     # k_greater_than_1_sweep_currstart2_12_28_21()
     # k_greater_than_1_sweep_currstart3_12_28_21()
     # do_different_optimizers_change_things_12_31_21()
-    do_different_optimizers_change_things_with_epsilon_12_31_21()
+    # do_different_optimizers_change_things_with_epsilon_12_31_21()
     # adamw_automatic_and_manual_12_31_21()
+    does_temp_or_lr_dyn_blocks_improve_segregation_12_27_21()
+    # how_good_of_predictions_can_we_get_for_k1_on_balls_12_27_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

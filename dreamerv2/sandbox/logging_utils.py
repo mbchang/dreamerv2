@@ -104,6 +104,7 @@ def create_expname(args):
 
         'dslate.slot_model.dyn_transformer.num_blocks': 'dtnb',
         'dslate.slot_model.dyn_transformer.num_heads': 'dtnh',
+        'slot.rssm.cross_dynamics.num_blocks': 'dtnb',
 
         'dslate.dvae.shallow': 'dsh',
 
