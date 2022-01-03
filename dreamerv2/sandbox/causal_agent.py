@@ -152,7 +152,7 @@ class CausalAgent(common.Module):
 
 
 
-  # @tf.function
+  @tf.function
   def train(self, data, state=None):
     ################################################
     iterates = self.wm.get_iterates(self.wm.train_step)
@@ -576,7 +576,7 @@ class WorldModel(common.Module):
     model = nmlz.uncenter(recon)
     imag_loss = tf.constant(0, dtype=tf.float32)
     imag_reward_loss = tf.constant(0, dtype=tf.float32)
-    if self.config.dataset.length > t:
+    if self.config.eval_dataset.length > t:
       init = {k: v[:, -1] for k, v in states.items()}
       prior = self.rssm.imagine(data['action'][:n, t:], init)
       prior_feat = self.rssm.get_feat(prior)
@@ -594,10 +594,8 @@ class WorldModel(common.Module):
       k = attns.shape[-1]
       h, w = self.config.slot.obs_itf.resolution  # (16, 16)
       H, W = recon.shape[-3:-1]  # (64, 64)
-
-      # attns = tf.cast(attns > 0.5, attns.dtype)
       attn_vis = tf.repeat(tf.repeat(rearrange(attns, 'b t (h w) k -> b t k h w 1', h = h, w=w), H // h, axis=-3), W // w, axis=-2)  # (B, tau, K, H, W, 1)
-      if self.config.dataset.length > t:
+      if self.config.eval_dataset.length > t:
         attn_imag = repeat(tf.ones_like(attn_vis[:, 0], dtype=attns.dtype), 'b ... -> b t ...', t=openl.shape[1])
         attn_vis = tf.concat([attn_vis, attn_imag], axis=1)  # B, T, K, H, W, C
       data_unsqz = rearrange(nmlz.uncenter(data[key]), 'b t ... -> b t 1 ...')
