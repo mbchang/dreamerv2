@@ -7223,8 +7223,8 @@ if __name__ == '__main__':
     # do_different_optimizers_change_things_12_31_21()
     # do_different_optimizers_change_things_with_epsilon_12_31_21()
     # adamw_automatic_and_manual_12_31_21()
-    does_temp_or_lr_dyn_blocks_improve_segregation_12_27_21()
-    # how_good_of_predictions_can_we_get_for_k1_on_balls_12_27_21()
+    # does_temp_or_lr_dyn_blocks_improve_segregation_12_27_21()
+    how_good_of_predictions_can_we_get_for_k1_on_balls_12_27_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 

@@ -589,7 +589,7 @@ class WorldModel(common.Module):
     video = tf.stack([truth, model, error], 2)
     ###########################################################
     # attention visualization
-    if 'slot' in self.config:
+    if 'slot' in self.config and 'attns' in states:
       attns = states['attns']  # B, tau, (H W), K
       k = attns.shape[-1]
       h, w = self.config.slot.obs_itf.resolution  # (16, 16)
