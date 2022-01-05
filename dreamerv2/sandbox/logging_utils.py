@@ -122,6 +122,8 @@ def create_expname(args):
         'slot.obs_itf.token_dim': 'td',
         'model_opt.opt': 'mo',
 
+        'dslate.slot_model.perceiver_output': 'po'
+
 
 
     }
