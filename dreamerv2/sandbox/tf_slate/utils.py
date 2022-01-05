@@ -62,11 +62,7 @@ def tf_linear_warmup(step, start_value, final_value, start_step, final_step):
         a = final_value - start_value
         b = start_value
         progress = (step + 1 - start_step) / (final_step - start_step)
-        try:
-            value = a * tf.cast(progress, tf.float32) + b
-        except:
-            import ipdb;ipdb.set_trace(context=20)
-    
+        value = a * tf.cast(progress, tf.float32) + b    
     return value
 
 def tf_cosine_anneal(step, start_value, final_value, start_step, final_step):
