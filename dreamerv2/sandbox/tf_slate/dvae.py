@@ -57,7 +57,6 @@ class dVAEWeakEncoder(tkl.Layer):
                 Conv2dBlock(64, 64, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
-                # conv2d(64, out_channels, 1),
             ])
         self.heads = dict(
             token=conv2d(64, out_channels, 1),
@@ -67,7 +66,6 @@ class dVAEWeakEncoder(tkl.Layer):
         features = self.net(image)
         token_logits = self.heads['token'](features)
         return token_logits
-        # return self.net(image)
 
 
 class dVAEShallowWeakEncoder(tkl.Layer):
@@ -80,7 +78,6 @@ class dVAEShallowWeakEncoder(tkl.Layer):
                 Conv2dBlock(in_channels, 64, 4, 4),
                 Conv2dBlock(64, 64, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
-                # conv2d(64, out_channels, 1),
             ])
         self.heads = dict(
             token=conv2d(64, out_channels, 1),
@@ -90,7 +87,6 @@ class dVAEShallowWeakEncoder(tkl.Layer):
         features = self.net(image)
         token_logits = self.heads['token'](features)
         return token_logits
-        # return self.net(image)
 
 
 class dVAEStrongEncoder(tkl.Layer):
@@ -105,7 +101,6 @@ class dVAEStrongEncoder(tkl.Layer):
             conv(filters=64, kernel_size=4, strides=2, padding=1),
             conv(filters=64, kernel_size=4, strides=2, padding=1),
             ResBlock(chan=64),
-            # PaddedConv2D(filters=out_channels, kernel_size=1),
             ])
         self.heads = dict(
             token=PaddedConv2D(filters=out_channels, kernel_size=1),
@@ -115,7 +110,6 @@ class dVAEStrongEncoder(tkl.Layer):
         features = self.net(image)
         token_logits = self.heads['token'](features)
         return token_logits
-        # return self.net(image)
 
 
 class GenericEncoder(tkl.Layer):
@@ -129,7 +123,6 @@ class GenericEncoder(tkl.Layer):
         self.net = tf.keras.Sequential([
             conv(filters=32, kernel_size=4, strides=2, padding=1),
             conv(filters=64, kernel_size=4, strides=2, padding=1),
-            # PaddedConv2D(filters=out_channels, kernel_size=1),
             ])
         self.heads = dict(
             token=PaddedConv2D(filters=out_channels, kernel_size=1),
@@ -139,7 +132,6 @@ class GenericEncoder(tkl.Layer):
         features = self.net(image)
         token_logits = self.heads['token'](features)
         return token_logits
-        # return self.net(image)
 
 
 class dVAEWeakDecoder(tkl.Layer):
