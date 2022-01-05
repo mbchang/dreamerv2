@@ -133,11 +133,11 @@ class SlotAttention(tkl.Layer, Factorized):
             slots, _ = bottle(self.gru)(updates, slots_prev)
             slots = slots + self.mlp(self.norm_mlp(slots))
 
-            try:
-              tf.debugging.check_numerics(slots, 'slots')
-            except Exception as e:
-              lgr.debug(e)
-              import ipdb; ipdb.set_trace(context=20)
+            # try:
+            #   tf.debugging.check_numerics(slots, 'slots')
+            # except Exception as e:
+            #   lgr.debug(e)
+            #   import ipdb; ipdb.set_trace(context=20)
         
         return slots, attn_vis
 
