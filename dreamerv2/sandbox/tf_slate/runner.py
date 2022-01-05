@@ -666,6 +666,19 @@ def discrete_hard_test_stop_gradient_12_12_21():
     r.generate_commands(args.for_real)
 
 
+def is_perceiver_output_sufficient_1_5_21():
+    """
+    """
+    r = RunnerWithIDs(command='python modular_train.py', gpus=[0,1])
+    r.add_flag('args.jit', [True])
+    r.add_flag('args.headless', [True])
+    r.add_flag('args.eval', [False])
+    r.add_flag('args.slate.slot_model.perceiver_output', [True, False])
+    r.add_flag('args.slate.dvae.cnn_type', ['sweak', 'generic', 'weak'])
+    r.add_flag('args.log_path', ['logs/is_perceiver_output_sufficient'])
+    r.generate_commands(args.for_real)
+
+
 
 
 
@@ -708,4 +721,5 @@ if __name__ == '__main__':
     # does_jitted_monolithic_train_affect_performance_11_23_21()
     # does_jitted_monolithic_train_affect_performance_debug_11_23_21()
     # no_jit_11_23_21()
-    discrete_hard_test_stop_gradient_12_12_21()
+    # discrete_hard_test_stop_gradient_12_12_21()
+    is_perceiver_output_sufficient_1_5_21()
