@@ -155,12 +155,14 @@ class CausalAgent(common.Module):
   @tf.function
   def train(self, data, state=None):
     ################################################
-    iterates = self.wm.get_iterates(self.wm.train_step)
+    
     # if self.config.wm_only and 'slot' in self.config and self.wm.optcfg.curr:
-    if 'slot' in self.config and self.wm.optcfg.curr:
-      data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
-      data = tf.nest.map_structure(lambda x: tf.ensure_shape(x, 
-        [x.shape[0], iterates['num_frames']] + x.shape[2:]), data)  # does not seem to help
+    if 'slot' in self.config:
+      if self.wm.optcfg.curr:
+        iterates = self.wm.get_iterates(self.wm.train_step)
+        data = tf.nest.map_structure(lambda x: x[:, :iterates['num_frames']], data)
+        data = tf.nest.map_structure(lambda x: tf.ensure_shape(x, 
+          [x.shape[0], iterates['num_frames']] + x.shape[2:]), data)  # does not seem to help
       # tf.print(f"data['image'].shape: {data['image'].shape}")
     # TODO: if you get a memory leak then it might be because of retracing.
     ################################################
@@ -393,7 +395,7 @@ class WorldModel(common.Module):
     # ################################################
     # get iterates
     # lgr.debug(f"Tracing with data['image'].shape: {data['image'].shape}")
-    iterates = self.get_iterates(self.train_step)
+    
     # if self.config.wm_only and 'slot' in self.config and self.optcfg.curr:
     #   # if self._once:
     #   #   data = tf.nest.map_structure(lambda x: x[:, :self.curr_initial], data)
@@ -413,6 +415,7 @@ class WorldModel(common.Module):
     modules = [self.encoder, self.rssm, *self.heads.values()]
     ################################################
     if 'slot' in self.config:
+      iterates = self.get_iterates(self.train_step)
       # modify learning rate
       self.model_opt.assign_lr(slate_utils.f32(iterates['lr_decay_factor'] * iterates['lr_warmup_factor'] * self.config.model_opt.lr))  # verified
       # record the learning rate in the outputs/metrics
