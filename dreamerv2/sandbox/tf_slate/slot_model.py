@@ -288,7 +288,6 @@ class SlotModel(layers.Layer):
         return slots, attns
 
     def parallel_decode(self, emb_input, slots):
-        import ipdb; ipdb.set_trace(context=20)
         decoder_output = self.tf_dec(emb_input[:, :-1], slots)
         pred = self.out(decoder_output)
         return pred
