@@ -202,12 +202,21 @@ class GenericDecoder(tkl.Layer):
 
 class dVAE(tkl.Layer):
 
+    # @staticmethod
+    # def defaults_debug():
+    #     debug_args = dVAE.defaults()
+    #     debug_args.tau_steps=3
+    #     debug_args.sm_hard=True
+    #     debug_args.cnn_type='sweak'
+    #     return debug_args
+
+    # testing smooth input
     @staticmethod
     def defaults_debug():
         debug_args = dVAE.defaults()
         debug_args.tau_steps=3
         debug_args.sm_hard=True
-        # debug_args.weak=True
+        debug_args.cnn_type='generic'
         return debug_args
 
     @staticmethod
@@ -220,13 +229,7 @@ class dVAE(tkl.Layer):
             tau_steps=30000,
 
             hard=False,
-
-            # weak=True,
-
             sm_hard=True,
-
-            # shallow=True,
-
             cnn_type='sweak'
             ))
         return default_args
