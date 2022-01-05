@@ -7,52 +7,122 @@ import numpy as np
 import pathlib
 import tensorflow as tf
 
+
+
+class Clevr(Dataset):
+    def __init__(self, root, phase):
+        assert phase in ['train', 'val', 'test']   
+        self.phase = phase 
+        self.f = h5py.File(root, 'r')
+        if phase == 'train':
+            self.begin = 0
+            self.end = 183000
+        elif phase == 'val':
+            self.begin = 183000
+            self.end = 196753
+        elif phase == 'test':
+            self.begin = 196753
+            self.end = 210506
+        else:
+            raise NotImplementedError
+
+    def __getitem__(self, index):
+        img = self.f['images'][self.begin+index]
+
+        # resize
+        img = np.transpose(img, (1,2,0))
+        img = cv2.resize(img, (64,64))
+        img = torch.from_numpy(img).permute(2, 0, 1)
+        return img
+
+    def __len__(self):
+        return self.end - self.begin
+
+
+# class Shapes3D():
+#     def __init__(self, root, phase):
+#         assert phase in ['train', 'val', 'test']
+#         with h5py.File(root, 'r') as f:
+#             if phase == 'train':
+#                 self.imgs = f['images'][:400000]
+#             elif phase == 'val':
+#                 self.imgs = f['images'][400001:430000]
+#             elif phase == 'test':
+#                 self.imgs = f['images'][430001:460000]
+#             else:
+#                 raise NotImplementedError
+
+#     def __getitem__(self, index):
+#         img = self.imgs[index]
+#         img = torch.from_numpy(img).permute(2, 0, 1)
+#         img = img.float() / 255.
+
+#         return img
+
+#     def __len__(self):
+#         return len(self.imgs)
+
 class Shapes3D():
     def __init__(self, root, phase):
         assert phase in ['train', 'val', 'test']
-        with h5py.File(root, 'r') as f:
-            if phase == 'train':
-                self.imgs = f['images'][:400000]
-            elif phase == 'val':
-                self.imgs = f['images'][400001:430000]
-            elif phase == 'test':
-                self.imgs = f['images'][430001:460000]
-            else:
-                raise NotImplementedError
+        self.phase = phase
+        self.f = h5py.File(root, 'r')
+        self.delimiters = dict(
+            train=dict(
+                begin=0,
+                end=400000),
+            val=dict(
+                begin=400001,
+                end=430000),
+            test=dict(
+                begin=430001,
+                end=460000))
 
     def __getitem__(self, index):
-        img = self.imgs[index]
-        img = torch.from_numpy(img).permute(2, 0, 1)
-        img = img.float() / 255.
-
+        img = self.f['images'][self.delimiters[self.phase]['begin']+index]
         return img
 
     def __len__(self):
-        return len(self.imgs)
+        return self.delimiters[self.phase]['end'] - self.delimiters[self.phase]['begin']
 
-class DebugShapes3D():
+# class DebugShapes3D():
+#     def __init__(self, root, phase):
+#         assert phase in ['train', 'val', 'test']
+#         with h5py.File(root, 'r') as f:
+#             if phase == 'train':
+#                 self.imgs = f['images'][:400]
+#             elif phase == 'val':
+#                 self.imgs = f['images'][401:430]
+#             elif phase == 'test':
+#                 self.imgs = f['images'][431:460]
+#             else:
+#                 raise NotImplementedError
+
+#     def __getitem__(self, index):
+#         img = self.imgs[index]
+#         img = torch.from_numpy(img).permute(2, 0, 1)
+#         img = img.float() / 255.
+
+#         return img
+
+#     def __len__(self):
+#         return len(self.imgs)
+
+class DebugShapes3D(Shapes3D):
     def __init__(self, root, phase):
         assert phase in ['train', 'val', 'test']
-        with h5py.File(root, 'r') as f:
-            if phase == 'train':
-                self.imgs = f['images'][:400]
-            elif phase == 'val':
-                self.imgs = f['images'][401:430]
-            elif phase == 'test':
-                self.imgs = f['images'][431:460]
-            else:
-                raise NotImplementedError
-
-    def __getitem__(self, index):
-        img = self.imgs[index]
-        img = torch.from_numpy(img).permute(2, 0, 1)
-        img = img.float() / 255.
-
-        return img
-
-    def __len__(self):
-        return len(self.imgs)
-
+        self.phase = phase
+        self.f = h5py.File(root, 'r')
+        self.delimiters = dict(
+            train=dict(
+                begin=0,
+                end=400),
+            val=dict(
+                begin=401,
+                end=430),
+            test=dict(
+                begin=431,
+                end=460))
 
 class DataLoader():
     def __init__(self, dataset, batch_size, **kwargs):
@@ -72,7 +142,9 @@ class DataLoader():
     def get_batch(self):
         indices = np.random.choice(len(self.dataset), 
             size=self.batch_size, replace=False)
-        batch = self.dataset.imgs[indices]
+        batch = np.stack([self.dataset[idx] for idx in indices])
+        # import ipdb; ipdb.set_trace(context=20)
+        # batch = self.dataset.imgs[indices]
         batch - self.normalize_obs(batch)
         batch = einops.rearrange((batch.astype(np.float32) / 255.0), 'b h w c -> b c h w')
         return batch
