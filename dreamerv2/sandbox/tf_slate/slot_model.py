@@ -485,7 +485,10 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         z_target = concat([z_target, z_target])
         rew_target = concat([reward, reward])
 
-        pred = bottle(self.parallel_decode)(emb_input, slots)
+        if self.perceiver_output:
+            pred = bottle(self.perceiver_decode)(slots)
+        else:
+            pred = bottle(self.parallel_decode)(emb_input, slots)
         cross_entropy = SlotModel.cross_entropy_loss(pred, z_target)
 
         ###########################################################
@@ -542,7 +545,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             posts.append(post)
             attns_seq.append(attns)
 
-        # import ipdb; ipdb.set_trace(context=20)
         swap = lambda x: eo.rearrange(x, 't b ... -> b t ...')
         priors = {k: tf.stack([prior[k] for prior in priors], axis=1) for k in priors[0].keys()}
         posts = {k: tf.stack([post[k] for post in posts], axis=1) for k in posts[0].keys()}
@@ -602,7 +604,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         post, attns = self.apply_slot_attn(embed, prior['deter'])  # TODO or should you do get feat?
         if self.args.distributional:
             # import ipdb
-            # ipdb.set_trace(context=20)
             x = post
             ########################################################
             # copied directly from machine
@@ -629,7 +630,6 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
 
         if self.args.distributional:
             # import ipdb
-            # ipdb.set_trace(context=20)
             x = deter
             ########################################################
             # copied directly from machine
@@ -652,7 +652,11 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             actions: (b, t, da)
         """
         imag_latent = self.generate(slots, actions)
-        z_gen = bottle(self.autoregressive_decode)(self.get_feat(imag_latent))
+        if self.perceiver_output:
+            pred = bottle(self.perceiver_decode)(self.get_feat(imag_latent))
+            z_gen = self.logits_to_tokens(pred)
+        else:
+            z_gen = bottle(self.autoregressive_decode)(self.get_feat(imag_latent))
         output = {'z_gen': z_gen}
         return output
 
@@ -664,7 +668,11 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         """
         emb_input = bottle(self.embed_tokens)(z_input)
         priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
-        z_gen = bottle(self.autoregressive_decode)(self.get_feat(posts))
+        if self.perceiver_output:
+            pred = bottle(self.perceiver_decode)(self.get_feat(posts))
+            z_gen = self.logits_to_tokens(pred)
+        else:
+            z_gen = bottle(self.autoregressive_decode)(self.get_feat(posts))
         output = {'slots': posts, 'attns': attns, 'z_gen': z_gen}
         return output
 
