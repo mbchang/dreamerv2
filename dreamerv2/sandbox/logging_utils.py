@@ -25,6 +25,7 @@ def create_expname(args):
         'model_opt.lr': 'mlr',
 
         'fwm.optim.warmup_steps': 'fws',
+        'slot.obs_itf.opt.warmup_steps': 'ws',
         'fwm.optim.decay_steps': 'fds',
         'fwm.optim.min_lr': 'fmlr',
         'fwm.model.posterior_loss': 'pl',
@@ -120,6 +121,7 @@ def create_expname(args):
 
         'slot.obs_itf.token_dim': 'td',
         'model_opt.opt': 'mo',
+
 
 
     }

@@ -7076,6 +7076,46 @@ def how_good_of_predictions_can_we_get_for_k1_on_balls_12_27_21():
     r.generate_commands(args.for_real)
 
 
+def does_warmup_steps_improve_segregation_12_27_21():
+    """
+        conclusion: keep 1 dynamic block, keep 3e-4 model lr, do not use 0.1 temp, let's keep t.0 temp.
+    """
+    r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[2])
+    r.add_flag('configs', ['dmc_vision slot'])
+    r.add_flag('task', ['vmballs_simple_box4'])
+    r.add_flag('agent', ['causal'])
+    r.add_flag('rssm.num_slots', [5])
+    r.add_flag('slot.rssm.slot_update.num_iterations', [2])
+    r.add_flag('slot.rssm.slot_update.temp', [1.0])
+    r.add_flag('slot.decoder.transformer_type', ['ca'])
+    r.add_flag('slot.decoder.ca_config.num_blocks', [4])
+    r.add_flag('model_opt.lr', [3e-4])
+    r.add_flag('slot.obs_itf.opt.warmup_steps', [20000, 30000, 40000, 50000])
+
+    r.add_flag('logdir', ['runs/does_warmup_steps_improve_segregation'])
+    to_watch = [
+        'rssm.num_slots',
+        'slot.rssm.slot_update.num_iterations',
+        'slot.rssm.slot_update.temp',
+        'slot.decoder.transformer_type',
+        'slot.decoder.ca_config.num_blocks',
+        'model_opt.lr',
+        'slot.obs_itf.opt.warmup_steps',
+    ]
+    r.add_flag('watch', [' '.join(to_watch)])
+
+    lengths = [4]
+    coeffs = [2]
+    for t in lengths:
+        for coeff in coeffs:
+            r.add_flag('replay.minlen', [coeff*t])
+            r.add_flag('replay.maxlen', [coeff*t])
+            r.add_flag('dataset.length', [t])
+            r.add_flag('eval_dataset.length', [coeff*t])
+            r.add_flag('eval_dataset.seed_steps', [t])
+            r.generate_commands(args.for_real)
+
+
 
 
 if __name__ == '__main__':
@@ -7224,7 +7264,8 @@ if __name__ == '__main__':
     # do_different_optimizers_change_things_with_epsilon_12_31_21()
     # adamw_automatic_and_manual_12_31_21()
     # does_temp_or_lr_dyn_blocks_improve_segregation_12_27_21()
-    how_good_of_predictions_can_we_get_for_k1_on_balls_12_27_21()
+    # how_good_of_predictions_can_we_get_for_k1_on_balls_12_27_21()
+    does_warmup_steps_improve_segregation_12_27_21()
 
 # CUDA_VISIBLE_DEVICES=0 python dreamerv2/train.py --logdir runs/data --configs debug --task dmc_manip_reach_site --agent causal --prefill 20000 --cpu=False --headless=True
 
