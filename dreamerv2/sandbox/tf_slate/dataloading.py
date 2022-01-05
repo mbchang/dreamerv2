@@ -143,7 +143,6 @@ class DataLoader():
         indices = np.random.choice(len(self.dataset), 
             size=self.batch_size, replace=False)
         batch = np.stack([self.dataset[idx] for idx in indices])
-        # import ipdb; ipdb.set_trace(context=20)
         # batch = self.dataset.imgs[indices]
         batch - self.normalize_obs(batch)
         batch = einops.rearrange((batch.astype(np.float32) / 255.0), 'b h w c -> b c h w')
