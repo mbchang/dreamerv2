@@ -35,6 +35,25 @@ def overlay_attention(attns, image):
 
 class SLATE(layers.Layer):
 
+    # @staticmethod
+    # def defaults_debug():
+    #     debug_args = SLATE.defaults()
+    #     debug_args.log_interval = 8
+    #     debug_args.batch_size = 5
+    #     debug_args.vocab_size = 32
+    #     debug_args.dvae = dvae.dVAE.defaults_debug()
+    #     debug_args.slot_model = slot_model.SlotModel.defaults_debug()
+
+    #     debug_args.mono_train = False
+
+    #     debug_args.stop_gradient_input = True
+    #     debug_args.stop_gradient_output = True
+
+    #     debug_args.smooth_input = False
+
+    #     return debug_args
+
+    # testing smooth input
     @staticmethod
     def defaults_debug():
         debug_args = SLATE.defaults()
@@ -44,13 +63,10 @@ class SLATE(layers.Layer):
         debug_args.dvae = dvae.dVAE.defaults_debug()
         debug_args.slot_model = slot_model.SlotModel.defaults_debug()
 
-        debug_args.mono_train = False
-
-        debug_args.stop_gradient_input = True
+        debug_args.mono_train = True
+        debug_args.smooth_input = True
+        debug_args.stop_gradient_input = False
         debug_args.stop_gradient_output = True
-
-        debug_args.smooth_input = False
-
         return debug_args
 
     @staticmethod
@@ -154,7 +170,11 @@ class SLATE(layers.Layer):
         one_hot_tokens, _ = self.image_to_argmax_tokens(image)
         emb_input = self.slot_model.embed_tokens(one_hot_tokens)
         slots, attns = self.slot_model.apply_slot_attn(emb_input)
-        z_gen = self.slot_model.autoregressive_decode(slots)
+        if self.slot_model.perceiver_output:
+            pred = self.slot_model.perceiver_decode(slots)
+            z_gen = self.slot_model.logits_to_tokens(pred)
+        else:
+            z_gen = self.slot_model.autoregressive_decode(slots)
         recon_transformer = self.decode(z_gen)
         return recon_transformer, slots, attns
 
