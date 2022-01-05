@@ -91,9 +91,12 @@ def main(argv):
             exp_name += 'jit_'
         if args.slate.mono_train:
             exp_name += 'mt_'
+        if args.slate.slot_model.perceiver_output:
+            exp_name += 'po'
         exp_name += f'esd{args.slate.slot_model.einsum_dict}_'
         exp_name += f'sgi{args.slate.stop_gradient_input}_'
         exp_name += f'sgo{args.slate.stop_gradient_output}_'
+        exp_name += f'{args.slate.dvae.cnn_type}_'
         exp_name += f'{datetime.now():%Y%m%d%H%M%S}'
         exp_dir = pathlib.Path(os.path.join(data_name, exp_name))
         return exp_dir
