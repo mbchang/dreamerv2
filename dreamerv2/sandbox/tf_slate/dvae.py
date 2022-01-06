@@ -315,9 +315,7 @@ class dVAE(tkl.Layer):
         # self.token_head = conv2d(64, out_channels, 1)
 
     def get_logits(self, image):
-        # z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)
         z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=1)  # TODO
-        # z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=-1)  # TODO
         return z_logits
 
     def sample(self, z_logits, tau, hard, dim=1):
