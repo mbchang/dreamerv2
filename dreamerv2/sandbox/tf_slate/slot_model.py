@@ -344,7 +344,10 @@ class SlotModel(layers.Layer):
     @tf.function
     def call(self, z_input, z_target, embeds):
         emb_input = self.embed_tokens(z_input)
-        slots, attns = self.apply_slot_attn(emb_input[:, 1:])
+        if self.nontokenized_embed:
+            pass
+        else:
+            slots, attns = self.apply_slot_attn(emb_input[:, 1:])
         if self.perceiver_output:
             pred = self.perceiver_decode(slots)
         else:
@@ -468,7 +471,12 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         # for now, we will manually ignore the first action
 
         emb_input = bottle(self.embed_tokens)(z_input)
-        priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=action, is_first=is_first)
+        # priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=action, is_first=is_first)
+        priors, posts, attns = self.filter(
+            slots=None, 
+            embeds=emb_input[:, :, 1:], 
+            actions=action, 
+            is_first=is_first)
 
         # # HACK
         # priors = priors['deter']
@@ -604,8 +612,8 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
                 prior[key] = mask * resetted_prior[key] + (1 - mask) * predicted_prior[key]
 
         # import ipdb; ipdb.set_trace(context=20)
-        # post, attns = self.apply_slot_attn(embed, prior['deter'])  # TODO or should you do get feat?
-        post, attns = self.apply_slot_attn(embed[:, 1:], prior['deter'])  # TODO or should you do get feat?
+        post, attns = self.apply_slot_attn(embed, prior['deter'])  # TODO or should you do get feat?
+        # post, attns = self.apply_slot_attn(embed[:, 1:], prior['deter'])  # TODO or should you do get feat?
         if self.args.distributional:
             # import ipdb
             x = post
@@ -671,7 +679,11 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             is_first: TensorShape([6,5])
         """
         emb_input = bottle(self.embed_tokens)(z_input)
-        priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=actions, is_first=is_first)
+        priors, posts, attns = self.filter(
+            slots=None, 
+            embeds=emb_input[:, :, 1:], 
+            actions=actions, 
+            is_first=is_first)
         if self.perceiver_output:
             pred = bottle(self.perceiver_decode)(self.get_feat(posts))
             z_gen = self.logits_to_tokens(pred)
