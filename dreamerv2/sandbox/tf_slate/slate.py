@@ -99,7 +99,12 @@ class SLATE(layers.Layer):
         self.args = args
         self.num_tokens = (args.image_size // 4) ** 2
 
-        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.sm_hard, args.dvae.cnn_type)
+        self.dvae = dvae.dVAE(
+            vocab_size=args.vocab_size, 
+            img_channels=args.img_channels, 
+            d_model=args.slot_model.d_model, 
+            sm_hard=args.dvae.sm_hard, 
+            cnn_type=args.dvae.cnn_type)
         self.slot_model = slot_model.SlotModel(args.vocab_size, self.num_tokens, args.slot_model)
 
         self.configure_optimizers(self.args)
@@ -127,7 +132,7 @@ class SLATE(layers.Layer):
         z_input, z_target = create_tokens(dvae_out['z_hard'])
         z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
-        sm_loss, sm_out, sm_mets = self.slot_model(z_input, z_target)
+        sm_loss, sm_out, sm_mets = self.slot_model(z_input, z_target, dvae_out['embeds'])
 
         outputs = dict(dvae=dvae_out, slot_model=sm_out)
         metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
@@ -141,13 +146,13 @@ class SLATE(layers.Layer):
         return output
 
     def image_to_argmax_tokens(self, image):
-        z_logits = self.dvae.get_logits(image)
+        z_logits, embeds = self.dvae.get_logits(image)
         z_hard = self.dvae.mode(z_logits)
         z_input, z_target = create_tokens(z_hard)
         return z_input, z_target
 
     def image_to_sampled_tokens(self, image, tau, hard):
-        z_logits = self.dvae.get_logits(image)
+        z_logits, embeds = self.dvae.get_logits(image)
         z_sample = self.sample(z_logits, tau, hard)
         z_input, z_target = create_tokens(z_sample)
         return z_input, z_target
@@ -263,7 +268,7 @@ class SLATE(layers.Layer):
             z_input, z_target = create_tokens(dvae_out['z_hard'])
             z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
-            sm_loss, sm_out, sm_mets = self.slot_model(z_input, z_target)
+            sm_loss, sm_out, sm_mets = self.slot_model(z_input, z_target, dvae_out['embeds'])
 
             outputs = dict(dvae=dvae_out, slot_model=sm_out)
             metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
@@ -337,7 +342,12 @@ class DynamicSLATE(SLATE):
         self.args = args
         self.global_config = global_config  # a hack that we will remove once we integrate with RSSM
 
-        self.dvae = dvae.dVAE(args.vocab_size, args.img_channels, args.dvae.sm_hard, args.dvae.cnn_type)
+        self.dvae = dvae.dVAE(
+            vocab_size=args.vocab_size, 
+            img_channels=args.img_channels, 
+            d_model=args.slot_model.d_model, 
+            sm_hard=args.dvae.sm_hard, 
+            cnn_type=args.dvae.cnn_type)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
         self.num_tokens = (args.image_size // 4) ** 2
@@ -385,7 +395,8 @@ class DynamicSLATE(SLATE):
             unflatten(z_target), 
             data['action'], 
             data['is_first'],
-            data['reward']
+            data['reward'],
+            dvae_out['embeds'],
             )
 
         sm_out['attns'] = flatten(sm_out['attns'])
@@ -494,7 +505,8 @@ class DynamicSLATE(SLATE):
                 unflatten(z_target),
                 action=data['action'],
                 is_first=data['is_first'],
-                reward=data['reward']
+                reward=data['reward'],
+                embeds=dvae_out['embeds'],
                 )
 
             outputs = dict(dvae=dvae_out, slot_model=sm_out)
@@ -541,7 +553,8 @@ class DynamicSLATE(SLATE):
                 unflatten(z_target),
                 action=data['action'],
                 is_first=data['is_first'],
-                reward=data['reward']
+                reward=data['reward'],
+                embeds=dvae_out['embeds'],
                 )
 
             ################################################

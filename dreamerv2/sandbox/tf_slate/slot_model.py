@@ -340,7 +340,7 @@ class SlotModel(layers.Layer):
         return -tf.reduce_mean(eo.reduce(target * tf.nn.log_softmax(pred, axis=-1), '... s d -> ...', 'sum'))
 
     @tf.function
-    def call(self, z_input, z_target):
+    def call(self, z_input, z_target, embeds):
         emb_input = self.embed_tokens(z_input)
         slots, attns = self.apply_slot_attn(emb_input)
         if self.perceiver_output:
@@ -354,9 +354,9 @@ class SlotModel(layers.Layer):
         return loss, outputs, metrics
 
     @tf.function
-    def loss_and_grad(self, z_input, z_target):
+    def loss_and_grad(self, z_input, z_target, embeds):
         with tf.GradientTape() as tape:
-            loss, output, metrics = self(z_input, z_target)
+            loss, output, metrics = self(z_input, z_target, embeds)
         gradients = tape.gradient(loss, self.trainable_weights)
         return loss, output, metrics, gradients
 
@@ -453,7 +453,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
 
 
     @tf.function
-    def loss_and_grad(self, z_input, z_target, action, is_first, reward):
+    def loss_and_grad(self, z_input, z_target, action, is_first, reward, embeds):
         with tf.GradientTape() as tape:
             loss, output, metrics = self(z_input, z_target, action, is_first, reward)
         gradients = tape.gradient(loss, self.trainable_weights)
@@ -461,7 +461,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
 
 
     @tf.function
-    def call(self, z_input, z_target, action, is_first, reward):
+    def call(self, z_input, z_target, action, is_first, reward, embeds):
         # TODO: make is_first flag the first action
         # for now, we will manually ignore the first action
 

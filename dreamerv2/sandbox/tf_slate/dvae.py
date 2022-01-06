@@ -231,9 +231,10 @@ class dVAE(tkl.Layer):
             ))
         return default_args
         
-    def __init__(self, vocab_size, img_channels, sm_hard, cnn_type):
+    def __init__(self, vocab_size, img_channels, d_model, sm_hard, cnn_type):
         super().__init__()
         self.vocab_size = vocab_size
+        self.d_model = d_model
         self.sm_hard = sm_hard
         
         if cnn_type == 'weak':
@@ -272,12 +273,18 @@ class dVAE(tkl.Layer):
             raise NotImplementedError
 
         self.token_head = conv2d(64, vocab_size, 1)
+        # self.embed_head = conv2d(64, d_model, 1)
 
     def get_logits(self, image):
         image = eo.rearrange(image, 'b c h w -> b h w c')
-        z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=-1)
+        feats = self.encoder(image)
+        z_logits = tf.nn.log_softmax(self.token_head(feats), axis=-1)
+        # embeds = self.embed_head(feats)
+
         z_logits = eo.rearrange(z_logits, 'b h w c -> b c h w')
-        return z_logits
+        # embeds = eo.rearrange(embeds, 'b h w c -> b c h w')
+        embeds = None
+        return z_logits, embeds
 
     def sample(self, z_logits, tau, hard, dim=1):
         z = gumbel_softmax(z_logits, tau, hard, dim)
@@ -300,7 +307,7 @@ class dVAE(tkl.Layer):
 
     def call(self, image, tau, hard):
         # dvae encode
-        z_logits = self.get_logits(image)  # (B, V, H, W)
+        z_logits, embeds = self.get_logits(image)  # (B, V, H, W)
         z = self.sample(z_logits, tau, hard)
         # dvae recon
         recon = self.decoder(z)
@@ -308,7 +315,7 @@ class dVAE(tkl.Layer):
         # hard z
         z_hard = self.sample(z_logits, tau, self.sm_hard)
         # ship
-        outputs = {'recon': recon,'z_hard': z_hard}
+        outputs = {'recon': recon,'z_hard': z_hard, 'embeds': embeds}
         metrics = {'mse': mse, 'dvae/loss': mse}
         loss = mse
 
