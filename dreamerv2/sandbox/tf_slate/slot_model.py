@@ -344,7 +344,7 @@ class SlotModel(layers.Layer):
     def call(self, z_input, z_target, embeds):
         emb_input = self.embed_tokens(z_input)
         if self.nontokenized_embed:
-            pass
+            slots, attns = self.apply_slot_attn(embeds)
         else:
             slots, attns = self.apply_slot_attn(emb_input[:, 1:])
         if self.perceiver_output:
@@ -471,11 +471,18 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
 
         emb_input = bottle(self.embed_tokens)(z_input)
         # priors, posts, attns = self.filter(slots=None, embeds=emb_input, actions=action, is_first=is_first)
-        priors, posts, attns = self.filter(
-            slots=None, 
-            embeds=emb_input[:, :, 1:], 
-            actions=action, 
-            is_first=is_first)
+        if self.nontokenized_embed:
+            priors, posts, attns = self.filter(
+                slots=None, 
+                embeds=embeds, 
+                actions=action, 
+                is_first=is_first)
+        else:
+            priors, posts, attns = self.filter(
+                slots=None, 
+                embeds=emb_input[:, :, 1:], 
+                actions=action, 
+                is_first=is_first)
 
         # # HACK
         # priors = priors['deter']
@@ -678,11 +685,18 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
             is_first: TensorShape([6,5])
         """
         emb_input = bottle(self.embed_tokens)(z_input)
-        priors, posts, attns = self.filter(
-            slots=None, 
-            embeds=emb_input[:, :, 1:], 
-            actions=actions, 
-            is_first=is_first)
+        if self.nontokenized_embed:
+            priors, posts, attns = self.filter(
+                slots=None, 
+                embeds=embeds, 
+                actions=actions, 
+                is_first=is_first)
+        else:
+            priors, posts, attns = self.filter(
+                slots=None, 
+                embeds=emb_input[:, :, 1:], 
+                actions=actions, 
+                is_first=is_first)
         if self.perceiver_output:
             pred = bottle(self.perceiver_decode)(self.get_feat(posts))
             z_gen = self.logits_to_tokens(pred)

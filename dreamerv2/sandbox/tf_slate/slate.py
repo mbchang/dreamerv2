@@ -175,7 +175,10 @@ class SLATE(layers.Layer):
         """
         one_hot_tokens, _, embeds = self.image_to_argmax_tokens(image)
         emb_input = self.slot_model.embed_tokens(one_hot_tokens)
-        slots, attns = self.slot_model.apply_slot_attn(emb_input[:, 1:])
+        if self.args.nontokenized_embed:
+            slots, attns = self.slot_model.apply_slot_attn(embeds)
+        else:
+            slots, attns = self.slot_model.apply_slot_attn(emb_input[:, 1:])
         if self.slot_model.perceiver_output:
             pred = self.slot_model.perceiver_decode(slots)
             z_gen = self.slot_model.logits_to_tokens(pred)
