@@ -194,8 +194,8 @@ class SlotModel(layers.Layer):
     @staticmethod
     def defaults_debug():
         debug_args = SlotModel.defaults()
-        debug_args.d_model = 16
-        debug_args.slot_size = 16
+        debug_args.d_model = 10
+        debug_args.slot_size = 10
         debug_args.lr_warmup_steps = 3
         debug_args.obs_transformer = transformer.TransformerDecoder.obs_defaults_debug()
         debug_args.slot_attn=slot_attn.SlotAttentionWithReset.defaults_debug()

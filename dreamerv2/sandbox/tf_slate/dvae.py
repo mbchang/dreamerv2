@@ -286,8 +286,8 @@ class dVAE(tkl.Layer):
         else:
             embeds = tf.zeros_like(z_logits)
 
-        z_logits = eo.rearrange(z_logits, 'b h w c -> b c h w')
-        embeds = eo.rearrange(embeds, 'b h w c -> b c h w')
+        z_logits = eo.rearrange(z_logits, 'b h w v -> b v h w')
+        embeds = eo.rearrange(embeds, 'b h w d -> b (h w) d')
         return z_logits, embeds
 
     def sample(self, z_logits, tau, hard, dim=1):
