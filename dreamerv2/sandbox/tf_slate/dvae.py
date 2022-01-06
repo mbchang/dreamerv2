@@ -280,10 +280,10 @@ class dVAE(tkl.Layer):
         feats = self.encoder(image)
         z_logits = tf.nn.log_softmax(self.token_head(feats), axis=-1)
         # embeds = self.embed_head(feats)
+        embeds = tf.zeros_like(z_logits)
 
         z_logits = eo.rearrange(z_logits, 'b h w c -> b c h w')
-        # embeds = eo.rearrange(embeds, 'b h w c -> b c h w')
-        embeds = None
+        embeds = eo.rearrange(embeds, 'b h w c -> b c h w')
         return z_logits, embeds
 
     def sample(self, z_logits, tau, hard, dim=1):

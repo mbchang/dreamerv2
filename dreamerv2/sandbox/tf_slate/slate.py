@@ -149,13 +149,13 @@ class SLATE(layers.Layer):
         z_logits, embeds = self.dvae.get_logits(image)
         z_hard = self.dvae.mode(z_logits)
         z_input, z_target = create_tokens(z_hard)
-        return z_input, z_target
+        return z_input, z_target, embeds
 
-    def image_to_sampled_tokens(self, image, tau, hard):
-        z_logits, embeds = self.dvae.get_logits(image)
-        z_sample = self.sample(z_logits, tau, hard)
-        z_input, z_target = create_tokens(z_sample)
-        return z_input, z_target
+    # def image_to_sampled_tokens(self, image, tau, hard):
+    #     z_logits, embeds = self.dvae.get_logits(image)
+    #     z_sample = self.sample(z_logits, tau, hard)
+    #     z_input, z_target = create_tokens(z_sample)
+    #     return z_input, z_target
 
     def handle_stop_gradient(self, z_input, z_target):
         """
@@ -172,7 +172,7 @@ class SLATE(layers.Layer):
         """
         image: batch_size x img_channels x H x W
         """
-        one_hot_tokens, _ = self.image_to_argmax_tokens(image)
+        one_hot_tokens, _, embeds = self.image_to_argmax_tokens(image)
         emb_input = self.slot_model.embed_tokens(one_hot_tokens)
         slots, attns = self.slot_model.apply_slot_attn(emb_input)
         if self.slot_model.perceiver_output:
@@ -416,7 +416,7 @@ class DynamicSLATE(SLATE):
 
         # image = flatten(permute(batch['image']))  # this should be batch_horizon
         image = flatten(permute(batch_horizon['image']))  # this should be batch_horizon
-        z_input, z_target = map(unflatten, self.image_to_argmax_tokens(image))
+        z_input, z_target, embeds = map(unflatten, self.image_to_argmax_tokens(image))
 
         recon_output = self.slot_model.recon_autoregressive(z_input[:, :seed_steps], batch_seed['action'], batch_seed['is_first'])
         recon_ce = slot_model.SlotModel.cross_entropy_loss(recon_output['z_gen'], z_target[:, :seed_steps])
