@@ -274,14 +274,17 @@ class dVAE(tkl.Layer):
             raise NotImplementedError
 
         self.token_head = conv2d(64, vocab_size, 1)
-        # self.embed_head = conv2d(64, d_model, 1)
+        if self.nontokenized_embed:
+            self.embed_head = conv2d(64, d_model, 1)
 
     def get_logits(self, image):
         image = eo.rearrange(image, 'b c h w -> b h w c')
         feats = self.encoder(image)
         z_logits = tf.nn.log_softmax(self.token_head(feats), axis=-1)
-        # embeds = self.embed_head(feats)
-        embeds = tf.zeros_like(z_logits)
+        if self.nontokenized_embed:
+            embeds = self.embed_head(feats)
+        else:
+            embeds = tf.zeros_like(z_logits)
 
         z_logits = eo.rearrange(z_logits, 'b h w c -> b c h w')
         embeds = eo.rearrange(embeds, 'b h w c -> b c h w')
