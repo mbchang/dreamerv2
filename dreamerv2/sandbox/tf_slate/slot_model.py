@@ -199,7 +199,7 @@ class SlotModel(layers.Layer):
         debug_args.lr_warmup_steps = 3
         debug_args.obs_transformer = transformer.TransformerDecoder.obs_defaults_debug()
         debug_args.slot_attn=slot_attn.SlotAttentionWithReset.defaults_debug()
-        debug_args.einsum_dict=False
+        debug_args.einsum_dict=True
         debug_args.perceiver_output=False
         return debug_args
 
