@@ -284,7 +284,8 @@ class SlotModel(layers.Layer):
     def apply_slot_attn(self, emb_input, slots=None):
         if slots is None:
             slots = self.slot_attn.reset(emb_input.shape[0])
-        slots, attns = self.slot_attn(self.token_mlp(self.layer_norm(emb_input[:, 1:])), slots)
+        # slots, attns = self.slot_attn(self.token_mlp(self.layer_norm(emb_input[:, 1:])), slots)
+        slots, attns = self.slot_attn(self.token_mlp(self.layer_norm(emb_input)), slots)
         slots = self.slot_proj(slots)
         return slots, attns
 
@@ -343,7 +344,7 @@ class SlotModel(layers.Layer):
     @tf.function
     def call(self, z_input, z_target, embeds):
         emb_input = self.embed_tokens(z_input)
-        slots, attns = self.apply_slot_attn(emb_input)
+        slots, attns = self.apply_slot_attn(emb_input[:, 1:])
         if self.perceiver_output:
             pred = self.perceiver_decode(slots)
         else:
@@ -602,7 +603,9 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
                     raise NotImplementedError
                 prior[key] = mask * resetted_prior[key] + (1 - mask) * predicted_prior[key]
 
-        post, attns = self.apply_slot_attn(embed, prior['deter'])  # TODO or should you do get feat?
+        # import ipdb; ipdb.set_trace(context=20)
+        # post, attns = self.apply_slot_attn(embed, prior['deter'])  # TODO or should you do get feat?
+        post, attns = self.apply_slot_attn(embed[:, 1:], prior['deter'])  # TODO or should you do get feat?
         if self.args.distributional:
             # import ipdb
             x = post
