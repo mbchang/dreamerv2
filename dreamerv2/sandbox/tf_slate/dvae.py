@@ -1,5 +1,6 @@
 from utils import *
 
+import einops as eo
 from einops.layers.keras import Rearrange
 import ml_collections
 import tensorflow as tf
@@ -58,14 +59,15 @@ class dVAEWeakEncoder(tkl.Layer):
                 Conv2dBlock(64, 64, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
             ])
-        self.heads = dict(
-            token=conv2d(64, out_channels, 1),
-            )
+        # self.heads = dict(
+        #     token=conv2d(64, out_channels, 1),
+        #     )
 
     def call(self, image):
-        features = self.net(image)
-        token_logits = self.heads['token'](features)
-        return token_logits
+        return self.net(image)
+        # features = self.net(image)
+        # token_logits = self.heads['token'](features)
+        # return token_logits
 
 
 class dVAEShallowWeakEncoder(tkl.Layer):
@@ -79,14 +81,15 @@ class dVAEShallowWeakEncoder(tkl.Layer):
                 Conv2dBlock(64, 64, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
             ])
-        self.heads = dict(
-            token=conv2d(64, out_channels, 1),
-            )
+        # self.heads = dict(
+        #     token=conv2d(64, out_channels, 1),
+        #     )
 
     def call(self, image):
-        features = self.net(image)
-        token_logits = self.heads['token'](features)
-        return token_logits
+        return self.net(image)
+        # features = self.net(image)
+        # token_logits = self.heads['token'](features)
+        # return token_logits
 
 
 class dVAEStrongEncoder(tkl.Layer):
@@ -102,14 +105,15 @@ class dVAEStrongEncoder(tkl.Layer):
             conv(filters=64, kernel_size=4, strides=2, padding=1),
             ResBlock(chan=64),
             ])
-        self.heads = dict(
-            token=PaddedConv2D(filters=out_channels, kernel_size=1),
-            )
+        # self.heads = dict(
+        #     token=conv2d(64, out_channels, 1),
+        #     )
 
     def call(self, image):
-        features = self.net(image)
-        token_logits = self.heads['token'](features)
-        return token_logits
+        return self.net(image)
+        # features = self.net(image)
+        # token_logits = self.heads['token'](features)
+        # return token_logits
 
 
 class GenericEncoder(tkl.Layer):
@@ -124,14 +128,15 @@ class GenericEncoder(tkl.Layer):
             conv(filters=32, kernel_size=4, strides=2, padding=1),
             conv(filters=64, kernel_size=4, strides=2, padding=1),
             ])
-        self.heads = dict(
-            token=PaddedConv2D(filters=out_channels, kernel_size=1),
-            )
+        # self.heads = dict(
+        #     token=conv2d(64, out_channels, 1),
+        #     )
 
     def call(self, image):
-        features = self.net(image)
-        token_logits = self.heads['token'](features)
-        return token_logits
+        return self.net(image)
+        # features = self.net(image)
+        # token_logits = self.heads['token'](features)
+        # return token_logits
 
 
 class dVAEWeakDecoder(tkl.Layer):
@@ -261,6 +266,12 @@ class dVAE(tkl.Layer):
                 dVAEWeakEncoder(img_channels, vocab_size),
                 Rearrange('b h w c -> b c h w'),
             ])
+
+            self.token_head = tf.keras.Sequential([
+                Rearrange('b c h w -> b h w c'),
+                conv2d(64, vocab_size, 1),
+                Rearrange('b h w c -> b c h w'),
+            ])
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -271,6 +282,12 @@ class dVAE(tkl.Layer):
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
                 dVAEShallowWeakEncoder(img_channels, vocab_size),
+                Rearrange('b h w c -> b c h w'),
+            ])
+
+            self.token_head = tf.keras.Sequential([
+                Rearrange('b c h w -> b h w c'),
+                conv2d(64, vocab_size, 1),
                 Rearrange('b h w c -> b c h w'),
             ])
             
@@ -285,6 +302,13 @@ class dVAE(tkl.Layer):
                 dVAEStrongEncoder(img_channels, vocab_size),
                 Rearrange('b h w c -> b c h w'),
             ])
+            self.token_head = conv2d(64, vocab_size, 1)
+
+            self.token_head = tf.keras.Sequential([
+                Rearrange('b c h w -> b h w c'),
+                conv2d(64, vocab_size, 1),
+                Rearrange('b h w c -> b c h w'),
+            ])
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -297,7 +321,13 @@ class dVAE(tkl.Layer):
                 GenericEncoder(img_channels, vocab_size),
                 Rearrange('b h w c -> b c h w'),
             ])
-            
+
+            self.token_head = tf.keras.Sequential([
+                Rearrange('b c h w -> b h w c'),
+                conv2d(64, vocab_size, 1),
+                Rearrange('b h w c -> b c h w'),
+            ])
+
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
                 GenericDecoder(vocab_size, img_channels),
@@ -306,8 +336,12 @@ class dVAE(tkl.Layer):
         else:
             raise NotImplementedError
 
+        # self.token_head = conv2d(64, out_channels, 1)
+
     def get_logits(self, image):
-        z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)
+        # z_logits = tf.nn.log_softmax(self.encoder(image), axis=1)
+        z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=1)  # TODO
+        # z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=-1)  # TODO
         return z_logits
 
     def sample(self, z_logits, tau, hard, dim=1):
