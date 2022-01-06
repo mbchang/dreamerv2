@@ -237,17 +237,8 @@ class dVAE(tkl.Layer):
         self.sm_hard = sm_hard
         
         if cnn_type == 'weak':
-            self.encoder = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
-                dVAEWeakEncoder(img_channels, vocab_size),
-                # Rearrange('b h w c -> b c h w'),
-            ])
-
-            self.token_head = tf.keras.Sequential([
-                # Rearrange('b c h w -> b h w c'),
-                conv2d(64, vocab_size, 1),
-                Rearrange('b h w c -> b c h w'),
-            ])
+            self.encoder = dVAEWeakEncoder(img_channels, vocab_size)
+            self.token_head = conv2d(64, vocab_size, 1)
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -255,17 +246,8 @@ class dVAE(tkl.Layer):
                 Rearrange('b h w c -> b c h w'),
             ])
         elif cnn_type == 'sweak':
-            self.encoder = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
-                dVAEShallowWeakEncoder(img_channels, vocab_size),
-                # Rearrange('b h w c -> b c h w'),
-            ])
-
-            self.token_head = tf.keras.Sequential([
-                # Rearrange('b c h w -> b h w c'),
-                conv2d(64, vocab_size, 1),
-                Rearrange('b h w c -> b c h w'),
-            ])
+            self.encoder = dVAEShallowWeakEncoder(img_channels, vocab_size)
+            self.token_head = conv2d(64, vocab_size, 1)
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -273,18 +255,8 @@ class dVAE(tkl.Layer):
                 Rearrange('b h w c -> b c h w'),
             ])  
         elif cnn_type == 'strong':
-            self.encoder = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
-                dVAEStrongEncoder(img_channels, vocab_size),
-                # Rearrange('b h w c -> b c h w'),
-            ])
+            self.encoder = dVAEStrongEncoder(img_channels, vocab_size)
             self.token_head = conv2d(64, vocab_size, 1)
-
-            self.token_head = tf.keras.Sequential([
-                # Rearrange('b c h w -> b h w c'),
-                conv2d(64, vocab_size, 1),
-                Rearrange('b h w c -> b c h w'),
-            ])
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -292,13 +264,8 @@ class dVAE(tkl.Layer):
                 Rearrange('b h w c -> b c h w'),
             ])
         elif cnn_type == 'generic':
-            self.encoder = tf.keras.Sequential([
-                GenericEncoder(img_channels, vocab_size),
-            ])
-
-            self.token_head = tf.keras.Sequential([
-                conv2d(64, vocab_size, 1),
-            ])
+            self.encoder = GenericEncoder(img_channels, vocab_size)
+            self.token_head = conv2d(64, vocab_size, 1)
 
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
