@@ -116,13 +116,13 @@ class DebugShapes3D(Shapes3D):
         self.delimiters = dict(
             train=dict(
                 begin=0,
-                end=400),
+                end=40),
             val=dict(
-                begin=401,
-                end=430),
+                begin=41,
+                end=50),
             test=dict(
-                begin=431,
-                end=460))
+                begin=51,
+                end=60))
 
 class DataLoader():
     def __init__(self, dataset, batch_size, **kwargs):

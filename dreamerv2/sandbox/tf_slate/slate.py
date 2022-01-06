@@ -57,7 +57,7 @@ class SLATE(layers.Layer):
     @staticmethod
     def defaults_debug():
         debug_args = SLATE.defaults()
-        debug_args.log_interval = 8
+        debug_args.log_interval = 1
         debug_args.batch_size = 5
         debug_args.vocab_size = 32
         debug_args.dvae = dvae.dVAE.defaults_debug()
