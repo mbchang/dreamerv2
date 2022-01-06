@@ -240,11 +240,11 @@ class dVAE(tkl.Layer):
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
                 dVAEWeakEncoder(img_channels, vocab_size),
-                Rearrange('b h w c -> b c h w'),
+                # Rearrange('b h w c -> b c h w'),
             ])
 
             self.token_head = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
+                # Rearrange('b c h w -> b h w c'),
                 conv2d(64, vocab_size, 1),
                 Rearrange('b h w c -> b c h w'),
             ])
@@ -258,11 +258,11 @@ class dVAE(tkl.Layer):
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
                 dVAEShallowWeakEncoder(img_channels, vocab_size),
-                Rearrange('b h w c -> b c h w'),
+                # Rearrange('b h w c -> b c h w'),
             ])
 
             self.token_head = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
+                # Rearrange('b c h w -> b h w c'),
                 conv2d(64, vocab_size, 1),
                 Rearrange('b h w c -> b c h w'),
             ])
@@ -276,12 +276,12 @@ class dVAE(tkl.Layer):
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
                 dVAEStrongEncoder(img_channels, vocab_size),
-                Rearrange('b h w c -> b c h w'),
+                # Rearrange('b h w c -> b c h w'),
             ])
             self.token_head = conv2d(64, vocab_size, 1)
 
             self.token_head = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
+                # Rearrange('b c h w -> b h w c'),
                 conv2d(64, vocab_size, 1),
                 Rearrange('b h w c -> b c h w'),
             ])
@@ -295,11 +295,11 @@ class dVAE(tkl.Layer):
             self.encoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
                 GenericEncoder(img_channels, vocab_size),
-                Rearrange('b h w c -> b c h w'),
+                # Rearrange('b h w c -> b c h w'),
             ])
 
             self.token_head = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
+                # Rearrange('b c h w -> b h w c'),
                 conv2d(64, vocab_size, 1),
                 Rearrange('b h w c -> b c h w'),
             ])
@@ -340,6 +340,9 @@ class dVAE(tkl.Layer):
     def call(self, image, tau, hard):
         # dvae encode
         z_logits = self.get_logits(image)  # (B, V, H, W)
+
+        # print(hash_sha1(z_logits))
+
         z = self.sample(z_logits, tau, hard)
         # dvae recon
         recon = self.decoder(z)
