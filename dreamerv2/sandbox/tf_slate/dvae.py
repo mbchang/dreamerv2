@@ -59,15 +59,9 @@ class dVAEWeakEncoder(tkl.Layer):
                 Conv2dBlock(64, 64, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
             ])
-        # self.heads = dict(
-        #     token=conv2d(64, out_channels, 1),
-        #     )
 
     def call(self, image):
         return self.net(image)
-        # features = self.net(image)
-        # token_logits = self.heads['token'](features)
-        # return token_logits
 
 
 class dVAEShallowWeakEncoder(tkl.Layer):
@@ -81,15 +75,9 @@ class dVAEShallowWeakEncoder(tkl.Layer):
                 Conv2dBlock(64, 64, 1, 1),
                 Conv2dBlock(64, 64, 1, 1),
             ])
-        # self.heads = dict(
-        #     token=conv2d(64, out_channels, 1),
-        #     )
-
+    
     def call(self, image):
         return self.net(image)
-        # features = self.net(image)
-        # token_logits = self.heads['token'](features)
-        # return token_logits
 
 
 class dVAEStrongEncoder(tkl.Layer):
@@ -105,15 +93,9 @@ class dVAEStrongEncoder(tkl.Layer):
             conv(filters=64, kernel_size=4, strides=2, padding=1),
             ResBlock(chan=64),
             ])
-        # self.heads = dict(
-        #     token=conv2d(64, out_channels, 1),
-        #     )
-
+    
     def call(self, image):
         return self.net(image)
-        # features = self.net(image)
-        # token_logits = self.heads['token'](features)
-        # return token_logits
 
 
 class GenericEncoder(tkl.Layer):
@@ -128,15 +110,9 @@ class GenericEncoder(tkl.Layer):
             conv(filters=32, kernel_size=4, strides=2, padding=1),
             conv(filters=64, kernel_size=4, strides=2, padding=1),
             ])
-        # self.heads = dict(
-        #     token=conv2d(64, out_channels, 1),
-        #     )
-
+    
     def call(self, image):
         return self.net(image)
-        # features = self.net(image)
-        # token_logits = self.heads['token'](features)
-        # return token_logits
 
 
 class dVAEWeakDecoder(tkl.Layer):
