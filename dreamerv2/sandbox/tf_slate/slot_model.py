@@ -225,7 +225,7 @@ class SlotModel(layers.Layer):
             ))
         return default_args
 
-    def __init__(self, vocab_size, num_tokens, args):
+    def __init__(self, vocab_size, num_tokens, nontokenized_embed, args):
         super().__init__()
 
         self.args = args
@@ -233,6 +233,7 @@ class SlotModel(layers.Layer):
         self.d_model = args.d_model
         self.num_tokens = num_tokens
         self.perceiver_output = args.perceiver_output
+        self.nontokenized_embed = nontokenized_embed
 
         # obs encoder
         if self.args.einsum_dict:
@@ -422,8 +423,8 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         return default_args
 
 
-    def __init__(self, vocab_size, num_tokens, args, global_config):
-        SlotModel.__init__(self, vocab_size, num_tokens, args)
+    def __init__(self, vocab_size, num_tokens, nontokenized_embed, args, global_config):
+        SlotModel.__init__(self, vocab_size, num_tokens, nontokenized_embed, args)
         self.global_config = global_config  # a hack that we will remove once we integrate with RSSM
 
         if self.args.distributional:

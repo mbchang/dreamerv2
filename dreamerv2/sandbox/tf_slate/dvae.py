@@ -231,11 +231,12 @@ class dVAE(tkl.Layer):
             ))
         return default_args
         
-    def __init__(self, vocab_size, img_channels, d_model, sm_hard, cnn_type):
+    def __init__(self, vocab_size, img_channels, d_model, sm_hard, cnn_type, nontokenized_embed):
         super().__init__()
         self.vocab_size = vocab_size
         self.d_model = d_model
         self.sm_hard = sm_hard
+        self.nontokenized_embed = nontokenized_embed
         
         if cnn_type == 'weak':
             self.encoder = dVAEWeakEncoder(img_channels, vocab_size)

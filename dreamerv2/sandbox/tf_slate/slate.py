@@ -67,6 +67,7 @@ class SLATE(layers.Layer):
         debug_args.smooth_input = False
         debug_args.stop_gradient_input = False
         debug_args.stop_gradient_output = True
+        debug_args.nontokenized_embed = False
         return debug_args
 
     @staticmethod
@@ -89,6 +90,7 @@ class SLATE(layers.Layer):
 
             stop_gradient_input=True,
             stop_gradient_output=True,
+            nontokenized_embed=False,
 
             smooth_input=False
             ))
@@ -104,8 +106,13 @@ class SLATE(layers.Layer):
             img_channels=args.img_channels, 
             d_model=args.slot_model.d_model, 
             sm_hard=args.dvae.sm_hard, 
-            cnn_type=args.dvae.cnn_type)
-        self.slot_model = slot_model.SlotModel(args.vocab_size, self.num_tokens, args.slot_model)
+            cnn_type=args.dvae.cnn_type,
+            nontokenized_embed=args.nontokenized_embed)
+        self.slot_model = slot_model.SlotModel(
+            vocab_size=args.vocab_size, 
+            num_tokens=self.num_tokens,
+            nontokenized_embed=args.nontokenized_embed,
+            args=args.slot_model)
 
         self.configure_optimizers(self.args)
 
@@ -255,39 +262,39 @@ class SLATE(layers.Layer):
         return loss, outputs, metrics
 
 
-    def monolithic_train_step_smooth_input(self, image):
-        iterates = self.get_iterates(self.step.numpy())
+    # def monolithic_train_step_smooth_input(self, image):
+    #     iterates = self.get_iterates(self.step.numpy())
 
-        self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
-        self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
+    #     self.dvae_optimizer.lr = f32(self.args.lr_decay_factor * self.args.dvae.lr)
+    #     self.main_optimizer.lr = f32(self.args.lr_decay_factor * iterates['lr_warmup_factor'] * self.args.slot_model.lr)
 
-        with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
+    #     with tf.GradientTape() as dvae_tape, tf.GradientTape() as sm_tape:
 
-            dvae_loss, dvae_out, dvae_mets = self.dvae(image, iterates['tau'], self.args.dvae.hard)
+    #         dvae_loss, dvae_out, dvae_mets = self.dvae(image, iterates['tau'], self.args.dvae.hard)
 
-            z_input, z_target = create_tokens(dvae_out['z_hard'])
-            z_input, z_target = self.handle_stop_gradient(z_input, z_target)
+    #         z_input, z_target = create_tokens(dvae_out['z_hard'])
+    #         z_input, z_target = self.handle_stop_gradient(z_input, z_target)
 
-            sm_loss, sm_out, sm_mets = self.slot_model(z_input, z_target, dvae_out['embeds'])
+    #         sm_loss, sm_out, sm_mets = self.slot_model(z_input, z_target, dvae_out['embeds'])
 
-            outputs = dict(dvae=dvae_out, slot_model=sm_out)
-            metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
-            loss = dvae_loss + sm_loss
+    #         outputs = dict(dvae=dvae_out, slot_model=sm_out)
+    #         metrics = dict(dvae=dvae_mets, slot_model=sm_mets)
+    #         loss = dvae_loss + sm_loss
 
 
-        dvae_grads = dvae_tape.gradient(loss, self.dvae.trainable_weights)
-        sm_grads = sm_tape.gradient(loss, self.slot_model.trainable_weights)
+    #     dvae_grads = dvae_tape.gradient(loss, self.dvae.trainable_weights)
+    #     sm_grads = sm_tape.gradient(loss, self.slot_model.trainable_weights)
 
-        gradients = {'dvae': dvae_grads, 'slot_model': sm_grads}
+    #     gradients = {'dvae': dvae_grads, 'slot_model': sm_grads}
 
-        self.dvae_optimizer.apply_gradients(zip(gradients['dvae'], self.dvae.trainable_weights))
-        self.main_optimizer.apply_gradients(zip(gradients['slot_model'], self.slot_model.trainable_weights))
+    #     self.dvae_optimizer.apply_gradients(zip(gradients['dvae'], self.dvae.trainable_weights))
+    #     self.main_optimizer.apply_gradients(zip(gradients['slot_model'], self.slot_model.trainable_weights))
 
-        outputs = {'iterates': iterates, **outputs}
+    #     outputs = {'iterates': iterates, **outputs}
 
-        self.step.assign_add(1)
+    #     self.step.assign_add(1)
 
-        return loss, outputs, metrics
+    #     return loss, outputs, metrics
 
 
 
@@ -347,11 +354,17 @@ class DynamicSLATE(SLATE):
             img_channels=args.img_channels, 
             d_model=args.slot_model.d_model, 
             sm_hard=args.dvae.sm_hard, 
-            cnn_type=args.dvae.cnn_type)
+            cnn_type=args.dvae.cnn_type,
+            nontokenized_embed=args.nontokenized_embed)
         self.dvae_optimizer = tf.keras.optimizers.Adam(args.dvae.lr, epsilon=1e-08)
 
         self.num_tokens = (args.image_size // 4) ** 2
-        self.slot_model = slot_model.DynamicSlotModel(args.vocab_size, self.num_tokens, args.slot_model, global_config)
+        self.slot_model = slot_model.DynamicSlotModel(
+            vocab_size=args.vocab_size, 
+            num_tokens=self.num_tokens, 
+            nontokenized_embed=args.nontokenized_embed,
+            args=args.slot_model, 
+            global_config=global_config)
         self.main_optimizer = tf.keras.optimizers.Adam(args.slot_model.lr, epsilon=1e-08)
 
         self.training = False
