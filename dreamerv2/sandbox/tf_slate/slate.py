@@ -64,7 +64,7 @@ class SLATE(layers.Layer):
         debug_args.slot_model = slot_model.SlotModel.defaults_debug()
 
         debug_args.mono_train = True
-        debug_args.smooth_input = True
+        debug_args.smooth_input = False
         debug_args.stop_gradient_input = False
         debug_args.stop_gradient_output = True
         return debug_args
