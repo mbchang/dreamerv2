@@ -238,7 +238,6 @@ class dVAE(tkl.Layer):
         
         if cnn_type == 'weak':
             self.encoder = dVAEWeakEncoder(img_channels, vocab_size)
-            self.token_head = conv2d(64, vocab_size, 1)
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -247,7 +246,6 @@ class dVAE(tkl.Layer):
             ])
         elif cnn_type == 'sweak':
             self.encoder = dVAEShallowWeakEncoder(img_channels, vocab_size)
-            self.token_head = conv2d(64, vocab_size, 1)
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -256,7 +254,6 @@ class dVAE(tkl.Layer):
             ])  
         elif cnn_type == 'strong':
             self.encoder = dVAEStrongEncoder(img_channels, vocab_size)
-            self.token_head = conv2d(64, vocab_size, 1)
             
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -265,7 +262,6 @@ class dVAE(tkl.Layer):
             ])
         elif cnn_type == 'generic':
             self.encoder = GenericEncoder(img_channels, vocab_size)
-            self.token_head = conv2d(64, vocab_size, 1)
 
             self.decoder = tf.keras.Sequential([
                 Rearrange('b c h w -> b h w c'),
@@ -275,15 +271,11 @@ class dVAE(tkl.Layer):
         else:
             raise NotImplementedError
 
-        # self.token_head = conv2d(64, out_channels, 1)
+        self.token_head = conv2d(64, vocab_size, 1)
 
     def get_logits(self, image):
         image = eo.rearrange(image, 'b c h w -> b h w c')
-
-        # z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=1)  # TODO
         z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=-1)  # TODO
-
-
         z_logits = eo.rearrange(z_logits, 'b h w c -> b c h w')
         return z_logits
 
