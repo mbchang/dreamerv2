@@ -660,7 +660,7 @@ class DynamicSlotModel(SlotModel, machine.EnsembleRSSM):
         output = {'z_gen': z_gen}
         return output
 
-    def recon_autoregressive(self, z_input, actions, is_first):
+    def recon_autoregressive(self, z_input, actions, is_first, embeds):
         """
             image: TensorShape([6, 5, 64, 64, 3])
             actions: TensorShape([6, 5, 9])

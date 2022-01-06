@@ -418,7 +418,7 @@ class DynamicSLATE(SLATE):
         image = flatten(permute(batch_horizon['image']))  # this should be batch_horizon
         z_input, z_target, embeds = map(unflatten, self.image_to_argmax_tokens(image))
 
-        recon_output = self.slot_model.recon_autoregressive(z_input[:, :seed_steps], batch_seed['action'], batch_seed['is_first'])
+        recon_output = self.slot_model.recon_autoregressive(z_input[:, :seed_steps], batch_seed['action'], batch_seed['is_first'], embeds)
         recon_ce = slot_model.SlotModel.cross_entropy_loss(recon_output['z_gen'], z_target[:, :seed_steps])
         if pred_horizon > 0:
             imag_output = self.slot_model.imag_autoregressive(
