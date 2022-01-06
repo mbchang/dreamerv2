@@ -275,12 +275,11 @@ class dVAE(tkl.Layer):
 
     def get_logits(self, image):
         image = eo.rearrange(image, 'b c h w -> b h w c')
-        z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=-1)  # TODO
+        z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=-1)
         z_logits = eo.rearrange(z_logits, 'b h w c -> b c h w')
         return z_logits
 
     def sample(self, z_logits, tau, hard, dim=1):
-    # def sample(self, z_logits, tau, hard, dim=-1):
         z = gumbel_softmax(z_logits, tau, hard, dim)
         return z
 
@@ -300,31 +299,15 @@ class dVAE(tkl.Layer):
         return z_hard
 
     def call(self, image, tau, hard):
-        # image = eo.rearrange(image, 'b c h w -> b h w c')
-
         # dvae encode
         z_logits = self.get_logits(image)  # (B, V, H, W)
         z = self.sample(z_logits, tau, hard)
         # dvae recon
         recon = self.decoder(z)
-
-
-        # print('recon', hash_sha1(recon))
-        # print('recon', hash_sha1(eo.rearrange(recon, 'b h w c -> b c h w')))
-
         mse = tf.math.reduce_sum((image - recon) ** 2) / image.shape[0]
         # hard z
-        # z_hard = self.sample(z_logits, tau, True)
         z_hard = self.sample(z_logits, tau, self.sm_hard)
-
-
-        # print('z_hard', hash_sha1(z_hard))
-        # print('z_hard', hash_sha1(eo.rearrange(z_hard, 'b h w c -> b c h w')))
-
         # ship
-        # recon = eo.rearrange(recon, 'b h w c -> b c h w')
-        # z_hard = eo.rearrange(z_hard, 'b h w c -> b c h w')
-
         outputs = {'recon': recon,'z_hard': z_hard}
         metrics = {'mse': mse, 'dvae/loss': mse}
         loss = mse
