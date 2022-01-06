@@ -7120,6 +7120,8 @@ def does_warmup_steps_improve_segregation_12_27_21():
 def is_perceiver_output_sufficient_1_5_21():
     """
         need to comment out the tf.function in causal_agent.train and causal_agent.report
+
+        Conclusion: probably you do not want to do perceiver output
     """
     r = RunnerWithIDs(command='python dreamerv2/train.py', gpus=[0,1])
     r.add_flag('configs', ['dmc_vision dslate'])
