@@ -158,12 +158,6 @@ class SLATE(layers.Layer):
         z_input, z_target = create_tokens(z_hard)
         return z_input, z_target, embeds
 
-    # def image_to_sampled_tokens(self, image, tau, hard):
-    #     z_logits, embeds = self.dvae.get_logits(image)
-    #     z_sample = self.sample(z_logits, tau, hard)
-    #     z_input, z_target = create_tokens(z_sample)
-    #     return z_input, z_target
-
     def handle_stop_gradient(self, z_input, z_target):
         """
         assumes that z_hard is one_hot
