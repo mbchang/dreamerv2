@@ -293,15 +293,11 @@ class dVAE(tkl.Layer):
             ])
         elif cnn_type == 'generic':
             self.encoder = tf.keras.Sequential([
-                Rearrange('b c h w -> b h w c'),
                 GenericEncoder(img_channels, vocab_size),
-                # Rearrange('b h w c -> b c h w'),
             ])
 
             self.token_head = tf.keras.Sequential([
-                # Rearrange('b c h w -> b h w c'),
                 conv2d(64, vocab_size, 1),
-                Rearrange('b h w c -> b c h w'),
             ])
 
             self.decoder = tf.keras.Sequential([
@@ -315,10 +311,17 @@ class dVAE(tkl.Layer):
         # self.token_head = conv2d(64, out_channels, 1)
 
     def get_logits(self, image):
-        z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=1)  # TODO
+        image = eo.rearrange(image, 'b c h w -> b h w c')
+
+        # z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=1)  # TODO
+        z_logits = tf.nn.log_softmax(self.token_head(self.encoder(image)), axis=-1)  # TODO
+
+
+        z_logits = eo.rearrange(z_logits, 'b h w c -> b c h w')
         return z_logits
 
     def sample(self, z_logits, tau, hard, dim=1):
+    # def sample(self, z_logits, tau, hard, dim=-1):
         z = gumbel_softmax(z_logits, tau, hard, dim)
         return z
 
@@ -338,22 +341,35 @@ class dVAE(tkl.Layer):
         return z_hard
 
     def call(self, image, tau, hard):
+        # image = eo.rearrange(image, 'b c h w -> b h w c')
+
         # dvae encode
         z_logits = self.get_logits(image)  # (B, V, H, W)
-
-        # print(hash_sha1(z_logits))
-
         z = self.sample(z_logits, tau, hard)
         # dvae recon
         recon = self.decoder(z)
+
+
+        # print('recon', hash_sha1(recon))
+        # print('recon', hash_sha1(eo.rearrange(recon, 'b h w c -> b c h w')))
+
         mse = tf.math.reduce_sum((image - recon) ** 2) / image.shape[0]
         # hard z
         # z_hard = self.sample(z_logits, tau, True)
         z_hard = self.sample(z_logits, tau, self.sm_hard)
+
+
+        # print('z_hard', hash_sha1(z_hard))
+        # print('z_hard', hash_sha1(eo.rearrange(z_hard, 'b h w c -> b c h w')))
+
         # ship
+        # recon = eo.rearrange(recon, 'b h w c -> b c h w')
+        # z_hard = eo.rearrange(z_hard, 'b h w c -> b c h w')
+
         outputs = {'recon': recon,'z_hard': z_hard}
         metrics = {'mse': mse, 'dvae/loss': mse}
         loss = mse
+
         return loss, outputs, metrics
 
     @tf.function
